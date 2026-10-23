@@ -33,7 +33,7 @@
      ```
      rotation_score = (
          w1 * soil_health_score      +  # OC%, pH, bulk density, CEC
-         w2 * water_stress_score     +  # Inverse of drought index + root-zone soil moisture
+         w2 * water_stress_score     +  # 1 - (1 - field water supply) × crop water demand (rotation-specific)
          w3 * climate_resilience     +  # Precip anomaly stability + historical NDVI
          w4 * nitrogen_fixation      +  # Legume / cover crop soil-building bonus
          w5 * yield_potential        +  # Normalized crop yield potential
@@ -58,7 +58,7 @@
 ├── beta_algorithm_testing/        # Dedicated folder for pre-hackathon beta algorithm tests
 │   └── README.md                  # Explains the beta testing scope, mock datasets, and findings
 ├── data/
-│   ├── sample_data_test.py        # Zero-dependency (stdlib) test runner for scoring & sorting
+│   ├── sample_data_test.py        # Zero-dependency (stdlib) test runner for scoring & sorting (single copy; includes assertion checks)
 │   └── sample/
 │       ├── mock_soil.csv          # 8 sample fields with OC%, pH, clay%, sand%, bulk density, CEC
 │       ├── mock_climate.csv       # Seasonal temp, precip, drought index, soil moisture, NDVI
@@ -74,8 +74,38 @@
   ```bash
   python3 data/sample_data_test.py
   ```
-- **Potential refinements to explore:**
-  - Adding crop availability/regional constraints (e.g., so Alfalfa doesn't dominate every profile when a farmer only has row-crop equipment).
-  - Adding rotation transition rules (penalizing planting the exact same crop back-to-back due to pest/disease pressure).
-  - Testing live API calls to the NASA POWER REST API (no API key required) to verify response JSON parsing.
+  Exits non-zero with an `AssertionError` if any check in Test 5 fails.
+
+### Change Log
+- **Oct 23, 2026 — Review & fixes (Claude Code):**
+  - **Fixed:** `water_stress` was field-level only, so it was identical for every rotation on a field and the secondary sort key could never break a tie. It now combines field water supply with each crop's `water_demand_mm`. Result: the Water Conservation and Climate Resilient profiles now pick `Sorghum → Soybean` instead of Alfalfa.
+  - **Added:** assertion checks (Test 5) covering:
+    - weights sum to 1
+    - all scores in [0, 1]
+    - water stress varies across rotations
+    - dry fields penalize thirsty crops
+    - sort order and tiebreakers are correct
+    - results are deterministic
+
+    This replaces the old, unverified "tiebreaks resolve correctly" print.
+  - **Removed:** the duplicate `beta_algorithm_testing/sample_data_test.py`. It differed only in path; `data/sample_data_test.py` is the single source.
+  - **Known limitations:**
+    - Soil health and climate resilience are still field-level, so they rank fields but not rotations.
+    - `soil_building_score` and `root_depth_m` are unused.
+    - `Alfalfa → Corn → Alfalfa` still wins the Balanced, Max Yield and Soil Health First profiles.
+
+### Pre-Hackathon Guardrails (read before doing new work)
+- ✅ **Allowed now:** mock-data math refinements, assertions/tests, design notes, and dataset research (reading NASA dataset docs, inspecting a sample response by hand).
+- ⚠️ **Keep minimal:** NASA POWER API exploration. Fetching one sample response to learn the JSON shape is fine. Do **not** build an API client or ingestion pipeline before Nov 14.
+- ⛔ **Hold until Nov 14–15:**
+  - any code in `src/`
+  - the Streamlit UI and folium maps
+  - real SMAP/MODIS/GPM ingestion
+  - Arduino integration
+- 📝 In the final submission, disclose this scoring engine as **pre-hackathon prototype work on mock data**.
+
+### Safe Refinements to Explore Next (mock data only)
+- Rotation transition penalties: penalize the same crop back-to-back, including the wrap-around, because of pest and disease pressure.
+- Crop availability and equipment constraints, so Alfalfa doesn't dominate when a farmer only has row-crop equipment.
+- Decide whether to fold `soil_building_score` and `root_depth_m` into scoring.
 

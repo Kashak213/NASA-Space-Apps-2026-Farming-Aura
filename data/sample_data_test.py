@@ -13,12 +13,12 @@ ALGORITHM: Multi-Criteria Weighted Scoring for Crop Rotation Candidates
 Formula:
   rotation_score = (
       w1 * soil_health_score      +  # Soil quality metric
-      w2 * water_stress_score     +  # Inverse drought risk
+      w2 * water_stress_score     +  # Field water supply vs. crop water demand
       w3 * climate_resilience     +  # Historical stability
       w4 * nitrogen_fixation      +  # Soil-building legume bonus
       w5 * yield_potential        +  # Expected productivity
       w6 * drought_tolerance      +  # Future climate risk hedge
-      w7 * soil_compatibility     +  # Crop ↔ soil match
+      w7 * soil_compatibility        # Crop ↔ soil match
   )
 
 Sorting Strategy:
@@ -111,11 +111,25 @@ def soil_health_score(soil: dict) -> float:
     return (oc_score + ph_score + bd_score + cec_score) / 4.0
 
 
-def water_stress_score(climate: dict) -> float:
-    """Inverse of drought/stress risk. Low drought + high moisture = 1."""
+def field_water_supply_score(climate: dict) -> float:
+    """Field-level water availability. Low drought + high moisture = 1."""
     drought_score = 1.0 - clip(climate["drought_index"], 0, 1)
     moisture_score = clip(climate["soil_moisture_avg"] / 0.5, 0, 1)
     return (drought_score + moisture_score) / 2.0
+
+
+def crop_water_demand_norm(crop: dict) -> float:
+    """Normalize crop water demand: 150mm→0 (thrifty), 600mm→1 (thirsty)."""
+    return clip((crop["water_demand_mm"] - 150) / 450.0, 0, 1)
+
+
+def water_stress_score(supply: float, demand_norm: float) -> float:
+    """
+    Inverse of water stress risk for a crop on a field.
+    Water shortfall (1 - supply) only hurts in proportion to crop demand:
+    a wet field scores ~1 for any crop; a dry field penalizes thirsty crops.
+    """
+    return 1.0 - (1.0 - supply) * demand_norm
 
 
 def climate_resilience_score(climate: dict) -> float:
@@ -156,9 +170,14 @@ def score_rotation(seq: list[str], soil: dict, climate_agg: dict,
     crop_rows = [get_crop(crops, cid) for cid in seq]
     crop_rows = [c for c in crop_rows if c is not None]
 
+    # Field-level scores: identical for every rotation on the same field
     s_health   = soil_health_score(soil)
-    w_stress   = water_stress_score(climate_agg)
+    supply     = field_water_supply_score(climate_agg)
     c_res      = climate_resilience_score(climate_agg)
+
+    # Rotation-level scores: depend on the crops in the sequence
+    w_stress         = statistics.mean([water_stress_score(supply, crop_water_demand_norm(c))
+                                        for c in crop_rows])
 
     n_fix_avg        = statistics.mean([c["nitrogen_fixation"] for c in crop_rows])
     drought_tol_avg  = statistics.mean([c["drought_tolerance"] for c in crop_rows])
@@ -333,7 +352,74 @@ def test_sensitivity(field_id: str, soil: list, climate: list, crops: list):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 7. RUN ALL TESTS
+# 7. ASSERTION CHECKS (fail loudly instead of just printing)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def run_assertions(soil: list, climate: list, crops: list) -> None:
+    print(f"\n{'='*70}")
+    print("  ASSERTION CHECKS")
+    print(f"{'='*70}")
+
+    # Every profile's weights must sum to 1 so total_score stays in [0, 1]
+    for pname, w in PROFILES.items():
+        assert math.isclose(sum(w.values()), 1.0), f"{pname} weights sum to {sum(w.values())}"
+    print("  ✓ Profile weights each sum to 1.0")
+
+    # Every component and total score is within [0, 1] for every field/profile/rotation
+    score_keys = ("total_score", "soil_health", "water_stress", "climate_res",
+                  "nitrogen_fixation", "yield_potential", "drought_tolerance",
+                  "soil_compatibility")
+    for s in soil:
+        c = get_field_climate_agg(climate, s["field_id"])
+        for pname, w in PROFILES.items():
+            for seq in CANDIDATE_ROTATIONS:
+                r = score_rotation(seq, s, c, crops, w)
+                for k in score_keys:
+                    assert 0.0 <= r[k] <= 1.0, f"{k}={r[k]} out of range ({s['field_id']}, {pname}, {seq})"
+    print("  ✓ All scores within [0, 1]")
+
+    # Water stress must differ between rotations on a dry field, otherwise
+    # the secondary sort key can never break a tie
+    dry = get_field_soil(soil, "F006")
+    dry_c = get_field_climate_agg(climate, "F006")
+    water_vals = {score_rotation(seq, dry, dry_c, crops, PROFILES["Balanced"])["water_stress"]
+                  for seq in CANDIDATE_ROTATIONS}
+    assert len(water_vals) > 1, "water_stress is constant across rotations"
+    print(f"  ✓ water_stress varies across rotations on dry field F006 ({len(water_vals)} distinct values)")
+
+    # Thirsty rotation should score worse on water than a thrifty one on a dry field
+    thirsty = score_rotation(["C05", "C01", "C05"], dry, dry_c, crops, PROFILES["Balanced"])
+    thrifty = score_rotation(["C07", "C02"], dry, dry_c, crops, PROFILES["Balanced"])
+    assert thirsty["water_stress"] < thrifty["water_stress"], "dry field should penalize thirsty crops"
+    print("  ✓ Dry field penalizes thirsty rotation (Alfalfa/Corn) vs. Sorghum/Soy")
+
+    # Ranked output is non-increasing on total_score
+    ranked = sort_rotations([score_rotation(seq, dry, dry_c, crops, PROFILES["Balanced"])
+                             for seq in CANDIDATE_ROTATIONS])
+    totals = [r["total_score"] for r in ranked]
+    assert totals == sorted(totals, reverse=True), "ranking not sorted by total_score"
+    print("  ✓ Ranking is sorted by total_score (descending)")
+
+    # Tiebreakers: synthetic rows with equal totals resolve by water, then N-fix
+    ties = [
+        {"seq_ids": "A", "total_score": 0.5, "water_stress": 0.6, "nitrogen_fixation": 0.1},
+        {"seq_ids": "B", "total_score": 0.5, "water_stress": 0.7, "nitrogen_fixation": 0.0},
+        {"seq_ids": "C", "total_score": 0.5, "water_stress": 0.6, "nitrogen_fixation": 0.9},
+        {"seq_ids": "D", "total_score": 0.6, "water_stress": 0.1, "nitrogen_fixation": 0.0},
+    ]
+    order = [r["seq_ids"] for r in sort_rotations(ties)]
+    assert order == ["D", "B", "C", "A"], f"tiebreak order wrong: {order}"
+    print("  ✓ Tiebreakers resolve: total → water_stress → nitrogen_fixation")
+
+    # Deterministic: same inputs produce the same ranking
+    again = sort_rotations([score_rotation(seq, dry, dry_c, crops, PROFILES["Balanced"])
+                            for seq in CANDIDATE_ROTATIONS])
+    assert [r["seq_ids"] for r in again] == [r["seq_ids"] for r in ranked], "ranking not deterministic"
+    print("  ✓ Ranking is deterministic across runs")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8. RUN ALL TESTS
 # ─────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -360,6 +446,8 @@ if __name__ == "__main__":
     test_sensitivity("F003", soil, climate, crops)   # good field
     test_sensitivity("F006", soil, climate, crops)   # stressed field
 
-    print("\n\n All tests complete!")
+    print("\n\n TEST 5 — Assertion Checks")
+    run_assertions(soil, climate, crops)
+
+    print("\n\n All tests complete — all assertions passed.")
     print("   Algorithm validated on mock data. Ready to plug in live NASA APIs on Nov 14.")
-    print("   Key insight: the sort order is STABLE — tiebreaks resolve correctly.")
