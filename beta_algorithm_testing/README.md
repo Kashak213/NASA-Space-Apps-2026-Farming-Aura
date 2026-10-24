@@ -1,4 +1,4 @@
-# 🧪 Beta Testing: Crop Rotation Scoring & Sorting Algorithm
+#  Beta Testing: Crop Rotation Scoring & Sorting Algorithm
 
 > **Status:** Pre-Hackathon Algorithm Beta & Mock Data Validation  
 > **Project:** NASA Space Apps 2026 — *Team Farming Aura*  
