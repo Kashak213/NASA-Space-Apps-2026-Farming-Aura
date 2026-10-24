@@ -1,4 +1,4 @@
-# 🌾 AI Assistant Briefing & Project Context (`AI_BRIEFING.md`)
+# AI Assistant Briefing & Project Context (`AI_BRIEFING.md`)
 
 > **Instructions for AI Assistants (Claude Code, Cursor, Antigravity, Copilot, etc.):**  
 > Read this file first to get full context on our project, architecture, rules compliance, and current state when switching between laptop/desktop environments or across team members.
