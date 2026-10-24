@@ -1,4 +1,3 @@
-@@ -1,67 +1 @@
 # 🧪 Beta Testing: Crop Rotation Scoring & Sorting Algorithm
 
 > **Status:** Pre-Hackathon Algorithm Beta & Mock Data Validation  
