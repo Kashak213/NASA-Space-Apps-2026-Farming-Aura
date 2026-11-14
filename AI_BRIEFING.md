@@ -23,7 +23,7 @@
   - **No bulleted or numbered lists inside code docstrings/comments.** Keep docstrings as short, plain-English sentences.
   - **Avoid common AI tells and vocabulary:** Do not use words like *delve, comprehensive, crucial, moreover, furthermore, utilize, leverage, holistic, synergy, paradigm, multifaceted, seamlessly, robust, overarching, underscore*. Avoid overusing em-dashes (`—`) or decorative Unicode box-drawing borders (`─────`) in comments.
   - **Difference between Comments and READMEs:**
-    - **Code comments:** Casual, practical, and easy to skim. Only explain what the math or logic is doing and why, without sacrificing code readability or functionality.
+    - **Code comments:** Casual, practical, and easy to skim. Explain what each block of code, math formula, or API step is doing and why so that any human teammate reading the file understands it right away without confusion, while keeping the code clean and readable.
     - **READMEs:** Same authentic student background, but slightly more technical, structured, and concise than code comments so it is clear we put real time and care into documenting our work.
 - **Exception for `AI_BRIEFING.md`:**
   - Keep `AI_BRIEFING.md` as technical, dense, and precise as needed. Do not dumb down `AI_BRIEFING.md` so that AI agents transferring work between computers or sessions retain full comprehension and save context tokens.
@@ -87,6 +87,15 @@
 │       └── mock_crops.csv         # 12 crops (grains, legumes, oilseeds, covers) & traits
 ├── notebooks/                     # Data exploration & API prototyping
 └── src/                           # Active hackathon production build (Nov 14-15)
+    ├── backend/                   # Python FastAPI backend & NASA POWER integration
+    │   ├── main.py                # FastAPI routes (/analyze, CORS setup)
+    │   ├── nasa_client.py         # NASA POWER API client (ALLSKY_SFC_SW_DWN, WS2M, PRECTOTCORR, T2M) + -999 stripping & offline cache
+    │   ├── scoring.py             # Crop suitability & climate shift alert logic
+    │   ├── requirements.txt       # Backend dependencies (fastapi, uvicorn, requests)
+    │   └── data/                  # Static & cached JSON files
+    │       ├── ny_regions.json    # Static NY soil texture, pH & coordinates lookup
+    │       ├── crops.json         # Static 6 flagship NY crops thresholds
+    │       └── nasa_cache/        # Saved NASA POWER JSONs for offline demo backup
     ├── pipeline/                  # Live NASA POWER, SMAP, MODIS, GPM, and SoilGrids data fetchers
     ├── engine/                    # Production crop rotation scoring, transition penalties, and ML ranking
     └── ui/                        # Streamlit dashboard, Folium map selector, and Plotly charts
@@ -100,8 +109,17 @@
   python data/sample_data_test.py
   ```
   Exits non-zero with an `AssertionError` if any check in Test 5 fails.
+- **To test the NASA POWER API client (`src/backend/nasa_client.py`):**
+  ```bash
+  python src/backend/nasa_client.py
+  ```
+  Fetches `ALLSKY_SFC_SW_DWN` (All Sky Surface Shortwave Downward Irradiance), `WS2M` (Wind Speed at 2 Meters), `PRECTOTCORR` (Precipitation Corrected), and `T2M` (Temperature at 2 Meters) from NASA POWER (`community=AG`), strips `-999` fill values and `YYYY13` annual summary keys, caches raw responses in `src/backend/data/nasa_cache/`, and returns cleaned series plus a summary dictionary.
 
 ### Change Log
+- **Nov 14, 2026 — NASA POWER Client & Backend Structure (Google Antigravity):**
+  - Created `src/backend/` structure (`main.py`, `nasa_client.py`, `scoring.py`, `requirements.txt`, `data/ny_regions.json`, `data/crops.json`, `data/nasa_cache/`).
+  - Implemented `src/backend/nasa_client.py` connecting to NASA POWER (`daily` and `monthly` Agroclimatology endpoints) for `ALLSKY_SFC_SW_DWN`, `WS2M`, `PRECTOTCORR`, and `T2M` with `-999` fill-value stripping, `urllib`/`requests` support, and automatic JSON caching in `src/backend/data/nasa_cache/`.
+  - Added clear step-by-step inline comments across `src/backend/nasa_client.py` (and updated Section 2 comment guidelines) so teammates can follow every function and API step without confusion.
 - **Nov 14, 2026 — Official Hackathon Kickoff (Google Antigravity):**
   - Updated project status from Pre-Hackathon Preparation to **LIVE HACKATHON BUILD**.
   - Lifted pre-hackathon guardrails on `src/`, live NASA API ingestion, Streamlit UI, and hardware sensor integration.
