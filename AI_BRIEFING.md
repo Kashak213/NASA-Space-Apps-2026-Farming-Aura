@@ -1,7 +1,7 @@
 # AI Assistant Briefing & Project Context (`AI_BRIEFING.md`)
 
 > **Instructions for AI Assistants (Claude Code, Cursor, Antigravity, Copilot, etc.):**  
-> Read this file first to get full context on our project, architecture, rules compliance, and current state when switching between laptop/desktop environments or across team members.
+> Read this file first to get full context on our project, architecture, rules compliance, writing style, and current state when switching between laptop/desktop environments or across team members.
 
 ---
 
@@ -13,34 +13,56 @@
 
 ---
 
-## 2. NASA Space Apps Compliance & Pre-Hackathon Rules
-- **Current Phase:** Pre-Hackathon Preparation & Algorithm Beta Testing (Before Nov 14, 2026).
-- **Rules Constraint:** All final application code and UI must be built during the official hackathon window (Nov 14–15). Everything currently in the repo is **pre-hackathon dataset exploration, mock data validation, and beta testing of sorting/scoring mathematics**.
+## 2. Tone, Voice & Writing Style Guidelines (IMPORTANT FOR ALL AGENTS)
+- **Target Voice for Code Comments, READMEs, and UI Text:**
+  - Write like smart, capable high school students who have taken AP Biology, AP Environmental Science, and AP Computer Science, and spent about a month before the competition researching NASA datasets and crop rotation basics.
+  - Do **not** sound like an AI assistant or a PhD agronomist. Use grounded biology/env-sci concepts (e.g., nitrogen fixation via legume root nodules, organic carbon, soil compaction and root depth, transpiration and drought stress, pest cycles when repeating crops) rather than academic jargon ("autotoxicity", "pedological horizonation", "canonical deduplication", "synergistic paradigm").
+- **Strict Anti-AI Formatting Rules for Comments & Docs (excluding `AI_BRIEFING.md`):**
+  - **Minimize or eliminate emojis** in code, terminal output, and markdown docs.
+  - **Never use semicolons (`;`)** in prose, READMEs, or code comments. Break sentences with periods, commas, or conjunctions instead.
+  - **No bulleted or numbered lists inside code docstrings/comments.** Keep docstrings as short, plain-English sentences.
+  - **Avoid common AI tells and vocabulary:** Do not use words like *delve, comprehensive, crucial, moreover, furthermore, utilize, leverage, holistic, synergy, paradigm, multifaceted, seamlessly, robust, overarching, underscore*. Avoid overusing em-dashes (`—`) or decorative Unicode box-drawing borders (`─────`) in comments.
+  - **Difference between Comments and READMEs:**
+    - **Code comments:** Casual, practical, and easy to skim. Only explain what the math or logic is doing and why, without sacrificing code readability or functionality.
+    - **READMEs:** Same authentic student background, but slightly more technical, structured, and concise than code comments so it is clear we put real time and care into documenting our work.
+- **Exception for `AI_BRIEFING.md`:**
+  - Keep `AI_BRIEFING.md` as technical, dense, and precise as needed. Do not dumb down `AI_BRIEFING.md` so that AI agents transferring work between computers or sessions retain full comprehension and save context tokens.
+
+---
+
+## 3. NASA Space Apps Compliance & Hackathon Status
+- **Current Phase:** **LIVE HACKATHON BUILD (Nov 14–15, 2026 — Hackathon Officially Started).**
+- **Status & Scope:** All pre-hackathon restrictions on building `src/`, live NASA API ingestion pipelines, the Streamlit UI, and hardware sensor integration are now lifted. Full production development is active.
+- **Submission Window:** Opens Saturday, Nov 14 at 9:00 AM and closes Sunday, Nov 15 at 11:59 PM (local time).
 - **Mandatory Citations (for final submission):**
-  - Open-source Python libraries (`pandas`, `numpy`, `scikit-learn`, `streamlit`, `plotly`, `folium`, `earthaccess`, `geopandas`, `rasterio`, `xarray`)
+  - Pre-hackathon prototype disclosure: Disclose `data/sample_data_test.py` and `data/sample/*.csv` as pre-hackathon algorithm validation on synthetic data.
+  - Open-source Python libraries (`pandas`, `numpy`, `scikit-learn`, `streamlit`, `plotly`, `folium`, `earthaccess`, `geopandas`, `rasterio`, `xarray`, `requests`, `scipy`, `pydantic`)
   - NASA Datasets: SMAP (Soil Moisture), MODIS (NDVI/EVI), GPM (Precipitation), NASA POWER (Agroclimatology)
   - Soil/Ag Datasets: ISRIC SoilGrids, USDA NASS / SSURGO
   - AI Coding Assistants: Google Antigravity / Anthropic Claude Code
 
 ---
 
-## 3. Core Architecture & Decisions Made
-1. **Frontend / UI (To be built Nov 14–15):**
+## 4. Core Architecture & Decisions Made
+1. **Frontend / UI (Active Build in `src/ui/`):**
    - **Streamlit** (desktop-first web dashboard) — fast iteration, interactive maps (`folium`), time-series charts (`plotly`), and farmer priority sliders.
    - No separate mobile codebase or Figma-only mockups; focus 100% on a functional data-driven prototype.
 2. **Backend / Recommendation Engine:**
-   - Multi-criteria weighted scoring formula that ranks candidate multi-year crop rotation sequences:
+   - Multi-criteria weighted scoring & sequence transition formula that ranks candidate multi-year crop rotation sequences:
      ```
-     rotation_score = (
-         w1 * soil_health_score      +  # OC%, pH, bulk density, CEC
-         w2 * water_stress_score     +  # 1 - (1 - field water supply) × crop water demand (rotation-specific)
-         w3 * climate_resilience     +  # Precip anomaly stability + historical NDVI
-         w4 * nitrogen_fixation      +  # Legume / cover crop soil-building bonus
+     rotation_score = penalty_multiplier * (
+         w1 * soil_health_score      +  # Field OC%, pH, BD, CEC, sand/clay + crop soil_building & root_depth relief
+         w2 * water_stress_score     +  # Field water supply & drought trend vs. crop demand & annual precip
+         w3 * climate_resilience     +  # Precip anomaly, NDVI, 2023->2024 trend & summer heat + crop_type diversity
+         w4 * nitrogen_fixation      +  # Legume/cover N-fixation + N carry-over bonus to following grain crop
          w5 * yield_potential        +  # Normalized crop yield potential
          w6 * drought_tolerance      +  # Crop drought tolerance rating
-         w7 * soil_compatibility        # Crop optimal pH and clay % match with field
+         w7 * soil_compatibility        # Crop optimal pH/clay match + consecutive root-depth alternation
      )
      ```
+   - **Sequence Transition & Constraint Engine:**
+     - Cyclic transition analysis (`sequence_transition_analysis`) penalizes back-to-back and wrap-around monoculture repeats (`seq[i] == seq[(i+1)%n]`) and consecutive same-family (`crop_type`) transitions, while rewarding legume-to-grain nitrogen carry-over and root-depth alternation.
+     - Equipment/feasibility filtering (`filter_rotations_by_constraints`) and algorithmic N-year sequence generation (`generate_candidate_rotations`).
    - **Multi-key Sorting Strategy:**
      1. Primary: `total_score` (Descending)
      2. Secondary: `water_stress` (Descending — breaks ties in favor of drought resilience)
@@ -50,7 +72,7 @@
 
 ---
 
-## 4. Current Repository Structure
+## 5. Current Repository Structure
 ```text
 .
 ├── AI_BRIEFING.md                 # This context file for seamless multi-machine AI handoff
@@ -58,54 +80,53 @@
 ├── beta_algorithm_testing/        # Dedicated folder for pre-hackathon beta algorithm tests
 │   └── README.md                  # Explains the beta testing scope, mock datasets, and findings
 ├── data/
-│   ├── sample_data_test.py        # Zero-dependency (stdlib) test runner for scoring & sorting (single copy; includes assertion checks)
+│   ├── sample_data_test.py        # Zero-dependency (stdlib) test runner for scoring & sorting (single copy; includes 10 assertion checks)
 │   └── sample/
 │       ├── mock_soil.csv          # 8 sample fields with OC%, pH, clay%, sand%, bulk density, CEC
-│       ├── mock_climate.csv       # Seasonal temp, precip, drought index, soil moisture, NDVI
+│       ├── mock_climate.csv       # Seasonal temp, precip, drought index, soil moisture, NDVI (2023-2024)
 │       └── mock_crops.csv         # 12 crops (grains, legumes, oilseeds, covers) & traits
-├── notebooks/                     # For data exploration
-└── src/                           # Reserved for official hackathon build on Nov 14-15
+├── notebooks/                     # Data exploration & API prototyping
+└── src/                           # Active hackathon production build (Nov 14-15)
+    ├── pipeline/                  # Live NASA POWER, SMAP, MODIS, GPM, and SoilGrids data fetchers
+    ├── engine/                    # Production crop rotation scoring, transition penalties, and ML ranking
+    └── ui/                        # Streamlit dashboard, Folium map selector, and Plotly charts
 ```
 
 ---
 
-## 5. Next Steps / How to Pick Up Work
-- **To run the current algorithm beta test:**
+## 6. Next Steps / Active Hackathon Build Roadmap (Nov 14–15)
+- **To run the baseline algorithm validation suite:**
   ```bash
-  python3 data/sample_data_test.py
+  python data/sample_data_test.py
   ```
   Exits non-zero with an `AssertionError` if any check in Test 5 fails.
 
 ### Change Log
+- **Nov 14, 2026 — Official Hackathon Kickoff (Google Antigravity):**
+  - Updated project status from Pre-Hackathon Preparation to **LIVE HACKATHON BUILD**.
+  - Lifted pre-hackathon guardrails on `src/`, live NASA API ingestion, Streamlit UI, and hardware sensor integration.
+- **Oct 25, 2026 — Data analysis, sequence modeling & style guidelines (Google Antigravity):**
+  - **Added Temporal & Seasonal Climate Analysis:** `get_field_climate_agg` now computes seasonal splits (`spring_precip_mm`, `summer_precip_mm`, `annual_precip_mm`, `summer_temp_c`, `summer_drought`) and year-over-year climate trends (`2023 → 2024` `drought_trend`, `precip_anom_trend`, `ndvi_trend`).
+  - **Made Soil Health & Climate Resilience Rotation-Responsive:** `soil_health_score` now integrates `sand_pct`, `soil_building_score`, and `root_depth_m` compaction relief; `climate_resilience_score` integrates 2023→2024 precip trends, summer heat stress, and functional `crop_type` diversity. Both now differentiate rotations on the same field as well as ranking fields.
+  - **Added Sequence Transition & Order Engine (`sequence_transition_analysis`):** Penalizes back-to-back and cycle wrap-around crop repeats (`Alfalfa → Corn → Alfalfa` no longer dominates `Balanced` or `Soil Health First`), rewards N carry-over from legumes to subsequent non-fixing crops, rewards root-depth alternation, and differentiates sequence starting order (`Soy → Cover → Corn` vs. `Corn → Soy → Cover`).
+  - **Added Equipment Constraints & Algorithmic Sequence Generator:** Added `filter_rotations_by_constraints` (e.g., `row_crop_only=True` to exclude forage hay `C05`) and `generate_candidate_rotations` (combinatorial N-year sequence generator with agronomic pruning).
+  - **Added Tone/Style Guidelines & Cleaned Comments/README:** Added Section 2 in `AI_BRIEFING.md` specifying the AP Bio/EnvSci high-school student voice, no semicolons, minimal emojis, and no AI-cliché phrasing across code comments and READMEs (while keeping `AI_BRIEFING.md` technical for agent handoffs).
 - **Oct 23, 2026 — Review & fixes (Claude Code):**
-  - **Fixed:** `water_stress` was field-level only, so it was identical for every rotation on a field and the secondary sort key could never break a tie. It now combines field water supply with each crop's `water_demand_mm`. Result: the Water Conservation and Climate Resilient profiles now pick `Sorghum → Soybean` instead of Alfalfa.
-  - **Added:** assertion checks (Test 5) covering:
-    - weights sum to 1
-    - all scores in [0, 1]
-    - water stress varies across rotations
-    - dry fields penalize thirsty crops
-    - sort order and tiebreakers are correct
-    - results are deterministic
+  - **Fixed:** `water_stress` was field-level only; updated to combine field water supply with each crop's `water_demand_mm`.
+  - **Added:** initial assertion checks (Test 5) and removed duplicate `beta_algorithm_testing/sample_data_test.py`.
 
-    This replaces the old, unverified "tiebreaks resolve correctly" print.
-  - **Removed:** the duplicate `beta_algorithm_testing/sample_data_test.py`. It differed only in path; `data/sample_data_test.py` is the single source.
-  - **Known limitations:**
-    - Soil health and climate resilience are still field-level, so they rank fields but not rotations.
-    - `soil_building_score` and `root_depth_m` are unused.
-    - `Alfalfa → Corn → Alfalfa` still wins the Balanced, Max Yield and Soil Health First profiles.
-
-### Pre-Hackathon Guardrails (read before doing new work)
-- ✅ **Allowed now:** mock-data math refinements, assertions/tests, design notes, and dataset research (reading NASA dataset docs, inspecting a sample response by hand).
-- ⚠️ **Keep minimal:** NASA POWER API exploration. Fetching one sample response to learn the JSON shape is fine. Do **not** build an API client or ingestion pipeline before Nov 14.
-- ⛔ **Hold until Nov 14–15:**
-  - any code in `src/`
-  - the Streamlit UI and folium maps
-  - real SMAP/MODIS/GPM ingestion
-  - Arduino integration
-- 📝 In the final submission, disclose this scoring engine as **pre-hackathon prototype work on mock data**.
-
-### Safe Refinements to Explore Next (mock data only)
-- Rotation transition penalties: penalize the same crop back-to-back, including the wrap-around, because of pest and disease pressure.
-- Crop availability and equipment constraints, so Alfalfa doesn't dominate when a farmer only has row-crop equipment.
-- Decide whether to fold `soil_building_score` and `root_depth_m` into scoring.
-
+### Active Hackathon Build Priorities (Nov 14–15)
+1. **Phase 1 — Live Data Ingestion (`src/pipeline/`):**
+   - Build NASA POWER REST API client (fetch daily/seasonal temperature, precipitation, and solar radiation by `lat`/`lon`).
+   - Build SoilGrids REST API client (or fallback local soil lookup) for OC%, pH, clay%, sand%, bulk density, and CEC.
+   - Integrate SMAP soil moisture and MODIS NDVI layers (via `earthaccess` / AppEEARS or cached regional rasters/CSVs for instant UI responsiveness).
+2. **Phase 2 — Production Scoring Engine (`src/engine/`):**
+   - Port and modularize the validated scoring, constraint filtering, and cyclic transition engine from `data/sample_data_test.py` into `src/engine/`.
+   - Add ground-truth hardware sensor delta adjustments (allowing local Arduino/sensor soil temperature, moisture, or pressure readings to override/adjust satellite anomaly scores).
+3. **Phase 3 — Interactive Streamlit Dashboard (`src/ui/`):**
+   - Interactive `folium` map or coordinate/county selector to pick a farm location.
+   - Farmer priority weight sliders (`Balanced`, `Max Yield`, `Water Conservation`, `Soil Health First`, `Climate Resilient`, plus custom sliders) and equipment constraint toggles (`row_crop_only`).
+   - Ranked crop rotation cards with multi-year sequence breakdown, component score radar/bar charts (`plotly`), and historical climate/NDVI trend visualizations.
+4. **Phase 4 — Verification, Demo Video & Submission:**
+   - Verify end-to-end flow with live coordinates and fallback offline mode.
+   - Compile complete citations list for the Space Apps submission form.

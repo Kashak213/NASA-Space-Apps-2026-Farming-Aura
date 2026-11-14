@@ -1,32 +1,31 @@
-# NASA Space Apps 2026 — Field Shift: Adapting Farms with NASA Data
-# Requirements for hackathon build (Nov 14-15, 2026)
+# NASA Space Apps 2026 - Field Shift: Adapting Farms with NASA Data
+# Requirements for the Nov 14-15 hackathon build
 # Install with: pip install -r requirements.txt
 
-# ── Core Data Science ──
-pandas>=2.2.0          # DataFrame manipulation and time-series
-numpy>=1.26.0          # Numerical operations
-scipy>=1.13.0          # Statistical functions
+# Core Data Science
+pandas>=2.2.0          # DataFrames and time-series data
+numpy>=1.26.0          # Array math
+scipy>=1.13.0          # Stats functions
 
-# ── Machine Learning (Recommendation Engine) ──
+# Machine Learning (Recommendation Engine)
 scikit-learn>=1.5.0    # RandomForest, KMeans, NearestNeighbors
 
-# ── Geospatial ──
-geopandas>=0.14.0      # Geospatial DataFrames
-rasterio>=1.3.0        # Raster data (GeoTIFF for MODIS/SMAP)
-xarray>=2024.2.0       # N-D arrays for NetCDF climate data
-pyproj>=3.6.0          # Coordinate transformations
+# Geospatial Data
+geopandas>=0.14.0      # Map shapes and field boundaries
+rasterio>=1.3.0        # GeoTIFF rasters for MODIS and SMAP
+xarray>=2024.2.0       # NetCDF climate arrays
+pyproj>=3.6.0          # Lat/lon coordinate conversions
 
-# ── NASA Data Access ──
+# NASA Data Access
 earthaccess>=0.9.0     # NASA Earthdata API (SMAP, MODIS, GPM)
-requests>=2.31.0       # REST API calls (NASA POWER)
+requests>=2.31.0       # REST calls for NASA POWER API
 
-# ── Visualization & UI ──
-streamlit>=1.36.0      # Web dashboard
-plotly>=5.22.0         # Interactive charts
-folium>=0.17.0         # Interactive maps
-matplotlib>=3.9.0      # Static charts
+# Dashboard and Plots
+streamlit>=1.36.0      # Web app UI
+plotly>=5.22.0         # Interactive time-series charts
+folium>=0.17.0         # Interactive farm maps
+matplotlib>=3.9.0      # Basic static plots
 
-# ── Utilities ──
-python-dotenv>=1.0.0   # Environment variables (API keys)
-pydantic>=2.7.0        # Data validation
-
+# Utilities
+python-dotenv>=1.0.0   # Local .env API keys
+pydantic>=2.7.0        # Input data checks
