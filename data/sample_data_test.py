@@ -1,29 +1,22 @@
 """
 NASA Space Apps 2026 - Field Shift: Adapting Farms with NASA Data
-Pre-Hackathon Algorithm Testing Script (stdlib-only version)
+Pre-hackathon algorithm test script (stdlib only so nobody needs a venv to test math).
 
-This script only uses the Python standard library (csv, itertools, math,
-statistics, sys) so anyone on the team can run it right away without
-installing packages first. During the actual hackathon we will move this
-over to pandas and scikit-learn.
+Scores crop rotations from 0.0 to 1.0 across 7 weighted factors, then applies
+a penalty multiplier if a rotation repeats the same crop back to back or when
+the end of the cycle loops back into Year 1.
 
-We score each crop rotation using 7 weighted factors from 0.0 to 1.0,
-and then apply a penalty multiplier if a rotation repeats the same crop
-back to back or when the cycle loops back to the start.
-
-Formula:
   rotation_score = penalty_multiplier * (
-      w1 * soil_health_score      +  # Baseline soil quality + how much the crops rebuild soil
-      w2 * water_stress_score     +  # Field water supply vs how much water the crops need
-      w3 * climate_resilience     +  # Rain and NDVI stability + crop type diversity
-      w4 * nitrogen_fixation      +  # Legume N-fixation + extra credit when a legume comes before a grain
-      w5 * yield_potential        +  # Average crop yield normalized to [0, 1]
-      w6 * drought_tolerance      +  # How well the crops handle dry spells
-      w7 * soil_compatibility        # How well crop pH and clay ranges match the field + root depth mix
+      w1 * soil_health_score  +  # starting soil quality + root depth & organic matter build
+      w2 * water_stress_score +  # field water supply vs crop water demand
+      w3 * climate_resilience +  # rain/NDVI stability + mixing crop types
+      w4 * nitrogen_fixation  +  # legume N fixation + bonus when legume comes before grain
+      w5 * yield_potential    +  # avg crop yield scaled 0 to 1
+      w6 * drought_tolerance  +  # how well the crops handle dry spells
+      w7 * soil_compatibility    # pH/clay match + switching root depths
   )
 
-If two rotations tie on total_score, we break ties using water_stress first
-and nitrogen_fixation second.
+Ties on total_score break on water_stress first, then nitrogen_fixation.
 """
 
 import csv
@@ -33,7 +26,7 @@ import statistics
 import sys
 from pathlib import Path
 
-# Make sure Windows terminals can print UTF-8 characters without crashing
+# stop Windows terminals from crashing on arrow characters
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
@@ -41,12 +34,10 @@ BASE_DIR = Path(__file__).parent
 SAMPLE_DIR = BASE_DIR / "sample"
 
 
-# -----------------------------------------------------------------------------
-# 1. Load CSV Data and Aggregate Climate Info
-# -----------------------------------------------------------------------------
+# --- csv loading & climate stats ---
 
 def load_csv(filepath: Path) -> list[dict]:
-    """Read a CSV into a list of dicts and convert numbers to floats."""
+    """Load CSV rows as dicts and cast number strings to floats."""
     rows = []
     with open(filepath, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
@@ -74,11 +65,7 @@ def get_field_soil(soil: list, field_id: str) -> dict:
 
 
 def get_field_climate_agg(climate: list, field_id: str) -> dict:
-    """
-    Summarize climate data for a single field across seasons and years.
-    Besides simple averages, we add up spring and summer rain to get yearly
-    rainfall and compare 2023 to 2024 to see if drought is getting worse.
-    """
+    """Summarize field climate, splitting spring/summer and 2023->2024 trends."""
     field_rows = [r for r in climate if r["field_id"] == field_id]
     keys = [k for k in field_rows[0] if k not in ("field_id", "year", "season")]
     agg = {}
@@ -86,7 +73,7 @@ def get_field_climate_agg(climate: list, field_id: str) -> dict:
         vals = [r[k] for r in field_rows if isinstance(r[k], float)]
         agg[k] = statistics.mean(vals) if vals else 0.0
 
-    # Split out spring and summer since summer heat and rain matter a lot for row crops
+    # split spring and summer since mid-summer heat and rain matter most for row crops
     spring_rows = [r for r in field_rows if r.get("season") == "spring"]
     summer_rows = [r for r in field_rows if r.get("season") == "summer"]
 
@@ -108,7 +95,7 @@ def get_field_climate_agg(climate: list, field_id: str) -> dict:
         if summer_rows else agg["drought_index"]
     )
 
-    # Check how much conditions changed from the previous year to the latest year
+    # compare 2023 to 2024 to see if drought or NDVI is getting worse
     years = sorted({int(r["year"]) for r in field_rows if isinstance(r.get("year"), (int, float))})
     if len(years) >= 2:
         y_prev, y_curr = years[-2], years[-1]
@@ -117,15 +104,15 @@ def get_field_climate_agg(climate: list, field_id: str) -> dict:
 
         drought_prev = statistics.mean([r["drought_index"] for r in prev_rows])
         drought_curr = statistics.mean([r["drought_index"] for r in curr_rows])
-        agg["drought_trend"] = drought_curr - drought_prev  # Positive means drought got worse
+        agg["drought_trend"] = drought_curr - drought_prev  # > 0 means drying out
 
         anom_prev = statistics.mean([r["anomaly_precip_pct"] for r in prev_rows])
         anom_curr = statistics.mean([r["anomaly_precip_pct"] for r in curr_rows])
-        agg["precip_anom_trend"] = anom_curr - anom_prev    # Negative means rain dropped faster
+        agg["precip_anom_trend"] = anom_curr - anom_prev    # < 0 means rain dropping
 
         ndvi_prev = statistics.mean([r["ndvi_avg"] for r in prev_rows])
         ndvi_curr = statistics.mean([r["ndvi_avg"] for r in curr_rows])
-        agg["ndvi_trend"] = ndvi_curr - ndvi_prev            # Negative means plant health dropped
+        agg["ndvi_trend"] = ndvi_curr - ndvi_prev            # < 0 means less green cover
     else:
         agg["drought_trend"] = 0.0
         agg["precip_anom_trend"] = 0.0
@@ -138,32 +125,27 @@ def get_crop(crops: list, crop_id: str) -> dict:
     return next((c for c in crops if c["crop_id"] == crop_id), None)
 
 
-# -----------------------------------------------------------------------------
-# 2. Sub-Score Functions (all return a float between 0.0 and 1.0)
-# -----------------------------------------------------------------------------
+# --- sub-score functions (all return 0.0 to 1.0) ---
 
 def clip(val: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, val))
 
 
 def field_soil_baseline_score(soil: dict) -> float:
-    """
-    Score the starting soil quality of a field using organic carbon, pH,
-    bulk density, CEC, and how close the sand/clay mix is to a balanced loam.
-    """
+    """Score starting soil health from organic carbon, pH, bulk density, CEC, and sand/clay."""
     oc = soil["organic_carbon_pct"]
-    oc_score = clip((oc - 1.0) / 4.0, 0, 1)           # 1% maps to 0, 5% maps to 1
+    oc_score = clip((oc - 1.0) / 4.0, 0, 1)  # 1% -> 0, 5% -> 1
 
     ph = soil["ph"]
-    ph_score = 1.0 - min(abs(ph - 6.5) / 2.0, 1.0)    # 6.5 is ideal for most crops
+    ph_score = 1.0 - min(abs(ph - 6.5) / 2.0, 1.0)  # 6.5 is sweet spot for most crops
 
     bd = soil["bulk_density"]
-    bd_score = clip((1.7 - bd) / 0.6, 0, 1)            # Lower bulk density means less packed soil
+    bd_score = clip((1.7 - bd) / 0.6, 0, 1)  # lower bulk density = less packed soil
 
     cec = soil["cec"]
-    cec_score = clip(cec / 40.0, 0, 1)                 # Higher CEC means soil holds nutrients better
+    cec_score = clip(cec / 40.0, 0, 1)  # higher CEC holds onto nutrients better
 
-    # Loam soil usually has around 40% sand and 20-30% clay
+    # balanced loam is roughly 40% sand and 25% clay
     sand = soil.get("sand_pct", 40.0)
     clay = soil.get("clay_pct", 25.0)
     texture_score = 1.0 - clip((abs(sand - 40.0) + abs(clay - 25.0)) / 60.0, 0, 1)
@@ -178,15 +160,12 @@ def field_soil_baseline_score(soil: dict) -> float:
 
 
 def soil_health_score(soil: dict, crop_rows: list[dict] | None = None) -> float:
-    """
-    Combine the field's starting soil health with how much the crops in the
-    rotation help rebuild organic matter or break up packed soil with deep roots.
-    """
+    """Blend starting soil score with how much the rotation builds organic matter and breaks compaction."""
     s_base = field_soil_baseline_score(soil)
     if not crop_rows:
         return s_base
 
-    # If bulk density is high (>1.35), deep roots matter more to loosen compacted dirt
+    # if bulk density is high (>1.35), deep roots matter more to break up packed clay
     compaction_need = clip((soil["bulk_density"] - 1.15) / 0.45, 0.2, 1.0)
     regen_scores = []
     for c in crop_rows:
@@ -201,10 +180,7 @@ def soil_health_score(soil: dict, crop_rows: list[dict] | None = None) -> float:
 
 
 def field_water_supply_score(climate: dict) -> float:
-    """
-    Estimate how much water a field reliably has based on drought index,
-    soil moisture, and whether drought got worse between 2023 and 2024.
-    """
+    """Estimate water supply from drought index, SMAP soil moisture, and 2023->2024 drought trend."""
     drought_score = 1.0 - clip(climate["drought_index"], 0, 1)
     moisture_score = clip(climate["soil_moisture_avg"] / 0.5, 0, 1)
     trend_penalty = clip(climate.get("drought_trend", 0.0) * 1.2, 0.0, 0.20)
@@ -212,37 +188,29 @@ def field_water_supply_score(climate: dict) -> float:
 
 
 def crop_water_demand_norm(crop: dict) -> float:
-    """Scale crop water demand from 0.0 (150mm, low water use) to 1.0 (600mm, high water use)."""
+    """Scale water demand from 0.0 (150mm low use) to 1.0 (600mm thirsty crop)."""
     return clip((crop["water_demand_mm"] - 150) / 450.0, 0, 1)
 
 
 def water_stress_score(supply: float, demand_norm: float,
                        annual_precip_mm: float | None = None,
                        crop_demand_mm: float | None = None) -> float:
-    """
-    Score how safe a crop is from running out of water on this field.
-    Wet fields score high for almost any crop, while dry fields lower the score
-    for crops that need a lot of water or more rain than the field gets in a year.
-    """
+    """Compare field water supply and yearly rain against how much water the crop needs."""
     base_stress = 1.0 - (1.0 - supply) * demand_norm
     if annual_precip_mm is None or crop_demand_mm is None:
         return clip(base_stress, 0.0, 1.0)
 
-    # Check if yearly rainfall is enough to cover the crop's water demand with a 15% buffer
+    # check if annual rain covers crop demand plus a 15% buffer for runoff/evaporation
     precip_adequacy = clip(annual_precip_mm / max(crop_demand_mm * 1.15, 1.0), 0.0, 1.0)
     return clip(0.75 * base_stress + 0.25 * precip_adequacy, 0.0, 1.0)
 
 
 def climate_resilience_score(climate: dict, crop_rows: list[dict] | None = None) -> float:
-    """
-    Score climate stability using rainfall anomalies, NDVI plant health,
-    recent weather trends, and how many different crop types are in the rotation.
-    """
+    """Score weather stability from rain anomalies, NDVI, heat stress, and crop group mix."""
     anomaly = climate["anomaly_precip_pct"]
-    anomaly_score = clip((anomaly + 40) / 60.0, 0, 1)  # Maps [-40%, +20%] to [0, 1]
+    anomaly_score = clip((anomaly + 40) / 60.0, 0, 1)  # maps [-40%, +20%] to [0, 1]
     ndvi_score = clip(climate["ndvi_avg"] / 0.9, 0, 1)
 
-    # Lower the baseline if rain anomalies are dropping fast or summers are super hot
     anom_trend_penalty = clip(-climate.get("precip_anom_trend", 0.0) / 40.0, 0.0, 0.25)
     summer_heat_penalty = clip((climate.get("summer_temp_c", 24.0) - 24.5) / 8.0, 0.0, 0.15)
     c_base = clip(
@@ -254,7 +222,7 @@ def climate_resilience_score(climate: dict, crop_rows: list[dict] | None = None)
     if not crop_rows:
         return c_base
 
-    # Mixing different crop groups (like grain, legume, and cover) spreads out weather risk
+    # mixing different crop families (grain, legume, cover) buffers against bad weather years
     unique_types = len({c.get("crop_type", "") for c in crop_rows})
     diversity_score = clip(unique_types / min(len(crop_rows), 3), 0.0, 1.0)
     drought_hedge = statistics.mean([c["drought_tolerance"] for c in crop_rows])
@@ -279,17 +247,15 @@ def soil_compatibility_score(soil: dict, crop: dict) -> float:
 
 
 def yield_potential_score(crop: dict) -> float:
-    """Divide expected yield by the max yield in our table (12 t/ha)."""
+    """Divide typical yield by max yield in our table (12 t/ha)."""
     return clip(crop["typical_yield_t_ha"] / 12.0, 0, 1)
 
 
 def sequence_transition_analysis(crop_rows: list[dict], soil: dict) -> dict:
     """
-    Check how well each crop in the sequence sets up the next crop, including
-    when the last crop loops back to the first crop. We penalize planting the
-    exact same crop or crop type twice in a row because that lets pests and
-    diseases build up. We also give a bonus when a nitrogen-fixing legume comes
-    right before a high-demand grain crop, and when root depths alternate.
+    Check year-to-year crop transitions (including wrap-around from last year back to Year 1).
+    Penalizes repeating the same crop/family (pest & disease buildup) and rewards planting
+    a nitrogen-fixing legume before a grain crop or alternating root depths.
     """
     n = len(crop_rows)
     if n == 0:
@@ -299,13 +265,13 @@ def sequence_transition_analysis(crop_rows: list[dict], soil: dict) -> dict:
 
     repeat_crop_count = 0
     same_type_count = 0
-    n_synergy_total = 0.0
+    n_bonus_total = 0.0
     root_alt_total = 0.0
 
     for i in range(n):
         curr = crop_rows[i]
         nxt = crop_rows[(i + 1) % n]
-        # Give slightly more weight to earlier years in the rotation
+        # slightly higher weight on earlier years in the cycle
         step_weight = 1.0 - 0.06 * i
 
         if curr["crop_id"] == nxt["crop_id"]:
@@ -313,16 +279,16 @@ def sequence_transition_analysis(crop_rows: list[dict], soil: dict) -> dict:
         elif curr.get("crop_type") == nxt.get("crop_type"):
             same_type_count += 1
 
-        # Legumes fix nitrogen via root nodules, which helps the next crop if it doesn't fix its own N
+        # legume root nodules leave extra soil N for the next year's grain crop
         if curr["nitrogen_fixation"] >= 0.5 and nxt["nitrogen_fixation"] == 0.0:
             demand_weight = clip(nxt["typical_yield_t_ha"] / 10.5, 0.3, 1.0)
-            n_synergy_total += curr["nitrogen_fixation"] * demand_weight * step_weight
+            n_bonus_total += curr["nitrogen_fixation"] * demand_weight * step_weight
 
-        # Switching between shallow and deep roots uses different soil layers
+        # switching shallow and deep roots pulls from different soil layers
         root_diff = abs(curr.get("root_depth_m", 1.0) - nxt.get("root_depth_m", 1.0))
         root_alt_total += clip(root_diff / 1.5, 0.0, 1.0) * step_weight
 
-    # Starting Year 1 with a legume or soil-building crop helps more on low-carbon fields
+    # starting Year 1 with a legume/cover crop helps more when field organic carbon is low
     first_crop = crop_rows[0]
     oc_deficit = clip((3.0 - soil["organic_carbon_pct"]) / 2.0, 0.0, 1.0)
     year1_readiness = (
@@ -330,16 +296,15 @@ def sequence_transition_analysis(crop_rows: list[dict], soil: dict) -> dict:
         * (0.5 + 0.5 * oc_deficit)
     )
 
-    n_carryover_bonus = clip(n_synergy_total / n + year1_readiness, 0.0, 0.25)
+    n_carryover_bonus = clip(n_bonus_total / n + year1_readiness, 0.0, 0.25)
     root_alt_score = clip(root_alt_total / n, 0.0, 1.0)
 
-    # Reduce the overall score if the rotation repeats the same crop or crop group back to back
     repeat_ratio = repeat_crop_count / n
     same_type_ratio = same_type_count / n
     penalty_multiplier = clip(1.0 - 0.35 * repeat_ratio - 0.08 * same_type_ratio, 0.65, 1.0)
 
     transition_score = clip(
-        (0.50 * root_alt_score + 0.50 * clip(n_synergy_total / max(n * 0.5, 1.0), 0.0, 1.0))
+        (0.50 * root_alt_score + 0.50 * clip(n_bonus_total / max(n * 0.5, 1.0), 0.0, 1.0))
         * penalty_multiplier,
         0.0,
         1.0,
@@ -353,21 +318,19 @@ def sequence_transition_analysis(crop_rows: list[dict], soil: dict) -> dict:
     }
 
 
-# -----------------------------------------------------------------------------
-# 3. Rotation Scoring and Constraint Filtering
-# -----------------------------------------------------------------------------
+# --- rotation scoring & constraint filters ---
 
 def score_rotation(seq: list[str], soil: dict, climate_agg: dict,
                    crops: list, weights: dict) -> dict:
-    """Calculate all sub-scores and the weighted total score for a rotation."""
+    """Compute sub-scores and weighted total score for a candidate rotation."""
     crop_rows = [get_crop(crops, cid) for cid in seq]
     crop_rows = [c for c in crop_rows if c is not None]
 
     trans = sequence_transition_analysis(crop_rows, soil)
 
     s_health = soil_health_score(soil, crop_rows)
-    supply   = field_water_supply_score(climate_agg)
-    c_res    = climate_resilience_score(climate_agg, crop_rows)
+    supply = field_water_supply_score(climate_agg)
+    c_res = climate_resilience_score(climate_agg, crop_rows)
 
     annual_precip = climate_agg.get("annual_precip_mm")
     w_stress = statistics.mean([
@@ -375,40 +338,39 @@ def score_rotation(seq: list[str], soil: dict, climate_agg: dict,
         for c in crop_rows
     ])
 
-    # Include the nitrogen carry-over bonus when legumes come before grains
-    n_fix_raw       = statistics.mean([c["nitrogen_fixation"] for c in crop_rows])
-    n_fix_avg       = clip(0.85 * n_fix_raw + 0.60 * trans["n_carryover_bonus"], 0.0, 1.0)
+    # add legume-to-grain nitrogen carry-over bonus
+    n_fix_raw = statistics.mean([c["nitrogen_fixation"] for c in crop_rows])
+    n_fix_avg = clip(0.85 * n_fix_raw + 0.60 * trans["n_carryover_bonus"], 0.0, 1.0)
 
     drought_tol_avg = statistics.mean([c["drought_tolerance"] for c in crop_rows])
-    yield_avg       = statistics.mean([yield_potential_score(c) for c in crop_rows])
+    yield_avg = statistics.mean([yield_potential_score(c) for c in crop_rows])
 
-    # Blend basic pH/clay compatibility with how well the crop transitions work
-    base_compat     = statistics.mean([soil_compatibility_score(soil, c) for c in crop_rows])
+    base_compat = statistics.mean([soil_compatibility_score(soil, c) for c in crop_rows])
     soil_compat_avg = clip(0.80 * base_compat + 0.20 * trans["transition_score"], 0.0, 1.0)
 
     raw_total = (
-        weights["soil_health"]       * s_health
-        + weights["water_stress"]    * w_stress
-        + weights["climate_res"]     * c_res
-        + weights["nitrogen_fix"]    * n_fix_avg
-        + weights["yield"]           * yield_avg
-        + weights["drought_tol"]     * drought_tol_avg
-        + weights["soil_compat"]     * soil_compat_avg
+        weights["soil_health"] * s_health
+        + weights["water_stress"] * w_stress
+        + weights["climate_res"] * c_res
+        + weights["nitrogen_fix"] * n_fix_avg
+        + weights["yield"] * yield_avg
+        + weights["drought_tol"] * drought_tol_avg
+        + weights["soil_compat"] * soil_compat_avg
     )
 
     total = clip(raw_total * trans["penalty_multiplier"], 0.0, 1.0)
 
     return {
-        "seq_ids":            " → ".join(seq),
-        "total_score":        round(total, 4),
-        "soil_health":        round(s_health, 3),
-        "water_stress":       round(w_stress, 3),
-        "climate_res":        round(c_res, 3),
-        "nitrogen_fixation":  round(n_fix_avg, 3),
-        "yield_potential":    round(yield_avg, 3),
-        "drought_tolerance":  round(drought_tol_avg, 3),
+        "seq_ids": " → ".join(seq),
+        "total_score": round(total, 4),
+        "soil_health": round(s_health, 3),
+        "water_stress": round(w_stress, 3),
+        "climate_res": round(c_res, 3),
+        "nitrogen_fixation": round(n_fix_avg, 3),
+        "yield_potential": round(yield_avg, 3),
+        "drought_tolerance": round(drought_tol_avg, 3),
         "soil_compatibility": round(soil_compat_avg, 3),
-        "transition_score":   round(trans["transition_score"], 3),
+        "transition_score": round(trans["transition_score"], 3),
     }
 
 
@@ -420,9 +382,8 @@ def filter_rotations_by_constraints(
     excluded_crop_ids: set[str] | None = None,
 ) -> list[list[str]]:
     """
-    Filter out rotations that do not fit a farmer's equipment or water budget.
-    Setting row_crop_only=True skips Alfalfa (C05) since harvesting hay takes
-    different machinery than standard row-crop combines.
+    Drop rotations that don't fit equipment or water limits.
+    row_crop_only=True skips Alfalfa (C05) since hay takes balers/mowers instead of a grain combine.
     """
     excluded = set(excluded_crop_ids or set())
     if row_crop_only:
@@ -446,11 +407,7 @@ def generate_candidate_rotations(
     row_crop_only: bool = True,
     max_water_demand_mm: float | None = None,
 ) -> list[list[str]]:
-    """
-    Build valid N-year crop sequences from the crop table while skipping bad
-    combinations like planting the same crop type twice in a row, having no
-    nitrogen fixer, or planting too many zero-yield cover crops in a row.
-    """
+    """Build valid N-year sequences while skipping back-to-back crop types or zero-cash-crop combos."""
     usable_crops = [
         c for c in crops
         if (not row_crop_only or c["crop_id"] != "C05")
@@ -461,7 +418,7 @@ def generate_candidate_rotations(
 
     generated = []
     for combo in itertools.product(crop_ids, repeat=length):
-        # Skip sequences that repeat the same crop or crop type back to back (including wrap-around)
+        # skip back-to-back repeats (including wrap-around from end back to start)
         if any(combo[i] == combo[(i + 1) % length] for i in range(length)):
             continue
         if any(crop_map[combo[i]]["crop_type"] == crop_map[combo[(i + 1) % length]]["crop_type"]
@@ -469,12 +426,12 @@ def generate_candidate_rotations(
             continue
 
         c_objs = [crop_map[cid] for cid in combo]
-        # Require at least one legume/cover crop and at least one grain/oilseed cash crop
+        # need at least one nitrogen fixer/cover crop and at least one grain/oilseed cash crop
         if not any(c["nitrogen_fixation"] >= 0.5 or c["crop_type"] == "cover" for c in c_objs):
             continue
         if not any(c["crop_type"] in ("grain", "oilseed") for c in c_objs):
             continue
-        # At most one pure cover crop (0 yield) in a 3-year window so the farmer still makes money
+        # max 1 pure cover crop (0 yield) so the farm still makes money most years
         if sum(1 for c in c_objs if c["typical_yield_t_ha"] == 0.0) > 1:
             continue
 
@@ -483,68 +440,60 @@ def generate_candidate_rotations(
     return generated
 
 
-# -----------------------------------------------------------------------------
-# 4. Multi-Key Sort
-# -----------------------------------------------------------------------------
+# --- sorting & preset profiles ---
 
 def sort_rotations(results: list[dict]) -> list[dict]:
-    """Sort rotations by total_score first, then water_stress, then nitrogen_fixation."""
+    """Sort by total_score desc, breaking ties with water_stress then nitrogen_fixation."""
     return sorted(
         results,
         key=lambda r: (r["total_score"], r["water_stress"], r["nitrogen_fixation"]),
-        reverse=True
+        reverse=True,
     )
 
-
-# -----------------------------------------------------------------------------
-# 5. Candidate Rotations and Farmer Priority Profiles
-# -----------------------------------------------------------------------------
 
 CANDIDATE_ROTATIONS = [
     ["C01", "C02"],               # Corn -> Soybean
     ["C01", "C02", "C03"],        # Corn -> Soybean -> Winter Wheat
-    ["C02", "C01", "C02"],        # Soybean-heavy (repeats Soy when it loops)
+    ["C02", "C01", "C02"],        # Soybean-heavy (repeats Soy on wrap-around)
     ["C01", "C02", "C06"],        # Corn -> Soy -> Cover crop
     ["C02", "C06", "C01"],        # Soy -> Cover crop -> Corn
     ["C12", "C01", "C02"],        # Clover -> Corn -> Soy
     ["C10", "C01", "C03"],        # Field Pea -> Corn -> Wheat
-    ["C07", "C02"],               # Sorghum -> Soy (good for dry fields)
+    ["C07", "C02"],               # Sorghum -> Soy (dry fields)
     ["C07", "C10", "C01"],        # Sorghum -> Pea -> Corn
     ["C08", "C02", "C07"],        # Sunflower -> Soy -> Sorghum
-    ["C05", "C01", "C05"],        # Alfalfa -> Corn -> Alfalfa (repeats Alfalfa when it loops)
+    ["C05", "C01", "C05"],        # Alfalfa -> Corn -> Alfalfa (repeats Alfalfa on wrap-around)
     ["C06", "C02", "C11", "C01"], # Cover -> Soy -> Rye -> Corn
 ]
 
 PROFILES = {
     "Balanced": {
         "soil_health": 0.20, "water_stress": 0.20, "climate_res": 0.15,
-        "nitrogen_fix": 0.15, "yield": 0.15, "drought_tol": 0.10, "soil_compat": 0.05
+        "nitrogen_fix": 0.15, "yield": 0.15, "drought_tol": 0.10, "soil_compat": 0.05,
     },
     "Max Yield": {
         "soil_health": 0.10, "water_stress": 0.15, "climate_res": 0.10,
-        "nitrogen_fix": 0.10, "yield": 0.40, "drought_tol": 0.10, "soil_compat": 0.05
+        "nitrogen_fix": 0.10, "yield": 0.40, "drought_tol": 0.10, "soil_compat": 0.05,
     },
     "Water Conservation": {
         "soil_health": 0.10, "water_stress": 0.35, "climate_res": 0.15,
-        "nitrogen_fix": 0.10, "yield": 0.10, "drought_tol": 0.15, "soil_compat": 0.05
+        "nitrogen_fix": 0.10, "yield": 0.10, "drought_tol": 0.15, "soil_compat": 0.05,
     },
     "Soil Health First": {
         "soil_health": 0.30, "water_stress": 0.10, "climate_res": 0.10,
-        "nitrogen_fix": 0.25, "yield": 0.10, "drought_tol": 0.10, "soil_compat": 0.05
+        "nitrogen_fix": 0.25, "yield": 0.10, "drought_tol": 0.10, "soil_compat": 0.05,
     },
     "Climate Resilient": {
         "soil_health": 0.15, "water_stress": 0.20, "climate_res": 0.25,
-        "nitrogen_fix": 0.10, "yield": 0.10, "drought_tol": 0.15, "soil_compat": 0.05
+        "nitrogen_fix": 0.10, "yield": 0.10, "drought_tol": 0.15, "soil_compat": 0.05,
     },
 }
 
 
-# -----------------------------------------------------------------------------
-# 6. Test Runners
-# -----------------------------------------------------------------------------
+# --- console test runners ---
 
 def seq_label(seq_ids_str: str, crops: list) -> str:
-    """Turn crop IDs like 'C01 -> C02' into readable names like 'Corn -> Soybean'."""
+    """Convert 'C01 -> C02' into 'Corn -> Soybean'."""
     parts = seq_ids_str.split(" → ")
     names = []
     for cid in parts:
@@ -623,21 +572,19 @@ def test_sensitivity(field_id: str, soil: list, climate: list, crops: list):
         print(f"  {pname:<22} {label:<40} {top['total_score']:>6.4f}")
 
 
-# -----------------------------------------------------------------------------
-# 7. Assertion Checks
-# -----------------------------------------------------------------------------
+# --- assertion checks ---
 
 def run_assertions(soil: list, climate: list, crops: list) -> None:
     print(f"\n{'='*70}")
     print("  ASSERTION CHECKS")
     print(f"{'='*70}")
 
-    # 1. Profile weights need to add up to 1.0 so the final score stays in [0, 1]
+    # profile weights have to add up to 1.0 so final score stays in [0, 1]
     for pname, w in PROFILES.items():
         assert math.isclose(sum(w.values()), 1.0), f"{pname} weights sum to {sum(w.values())}"
     print("  [PASS] Profile weights each sum to 1.0")
 
-    # 2. Every sub-score and total score must stay between 0.0 and 1.0
+    # every sub-score and total score must stay between 0.0 and 1.0
     score_keys = ("total_score", "soil_health", "water_stress", "climate_res",
                   "nitrogen_fixation", "yield_potential", "drought_tolerance",
                   "soil_compatibility", "transition_score")
@@ -650,7 +597,7 @@ def run_assertions(soil: list, climate: list, crops: list) -> None:
                     assert 0.0 <= r[k] <= 1.0, f"{k}={r[k]} out of range ({s['field_id']}, {pname}, {seq})"
     print("  [PASS] All component and total scores stay within [0, 1]")
 
-    # 3. Water stress, soil health, and climate resilience should all change depending on the crops
+    # water stress, soil health, and climate resilience should all change depending on the crops
     dry = get_field_soil(soil, "F006")
     dry_c = get_field_climate_agg(climate, "F006")
     water_vals = {score_rotation(seq, dry, dry_c, crops, PROFILES["Balanced"])["water_stress"]
@@ -665,13 +612,13 @@ def run_assertions(soil: list, climate: list, crops: list) -> None:
     print(f"  [PASS] Sub-scores change across rotations on F006 "
           f"(water={len(water_vals)}, soil={len(soil_vals)}, climate={len(clim_vals)} values)")
 
-    # 4. High-water crops should score worse on water stress than low-water crops on a dry field
+    # thirsty crops should score worse on water stress than low-water crops on a dry field
     thirsty = score_rotation(["C05", "C01", "C05"], dry, dry_c, crops, PROFILES["Balanced"])
     thrifty = score_rotation(["C07", "C02"], dry, dry_c, crops, PROFILES["Balanced"])
     assert thirsty["water_stress"] < thrifty["water_stress"], "dry field should penalize high-water crops"
     print("  [PASS] Dry field penalizes high-water rotation (Alfalfa/Corn) vs Sorghum/Soy")
 
-    # 5. Repeating Alfalfa on wrap-around (C05->C01->C05) should get penalized enough not to win Balanced
+    # repeating Alfalfa on wrap-around (C05->C01->C05) gets penalized enough not to win Balanced
     f1 = get_field_soil(soil, "F001")
     f1_c = get_field_climate_agg(climate, "F001")
     top_balanced = sort_rotations([score_rotation(seq, f1, f1_c, crops, PROFILES["Balanced"])
@@ -681,7 +628,7 @@ def run_assertions(soil: list, climate: list, crops: list) -> None:
     )
     print(f"  [PASS] Wrap-around repeat penalty keeps C05->C01->C05 from winning Balanced (#1: {top_balanced['seq_ids']})")
 
-    # 6. Crop order matters: Soy -> Cover -> Corn should score differently than Corn -> Soy -> Cover
+    # crop order matters: Soy -> Cover -> Corn scores differently than Corn -> Soy -> Cover
     r_order_a = score_rotation(["C01", "C02", "C06"], dry, dry_c, crops, PROFILES["Balanced"])
     r_order_b = score_rotation(["C02", "C06", "C01"], dry, dry_c, crops, PROFILES["Balanced"])
     assert r_order_a["total_score"] != r_order_b["total_score"], (
@@ -689,7 +636,7 @@ def run_assertions(soil: list, climate: list, crops: list) -> None:
     )
     print(f"  [PASS] Sequence order changes score ({r_order_a['total_score']} vs {r_order_b['total_score']})")
 
-    # 7. Equipment filter and sequence generator should work and respect constraints
+    # equipment filter and sequence generator work and respect constraints
     row_only = filter_rotations_by_constraints(CANDIDATE_ROTATIONS, crops, row_crop_only=True)
     assert all("C05" not in seq for seq in row_only), "row_crop_only failed to filter C05"
     generated = generate_candidate_rotations(crops, length=3, row_crop_only=True, max_water_demand_mm=450)
@@ -697,14 +644,14 @@ def run_assertions(soil: list, climate: list, crops: list) -> None:
     assert all("C05" not in seq for seq in generated), "generator included excluded C05"
     print(f"  [PASS] Equipment filter and generator produced {len(generated)} valid 3-year sequences")
 
-    # 8. Output list is sorted from highest total_score to lowest
+    # output list is sorted from highest total_score to lowest
     ranked = sort_rotations([score_rotation(seq, dry, dry_c, crops, PROFILES["Balanced"])
                              for seq in CANDIDATE_ROTATIONS])
     totals = [r["total_score"] for r in ranked]
     assert totals == sorted(totals, reverse=True), "ranking not sorted by total_score"
     print("  [PASS] Ranking is sorted by total_score (descending)")
 
-    # 9. Tiebreakers sort by water_stress second and nitrogen_fixation third
+    # tiebreakers sort by water_stress second and nitrogen_fixation third
     ties = [
         {"seq_ids": "A", "total_score": 0.5, "water_stress": 0.6, "nitrogen_fixation": 0.1},
         {"seq_ids": "B", "total_score": 0.5, "water_stress": 0.7, "nitrogen_fixation": 0.0},
@@ -715,16 +662,12 @@ def run_assertions(soil: list, climate: list, crops: list) -> None:
     assert order == ["D", "B", "C", "A"], f"tiebreak order wrong: {order}"
     print("  [PASS] Tiebreakers sort by total_score -> water_stress -> nitrogen_fixation")
 
-    # 10. Running the same inputs twice gives the exact same order
+    # running the same inputs twice gives the exact same order
     again = sort_rotations([score_rotation(seq, dry, dry_c, crops, PROFILES["Balanced"])
                             for seq in CANDIDATE_ROTATIONS])
     assert [r["seq_ids"] for r in again] == [r["seq_ids"] for r in ranked], "ranking not deterministic"
     print("  [PASS] Ranking is deterministic across runs")
 
-
-# -----------------------------------------------------------------------------
-# 8. Run All Tests
-# -----------------------------------------------------------------------------
 
 if __name__ == "__main__":
     print("\n  NASA Space Apps 2026 - Crop Rotation Algorithm Test Runner")
