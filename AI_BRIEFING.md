@@ -23,7 +23,7 @@
   - **No bulleted or numbered lists inside code docstrings/comments.** Keep docstrings as short, plain-English sentences.
   - **Avoid common AI tells and vocabulary:** Do not use words like *delve, comprehensive, crucial, moreover, furthermore, utilize, leverage, holistic, synergy, paradigm, multifaceted, seamlessly, robust, overarching, underscore*. Avoid overusing em-dashes (`—`) or decorative Unicode box-drawing borders (`─────`) in comments.
   - **Difference between Comments and READMEs:**
-    - **Code comments:** Casual, practical, and easy to skim. Only explain what the math or logic is doing and why, without sacrificing code readability or functionality.
+    - **Code comments:** Casual, practical, and easy to skim. Explain what each block of code, math formula, or API step is doing and why so that any human teammate reading the file understands it right away without confusion, while keeping the code clean and readable.
     - **READMEs:** Same authentic student background, but slightly more technical, structured, and concise than code comments so it is clear we put real time and care into documenting our work.
 - **Exception for `AI_BRIEFING.md`:**
   - Keep `AI_BRIEFING.md` as technical, dense, and precise as needed. Do not dumb down `AI_BRIEFING.md` so that AI agents transferring work between computers or sessions retain full comprehension and save context tokens.
@@ -44,9 +44,12 @@
 ---
 
 ## 4. Core Architecture & Decisions Made
-1. **Frontend / UI (Active Build in `src/ui/`):**
-   - **Streamlit** (desktop-first web dashboard) — fast iteration, interactive maps (`folium`), time-series charts (`plotly`), and farmer priority sliders.
-   - No separate mobile codebase or Figma-only mockups; focus 100% on a functional data-driven prototype.
+1. **Frontend / UI & Hosting (`GitHub Pages` + `src/ui/`):**
+   - **Primary Web Deployment Target:** **GitHub Pages** (static HTML/CSS/JS or static SPA build) for public web hosting, paired with pre-computed/live JSON endpoints or optional Streamlit dashboard (`src/ui/`).
+   - **Interactive Map Stack (Zero-Key Default + Optional Google Maps):**
+     - **Default (No API Key Required):** **Leaflet.js** in the browser (or `folium` in Python) using **Esri World Imagery** satellite tiles, **OpenStreetMap** base tiles, and **NASA GIBS WMTS** satellite overlays (MODIS NDVI, SMAP Soil Moisture).
+     - **Optional Google Maps Integration:** Supported via `GOOGLE_MAPS_API_KEY` loaded from `.env` / `src/config.py` locally, or injected at build time via GitHub Actions Secrets and locked down with Google Cloud HTTP Referrer restrictions (see Section 7 for exact Frontend AI instructions).
+   - **No Frontend Code Built Yet:** The frontend team is building the UI separately using Section 7 of this briefing as their AI context handoff.
 2. **Backend / Recommendation Engine:**
    - Multi-criteria weighted scoring & sequence transition formula that ranks candidate multi-year crop rotation sequences:
      ```
@@ -76,6 +79,7 @@
 ```text
 .
 ├── AI_BRIEFING.md                 # This context file for seamless multi-machine AI handoff
+├── .env.example                   # Template for local API keys (copy to .env locally; never commit .env)
 ├── requirements.txt               # Target Python dependencies for the hackathon build
 ├── beta_algorithm_testing/        # Dedicated folder for pre-hackathon beta algorithm tests
 │   └── README.md                  # Explains the beta testing scope, mock datasets, and findings
@@ -87,9 +91,19 @@
 │       └── mock_crops.csv         # 12 crops (grains, legumes, oilseeds, covers) & traits
 ├── notebooks/                     # Data exploration & API prototyping
 └── src/                           # Active hackathon production build (Nov 14-15)
+    ├── config.py                  # Secret & API key loader (.env, env vars, Streamlit secrets, with Leaflet fallback)
+    ├── backend/                   # Python FastAPI backend & NASA POWER integration
+    │   ├── main.py                # FastAPI routes (/analyze, CORS setup)
+    │   ├── nasa_client.py         # NASA POWER API client (ALLSKY_SFC_SW_DWN, WS2M, PRECTOTCORR, T2M) + -999 stripping & offline cache
+    │   ├── scoring.py             # Crop suitability & climate shift alert logic
+    │   ├── requirements.txt       # Backend dependencies (fastapi, uvicorn, requests)
+    │   └── data/                  # Static & cached JSON files
+    │       ├── ny_regions.json    # Static NY soil texture, pH & coordinates lookup
+    │       ├── crops.json         # Static 6 flagship NY crops thresholds
+    │       └── nasa_cache/        # Saved NASA POWER JSONs for offline demo backup
     ├── pipeline/                  # Live NASA POWER, SMAP, MODIS, GPM, and SoilGrids data fetchers
     ├── engine/                    # Production crop rotation scoring, transition penalties, and ML ranking
-    └── ui/                        # Streamlit dashboard, Folium map selector, and Plotly charts
+    └── ui/                        # Frontend UI / dashboard (to be built by Frontend Team)
 ```
 
 ---
@@ -100,8 +114,21 @@
   python data/sample_data_test.py
   ```
   Exits non-zero with an `AssertionError` if any check in Test 5 fails.
+- **To test the NASA POWER API client (`src/backend/nasa_client.py`):**
+  ```bash
+  python src/backend/nasa_client.py
+  ```
+  Fetches `ALLSKY_SFC_SW_DWN` (All Sky Surface Shortwave Downward Irradiance), `WS2M` (Wind Speed at 2 Meters), `PRECTOTCORR` (Precipitation Corrected), and `T2M` (Temperature at 2 Meters) from NASA POWER (`community=AG`), strips `-999` fill values and `YYYY13` annual summary keys, caches raw responses in `src/backend/data/nasa_cache/`, and returns cleaned series plus a summary dictionary.
 
 ### Change Log
+- **Nov 14, 2026 — Maps & Secret Hygiene Setup + Frontend AI Handoff (Google Antigravity):**
+  - Updated `.gitignore` to block `.env.*`, `.streamlit/secrets.toml`, `*.pem`, and `*.key` while allowing `.env.example`.
+  - Added `.env.example` and `src/config.py` (`get_secret`, `get_google_maps_api_key`) for safe key loading across local dev and deployment.
+  - Added Section 7 below with dedicated instructions for the Frontend Team's AI assistants on building the interactive map for **GitHub Pages** (Leaflet + Esri/NASA GIBS zero-key stack vs. domain-restricted Google Maps JS API).
+- **Nov 14, 2026 — NASA POWER Client & Backend Structure (Google Antigravity):**
+  - Created `src/backend/` structure (`main.py`, `nasa_client.py`, `scoring.py`, `requirements.txt`, `data/ny_regions.json`, `data/crops.json`, `data/nasa_cache/`).
+  - Implemented `src/backend/nasa_client.py` connecting to NASA POWER (`daily` and `monthly` Agroclimatology endpoints) for `ALLSKY_SFC_SW_DWN`, `WS2M`, `PRECTOTCORR`, and `T2M` with `-999` fill-value stripping, `urllib`/`requests` support, and automatic JSON caching in `src/backend/data/nasa_cache/`.
+  - Added clear step-by-step inline comments across `src/backend/nasa_client.py` (and updated Section 2 comment guidelines) so teammates can follow every function and API step without confusion.
 - **Nov 14, 2026 — Official Hackathon Kickoff (Google Antigravity):**
   - Updated project status from Pre-Hackathon Preparation to **LIVE HACKATHON BUILD**.
   - Lifted pre-hackathon guardrails on `src/`, live NASA API ingestion, Streamlit UI, and hardware sensor integration.
@@ -123,10 +150,74 @@
 2. **Phase 2 — Production Scoring Engine (`src/engine/`):**
    - Port and modularize the validated scoring, constraint filtering, and cyclic transition engine from `data/sample_data_test.py` into `src/engine/`.
    - Add ground-truth hardware sensor delta adjustments (allowing local Arduino/sensor soil temperature, moisture, or pressure readings to override/adjust satellite anomaly scores).
-3. **Phase 3 — Interactive Streamlit Dashboard (`src/ui/`):**
-   - Interactive `folium` map or coordinate/county selector to pick a farm location.
+3. **Phase 3 — Interactive Web UI & Map (`GitHub Pages` / `src/ui/`):**
+   - Interactive map selector (Leaflet.js + Esri Satellite/NASA GIBS or Google Maps JS API) to pick a farm location or sample field.
    - Farmer priority weight sliders (`Balanced`, `Max Yield`, `Water Conservation`, `Soil Health First`, `Climate Resilient`, plus custom sliders) and equipment constraint toggles (`row_crop_only`).
-   - Ranked crop rotation cards with multi-year sequence breakdown, component score radar/bar charts (`plotly`), and historical climate/NDVI trend visualizations.
+   - Ranked crop rotation cards with multi-year sequence breakdown, component score radar/bar charts, and historical climate/NDVI trend visualizations.
 4. **Phase 4 — Verification, Demo Video & Submission:**
    - Verify end-to-end flow with live coordinates and fallback offline mode.
    - Compile complete citations list for the Space Apps submission form.
+
+---
+
+## 7. Frontend Team AI Instructions (Maps, GitHub Pages, & API Key Security)
+
+> **Instructions for Frontend Team AI Assistants:**  
+> We are deploying the public web frontend on **GitHub Pages** (static hosting). Follow these rules and specifications when building the interactive map and UI so our API keys never leak and our map works both locally and in production. Also remember to follow **Section 2 (Tone, Voice & Writing Style Guidelines)** in all frontend code comments and UI copy.
+
+### 7.1 Crucial Constraint of GitHub Pages
+- GitHub Pages only serves static files (`HTML`, `CSS`, `JS`, `JSON`). It cannot run a Python server directly.
+- Any API key embedded in client-side JS/HTML is visible in browser DevTools (`Network` / `Elements`).
+- Therefore:
+  1. **Never commit raw API keys to the git repo.** Keep local keys in `.env` (already ignored by `.gitignore`, template in `.env.example`).
+  2. **Default to our Zero-Key Leaflet Satellite stack** unless a specific Google Maps feature is required, or support both seamlessly.
+
+### 7.2 Primary Map Stack (Zero API Key — Recommended for GitHub Pages)
+Use **Leaflet.js** (`https://unpkg.com/leaflet@1.9.4/dist/leaflet.js`) with a layer switcher combining free satellite, street, and NASA Earth observation tiles:
+
+1. **Satellite Base Layer (Esri World Imagery — No API Key Required):**
+   - Tile URL: `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}`
+   - Attribution: `Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community`
+2. **Street / Reference Base Layer (OpenStreetMap — No API Key Required):**
+   - Tile URL: `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`
+   - Attribution: `&copy; OpenStreetMap contributors`
+3. **NASA GIBS Satellite Overlays (WMTS — No API Key Required):**
+   - Base template: `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/{layer}/default/{date}/{tileMatrixSet}/{z}/{y}/{x}.{format}`
+   - Useful agriculture layers:
+     - **MODIS Terra NDVI (8-Day):** `MODIS_Terra_NDVI_8Day` (`tileMatrixSet`: `GoogleMapsCompatible_Level9`, `format`: `png`)
+     - **SMAP L4 Root Zone Soil Moisture:** `SMAP_L4_Analyzed_Root_Zone_Soil_Moisture` (`tileMatrixSet`: `GoogleMapsCompatible_Level6`, `format`: `png`)
+
+### 7.3 Optional Google Maps JS API Integration (How to Keep Keys Safe)
+If the frontend team builds a Google Maps view (`Maps JavaScript API`) or uses Google Places Autocomplete:
+1. **Local Development:**
+   - Copy `.env.example` to `.env` and set `GOOGLE_MAPS_API_KEY=...`.
+   - For Python scripts/backends, import `get_google_maps_api_key()` from `src/config.py` (returns `None` if unconfigured so the app can automatically fall back to Leaflet).
+   - For Vite/React/static JS builds, read `import.meta.env.VITE_GOOGLE_MAPS_API_KEY` (or `process.env.GOOGLE_MAPS_API_KEY`) from `.env` and automatically fall back to the Leaflet map if the key is missing or set to the placeholder string.
+2. **GitHub Pages Deployment (GitHub Actions Injection):**
+   - Store the real key in **GitHub Repository Settings → Secrets and variables → Actions → `GOOGLE_MAPS_API_KEY`**.
+   - During the GitHub Pages build workflow (`.github/workflows/deploy.yml`), pass `GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}` as an environment variable to the build step so the key is never committed to git history.
+3. **Mandatory Google Cloud Console Restrictions (Protects the Key in Production):**
+   - Because browser keys are visible in DevTools on static sites, the key **must** be locked in **Google Cloud Console → APIs & Services → Credentials**:
+     - **Application restrictions:** Select **Websites (HTTP referrers)** and whitelist only:
+       - `https://<github-username-or-org>.github.io/<repo-name>/*`
+       - `http://localhost:*` and `http://127.0.0.1:*`
+     - **API restrictions:** Restrict the key strictly to **Maps JavaScript API** (and **Places API** if using search).
+     - **Quota & Billing:** Set a daily map-load quota cap and budget alert.
+
+### 7.4 Frontend-to-Data & Scoring Engine Integration Contract
+Whether the frontend runs purely client-side on GitHub Pages or talks to the Python backend (`src/`), keep the data interface consistent with `data/sample_data_test.py`:
+1. **Direct Client-Side NASA API Calls (CORS-Enabled, No Key Needed):**
+   - **NASA POWER Agroclimatology API** can be queried directly from browser `fetch()` on GitHub Pages with no API key:
+     ```text
+     https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M,PRECTOTCORR,ALLSKY_SFC_SW_DWN&community=AG&longitude={lon}&latitude={lat}&start=20230101&end=20241231&format=JSON
+     ```
+   - **ISRIC SoilGrids REST API** (`https://rest.isric.org/soilgrids/v2.0/properties/query?lon={lon}&lat={lat}`) for soil OC%, pH, clay%, sand%, bulk density, and CEC (always keep `data/sample/mock_soil.csv` and `mock_climate.csv` bundled as an instant offline/demo fallback if an external API rate-limits or times out during judging).
+2. **User Inputs from UI to Scoring Engine:**
+   - Selected coordinates (`lat`, `lon`) or preset sample field ID (`F01`–`F08` from `data/sample/mock_soil.csv`).
+   - Priority preset (`Balanced`, `Max Yield`, `Water Conservation`, `Soil Health First`, `Climate Resilient`) or custom weight sliders for the 7 criteria:
+     `soil_health`, `water_stress`, `climate_resilience`, `nitrogen_fixation`, `yield_potential`, `drought_tolerance`, `soil_compatibility`.
+   - Equipment constraint toggle: `row_crop_only` (`boolean`, excludes forage hay `C05` Alfalfa when `true`).
+   - Sequence length: `years` (`3` or `4` year crop rotation cycle).
+3. **Output Displayed in UI:**
+   - Top-ranked multi-year crop rotation sequences (e.g., `Soybean -> Winter Wheat -> Corn`) sorted by `(total_score, water_stress, nitrogen_fixation)` descending.
+   - Per-criterion score breakdown (0–100 scale), `penalty_multiplier`, and plain-English agronomic reasoning (e.g., legume nitrogen carry-over, root-depth compaction relief, drought trend resilience).

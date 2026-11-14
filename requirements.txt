@@ -1,31 +1,29 @@
 # NASA Space Apps 2026 - Field Shift: Adapting Farms with NASA Data
-# Requirements for the Nov 14-15 hackathon build
-# Install with: pip install -r requirements.txt
+# pip install -r requirements.txt
 
-# Core Data Science
-pandas>=2.2.0          # DataFrames and time-series data
-numpy>=1.26.0          # Array math
-scipy>=1.13.0          # Stats functions
+# data & math
+pandas>=2.2.0
+numpy>=1.26.0
+scipy>=1.13.0
+scikit-learn>=1.5.0
 
-# Machine Learning (Recommendation Engine)
-scikit-learn>=1.5.0    # RandomForest, KMeans, NearestNeighbors
+# maps & satellite rasters (MODIS / SMAP GeoTIFFs & NetCDF)
+geopandas>=0.14.0
+rasterio>=1.3.0
+xarray>=2024.2.0
+pyproj>=3.6.0
 
-# Geospatial Data
-geopandas>=0.14.0      # Map shapes and field boundaries
-rasterio>=1.3.0        # GeoTIFF rasters for MODIS and SMAP
-xarray>=2024.2.0       # NetCDF climate arrays
-pyproj>=3.6.0          # Lat/lon coordinate conversions
+# NASA APIs
+earthaccess>=0.9.0
+requests>=2.31.0
 
-# NASA Data Access
-earthaccess>=0.9.0     # NASA Earthdata API (SMAP, MODIS, GPM)
-requests>=2.31.0       # REST calls for NASA POWER API
+# UI & charts
+streamlit>=1.36.0
+plotly>=5.22.0
+folium>=0.17.0
+matplotlib>=3.9.0
 
-# Dashboard and Plots
-streamlit>=1.36.0      # Web app UI
-plotly>=5.22.0         # Interactive time-series charts
-folium>=0.17.0         # Interactive farm maps
-matplotlib>=3.9.0      # Basic static plots
+# config & validation
+python-dotenv>=1.0.0
+pydantic>=2.7.0
 
-# Utilities
-python-dotenv>=1.0.0   # Local .env API keys
-pydantic>=2.7.0        # Input data checks
