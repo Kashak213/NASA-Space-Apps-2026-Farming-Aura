@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 
 
+# parse .env manually so we don't crash if someone forgot to pip install python-dotenv
 def _load_dotenv_file(env_path: Path | None = None) -> None:
-    """Read key-value pairs from a local .env file into os.environ if not already set."""
     if env_path is None:
         env_path = Path(__file__).resolve().parent.parent / ".env"
     if not env_path.is_file():
@@ -21,14 +21,14 @@ def _load_dotenv_file(env_path: Path | None = None) -> None:
 
 
 def get_secret(key_name: str, default: str | None = None) -> str | None:
-    """Fetch a secret from environment variables, a local .env file, or Streamlit secrets."""
+    """Grab an API key from env vars, local .env, or Streamlit secrets."""
     _load_dotenv_file()
 
     env_val = os.environ.get(key_name)
+    # ignore the placeholder string from .env.example
     if env_val and env_val != f"your_{key_name.lower()}_here":
         return env_val
 
-    # Check Streamlit secrets if the app is running inside Streamlit
     try:
         import streamlit as st
 
@@ -41,5 +41,6 @@ def get_secret(key_name: str, default: str | None = None) -> str | None:
 
 
 def get_google_maps_api_key() -> str | None:
-    """Return the Google Maps API key if configured, or None to fall back to free Leaflet tiles."""
+    """Returns Google Maps key if set, otherwise None so the UI falls back to free Leaflet tiles."""
     return get_secret("GOOGLE_MAPS_API_KEY")
+
