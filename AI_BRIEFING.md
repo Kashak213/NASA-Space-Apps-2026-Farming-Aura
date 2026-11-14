@@ -30,11 +30,13 @@
 
 ---
 
-## 3. NASA Space Apps Compliance & Pre-Hackathon Rules
-- **Current Phase:** Pre-Hackathon Preparation & Algorithm Beta Testing (Before Nov 14, 2026).
-- **Rules Constraint:** All final application code and UI must be built during the official hackathon window (Nov 14–15). Everything currently in the repo is **pre-hackathon dataset exploration, mock data validation, and beta testing of sorting/scoring mathematics**.
+## 3. NASA Space Apps Compliance & Hackathon Status
+- **Current Phase:** **LIVE HACKATHON BUILD (Nov 14–15, 2026 — Hackathon Officially Started).**
+- **Status & Scope:** All pre-hackathon restrictions on building `src/`, live NASA API ingestion pipelines, the Streamlit UI, and hardware sensor integration are now lifted. Full production development is active.
+- **Submission Window:** Opens Saturday, Nov 14 at 9:00 AM and closes Sunday, Nov 15 at 11:59 PM (local time).
 - **Mandatory Citations (for final submission):**
-  - Open-source Python libraries (`pandas`, `numpy`, `scikit-learn`, `streamlit`, `plotly`, `folium`, `earthaccess`, `geopandas`, `rasterio`, `xarray`)
+  - Pre-hackathon prototype disclosure: Disclose `data/sample_data_test.py` and `data/sample/*.csv` as pre-hackathon algorithm validation on synthetic data.
+  - Open-source Python libraries (`pandas`, `numpy`, `scikit-learn`, `streamlit`, `plotly`, `folium`, `earthaccess`, `geopandas`, `rasterio`, `xarray`, `requests`, `scipy`, `pydantic`)
   - NASA Datasets: SMAP (Soil Moisture), MODIS (NDVI/EVI), GPM (Precipitation), NASA POWER (Agroclimatology)
   - Soil/Ag Datasets: ISRIC SoilGrids, USDA NASS / SSURGO
   - AI Coding Assistants: Google Antigravity / Anthropic Claude Code
@@ -42,7 +44,7 @@
 ---
 
 ## 4. Core Architecture & Decisions Made
-1. **Frontend / UI (To be built Nov 14–15):**
+1. **Frontend / UI (Active Build in `src/ui/`):**
    - **Streamlit** (desktop-first web dashboard) — fast iteration, interactive maps (`folium`), time-series charts (`plotly`), and farmer priority sliders.
    - No separate mobile codebase or Figma-only mockups; focus 100% on a functional data-driven prototype.
 2. **Backend / Recommendation Engine:**
@@ -83,20 +85,26 @@
 │       ├── mock_soil.csv          # 8 sample fields with OC%, pH, clay%, sand%, bulk density, CEC
 │       ├── mock_climate.csv       # Seasonal temp, precip, drought index, soil moisture, NDVI (2023-2024)
 │       └── mock_crops.csv         # 12 crops (grains, legumes, oilseeds, covers) & traits
-├── notebooks/                     # For data exploration (held until hackathon)
-└── src/                           # Reserved for official hackathon build on Nov 14-15
+├── notebooks/                     # Data exploration & API prototyping
+└── src/                           # Active hackathon production build (Nov 14-15)
+    ├── pipeline/                  # Live NASA POWER, SMAP, MODIS, GPM, and SoilGrids data fetchers
+    ├── engine/                    # Production crop rotation scoring, transition penalties, and ML ranking
+    └── ui/                        # Streamlit dashboard, Folium map selector, and Plotly charts
 ```
 
 ---
 
-## 6. Next Steps / How to Pick Up Work
-- **To run the current algorithm beta test:**
+## 6. Next Steps / Active Hackathon Build Roadmap (Nov 14–15)
+- **To run the baseline algorithm validation suite:**
   ```bash
   python data/sample_data_test.py
   ```
   Exits non-zero with an `AssertionError` if any check in Test 5 fails.
 
 ### Change Log
+- **Nov 14, 2026 — Official Hackathon Kickoff (Google Antigravity):**
+  - Updated project status from Pre-Hackathon Preparation to **LIVE HACKATHON BUILD**.
+  - Lifted pre-hackathon guardrails on `src/`, live NASA API ingestion, Streamlit UI, and hardware sensor integration.
 - **Oct 25, 2026 — Data analysis, sequence modeling & style guidelines (Google Antigravity):**
   - **Added Temporal & Seasonal Climate Analysis:** `get_field_climate_agg` now computes seasonal splits (`spring_precip_mm`, `summer_precip_mm`, `annual_precip_mm`, `summer_temp_c`, `summer_drought`) and year-over-year climate trends (`2023 → 2024` `drought_trend`, `precip_anom_trend`, `ndvi_trend`).
   - **Made Soil Health & Climate Resilience Rotation-Responsive:** `soil_health_score` now integrates `sand_pct`, `soil_building_score`, and `root_depth_m` compaction relief; `climate_resilience_score` integrates 2023→2024 precip trends, summer heat stress, and functional `crop_type` diversity. Both now differentiate rotations on the same field as well as ranking fields.
@@ -107,16 +115,18 @@
   - **Fixed:** `water_stress` was field-level only; updated to combine field water supply with each crop's `water_demand_mm`.
   - **Added:** initial assertion checks (Test 5) and removed duplicate `beta_algorithm_testing/sample_data_test.py`.
 
-### Pre-Hackathon Guardrails (read before doing new work)
-- ✅ **Allowed now:** mock-data math refinements, assertions/tests, design notes, and dataset research (reading NASA dataset docs, inspecting a sample response by hand).
-- ⚠️ **Keep minimal:** NASA POWER API exploration. Fetching one sample response to learn the JSON shape is fine. Do **not** build an API client or ingestion pipeline before Nov 14.
-- ⛔ **Hold until Nov 14–15:**
-  - any code in `src/`
-  - the Streamlit UI and folium maps
-  - real SMAP/MODIS/GPM ingestion
-  - Arduino integration
-- 📝 In the final submission, disclose this scoring engine as **pre-hackathon prototype work on mock data**.
-
-### Open Pre-Hackathon Explorations (mock data & docs only)
-- Inspect a single sample NASA POWER / SMAP / MODIS response payload by hand to document exact JSON/GeoTIFF field names for Nov 14 mapping.
-- Define mock ground-truth vs. satellite anomaly delta math (how local soil moisture/temperature sensor offsets adjust `field_water_supply_score` on Nov 14).
+### Active Hackathon Build Priorities (Nov 14–15)
+1. **Phase 1 — Live Data Ingestion (`src/pipeline/`):**
+   - Build NASA POWER REST API client (fetch daily/seasonal temperature, precipitation, and solar radiation by `lat`/`lon`).
+   - Build SoilGrids REST API client (or fallback local soil lookup) for OC%, pH, clay%, sand%, bulk density, and CEC.
+   - Integrate SMAP soil moisture and MODIS NDVI layers (via `earthaccess` / AppEEARS or cached regional rasters/CSVs for instant UI responsiveness).
+2. **Phase 2 — Production Scoring Engine (`src/engine/`):**
+   - Port and modularize the validated scoring, constraint filtering, and cyclic transition engine from `data/sample_data_test.py` into `src/engine/`.
+   - Add ground-truth hardware sensor delta adjustments (allowing local Arduino/sensor soil temperature, moisture, or pressure readings to override/adjust satellite anomaly scores).
+3. **Phase 3 — Interactive Streamlit Dashboard (`src/ui/`):**
+   - Interactive `folium` map or coordinate/county selector to pick a farm location.
+   - Farmer priority weight sliders (`Balanced`, `Max Yield`, `Water Conservation`, `Soil Health First`, `Climate Resilient`, plus custom sliders) and equipment constraint toggles (`row_crop_only`).
+   - Ranked crop rotation cards with multi-year sequence breakdown, component score radar/bar charts (`plotly`), and historical climate/NDVI trend visualizations.
+4. **Phase 4 — Verification, Demo Video & Submission:**
+   - Verify end-to-end flow with live coordinates and fallback offline mode.
+   - Compile complete citations list for the Space Apps submission form.
