@@ -675,11 +675,13 @@ function renderDashboard() {
     sensorStatus.textContent = appState.sensorEnabled ? 'Enabled · demo' : 'Disabled · satellite only';
   }
 
-  // Header eyebrow and subtitles
+  // Header eyebrow, title, and subtitles
   const dashEyebrow = document.getElementById('dash-eyebrow-text');
+  const dashMainTitle = document.getElementById('dash-main-title');
   const dashSubLeft = document.getElementById('dash-subtitle-left');
   const dashSubRight = document.getElementById('dash-subtitle-right');
   if (dashEyebrow) dashEyebrow.textContent = `FIELD ${field.id} / DEMO DATA`;
+  if (dashMainTitle) dashMainTitle.textContent = `${field.name}, understood.`;
   if (dashSubLeft) dashSubLeft.textContent = `Demo data • ${appState.selectedProfile} priority profile`;
   if (dashSubRight) {
     dashSubRight.textContent =
@@ -856,7 +858,6 @@ function renderDashboard() {
 }
 
 function renderAll() {
-  selectCityLocation(appState.selectedCity);
   document.querySelectorAll('.profile-choice-btn').forEach((btn) => {
     btn.classList.toggle('selected-profile-btn', btn.dataset.profile === appState.selectedProfile);
   });
@@ -865,6 +866,7 @@ function renderAll() {
 
 // Wire up event listeners when DOM loads
 document.addEventListener('DOMContentLoaded', () => {
+  selectCityLocation(appState.selectedCity);
   // Global click closes open dropdowns
   document.addEventListener('click', () => {
     closeAllDropdowns();
