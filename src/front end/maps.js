@@ -1,14 +1,23 @@
 // Real Google Map for the Select Your Location screen.
-// With no key below, nothing changes and the drawn schematic map stays.
+// The key is NOT written in this file: the backend reads GOOGLE_MAPS_API_KEY from .env
+// and hands it over at GET /config. With no key (or no backend), the drawn schematic map stays.
 // With a key, the schematic is swapped for a satellite map with the same five city pins,
 // and clicking anywhere on the map picks a custom farm location.
 
-(() => {
-  // Paste the Google Maps key here. Restrict it to our site in Google Cloud first
-  // (HTTP referrers + Maps JavaScript API only), because anyone can read it in the page source.
-  const GOOGLE_MAPS_API_KEY = '';
-  
+(async () => {
+  // Same backend address rules as api.js
+  const onThisComputer = location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname);
+  const sameServer = onThisComputer && location.port === '8000';
+  const API_BASE = window.FARMING_AURA_API || (sameServer ? '' : onThisComputer ? 'http://localhost:8000' : null);
+  if (API_BASE === null) return;
 
+  let GOOGLE_MAPS_API_KEY = null;
+  try {
+    const res = await fetch(`${API_BASE}/config`);
+    if (res.ok) GOOGLE_MAPS_API_KEY = (await res.json()).google_maps_api_key;
+  } catch (err) {
+    console.warn('[Farming Aura] backend not reachable, keeping the schematic map.', err.message);
+  }
   if (!GOOGLE_MAPS_API_KEY) return;
 
   const canvas = document.querySelector('.schematic-map-canvas');

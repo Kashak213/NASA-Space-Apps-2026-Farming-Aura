@@ -45,6 +45,9 @@ from nasa_client import fetch_nasa_power
 # Gemini writes the plain-English dashboard explanations; the key stays on the backend only
 from gemini_client import explain_dashboard, gemini_is_configured
 
+# gemini_client puts src/ on sys.path, so the shared .env reader is importable here
+from config import get_google_maps_api_key  # noqa: E402
+
 # Import the 7-weight scoring functions and preset farmer priority profiles from scoring.py
 from scoring import (
     PROFILES,
@@ -796,6 +799,14 @@ if FastAPI is not None:
     def health_check() -> dict[str, Any]:
         """Simple health check endpoint so the frontend knows the backend server is awake."""
         return {"status": "ok", "gemini": gemini_is_configured()}
+
+    @app.get("/config")
+    def public_config() -> dict[str, Any]:
+        """
+        Browser-safe settings. Only the Google Maps key goes out (it is locked to our sites
+        in Google Cloud). GEMINI_API_KEY must never be added here; it stays backend-only.
+        """
+        return {"google_maps_api_key": get_google_maps_api_key()}
 
     @app.get("/crops")
     def list_available_crops() -> dict[str, Any]:
