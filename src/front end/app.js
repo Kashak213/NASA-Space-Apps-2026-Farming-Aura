@@ -807,26 +807,27 @@ function selectCityLocation(cityKey) {
   });
 }
 
-// Map any 1-based field number (1..N) to one of our 8 base field profiles (F001..F008)
+// Format a 1-based field number as F001, F002, ..., F346, etc.
+function formatFieldCode(fieldNum) {
+  const n = Math.max(1, Math.floor(fieldNum) || 1);
+  return `F${String(n).padStart(3, '0')}`;
+}
+
+// Map any 1-based field number (1..N) to one of our 8 base field profiles (F001..F008) for soil/climate simulation
 function getFieldIdForNumber(fieldNum) {
   const allIds = Object.keys(FIELDS_DATA);
   const idx = (Math.max(1, fieldNum) - 1) % allIds.length;
   return allIds[idx];
 }
 
-// Get display label for a 1-based field number
+// Get display label for a 1-based field number (Field F001, Field F002, ..., Field F346)
 function getFieldDisplayName(fieldNum) {
-  const fid = getFieldIdForNumber(fieldNum);
-  const fObj = FIELDS_DATA[fid] || FIELDS_DATA.F001;
-  if (fieldNum <= 8) {
-    return `${fObj.name} (Field ${fieldNum})`;
-  }
-  return `Field ${fieldNum} (${fid} profile)`;
+  return `Field ${formatFieldCode(fieldNum)}`;
 }
 
-// Update total number of fields from the typed input
+// Update total number of fields from the typed input (no upper cap)
 function setFieldCount(count) {
-  const n = clip(count, 1, 50);
+  const n = Math.max(1, Math.floor(count) || 1);
   appState.fieldCount = n;
   if (appState.selectedFieldNumber > n) {
     appState.selectedFieldNumber = n;
@@ -834,7 +835,7 @@ function setFieldCount(count) {
   }
 }
 
-// Populate the single field picker dropdown menu with options 1..fieldCount
+// Populate the single field picker dropdown menu with options F001..F{fieldCount}
 function renderFieldPickerOptions() {
   const listContainer = document.getElementById('sidebar-field-options-list');
   const triggerLabel = document.getElementById('sidebar-field-label');
@@ -849,6 +850,7 @@ function renderFieldPickerOptions() {
   if (!listContainer) return;
 
   listContainer.innerHTML = '';
+  const frag = document.createDocumentFragment();
   for (let num = 1; num <= appState.fieldCount; num++) {
     const fid = getFieldIdForNumber(num);
     const optBtn = document.createElement('button');
@@ -863,8 +865,9 @@ function renderFieldPickerOptions() {
       closeAllDropdowns();
       renderDashboard();
     });
-    listContainer.appendChild(optBtn);
+    frag.appendChild(optBtn);
   }
+  listContainer.appendChild(frag);
 }
 
 // Build 5-year temperature and rainfall series (2020 to 2024) for a field and render the dual-Y-axis SVG line chart
@@ -986,15 +989,16 @@ function renderClimateLineChart(field) {
   const tempExplEl = document.getElementById('climate-temp-explanation');
   const rainExplEl = document.getElementById('climate-rain-explanation');
 
+  const activeFieldLabel = getFieldDisplayName(appState.selectedFieldNumber);
   if (tempExplEl) {
     const signC = tempDiffC >= 0 ? `+${tempDiffC}°C` : `${tempDiffC}°C`;
     const signF = tempDiffF >= 0 ? `+${tempDiffF}°F` : `${tempDiffF}°F`;
-    tempExplEl.textContent = `From 2020 to 2024 on ${field.name}, summer temperature shifted by ${signC} (${signF}). An increase in temperature (+°C / +°F) raises evapotranspiration and soil heat stress, which penalizes shallow-rooted crops and increases water demand. A decrease in temperature (-°C / -°F) slows soil moisture loss and favors cool-season New York crops like Cabbage, Potatoes, Onions, and Green Peas.`;
+    tempExplEl.textContent = `From 2020 to 2024 on ${activeFieldLabel}, summer temperature shifted by ${signC} (${signF}). An increase in temperature (+°C / +°F) raises evapotranspiration and soil heat stress, which penalizes shallow-rooted crops and increases water demand. A decrease in temperature (-°C / -°F) slows soil moisture loss and favors cool-season New York crops like Cabbage, Potatoes, Onions, and Green Peas.`;
   }
 
   if (rainExplEl) {
     const signRain = rainDiff >= 0 ? `+${rainDiff} mm` : `${rainDiff} mm`;
-    rainExplEl.textContent = `From 2020 to 2024 on ${field.name}, annual growing-season rainfall changed by ${signRain} (${rainSeries[0]} mm to ${rainSeries[4]} mm). An increase in rainfall (+mm) recharges root-zone soil moisture and supports higher-transpiration crops like Hay & Alfalfa and Field Corn. A decrease in rainfall (-mm) elevates drought risk and shifts our rotation score toward water-safe legumes like Soybeans & Small Grains.`;
+    rainExplEl.textContent = `From 2020 to 2024 on ${activeFieldLabel}, annual growing-season rainfall changed by ${signRain} (${rainSeries[0]} mm to ${rainSeries[4]} mm). An increase in rainfall (+mm) recharges root-zone soil moisture and supports higher-transpiration crops like Hay & Alfalfa and Field Corn. A decrease in rainfall (-mm) elevates drought risk and shifts our rotation score toward water-safe legumes like Soybeans & Small Grains.`;
   }
 }
 
@@ -1078,18 +1082,20 @@ function renderDashboard() {
   }
 
   // Header eyebrow, title, and subtitles
+  const activeFieldCode = formatFieldCode(appState.selectedFieldNumber);
+  const activeFieldName = getFieldDisplayName(appState.selectedFieldNumber);
   const dashEyebrow = document.getElementById('dash-eyebrow-text');
   const dashMainTitle = document.getElementById('dash-main-title');
   const dashSubLeft = document.getElementById('dash-subtitle-left');
   const dashSubRight = document.getElementById('dash-subtitle-right');
   if (dashEyebrow) {
-    dashEyebrow.textContent = `FIELD ${appState.selectedFieldNumber} OF ${appState.fieldCount} (${field.id}) / DEMO DATA`;
+    dashEyebrow.textContent = `FIELD ${activeFieldCode} / DEMO DATA`;
   }
   if (dashMainTitle) {
-    dashMainTitle.textContent = appState.selectedFieldNumber <= 8 ? field.name : `Field ${appState.selectedFieldNumber} (${field.id})`;
+    dashMainTitle.textContent = activeFieldName;
   }
   if (dashSubLeft) {
-    dashSubLeft.textContent = `${appState.fieldCount} total fields configured • ${appState.selectedProfile} priority profile`;
+    dashSubLeft.textContent = `${appState.fieldCount} total fields (F001–${formatFieldCode(appState.fieldCount)}) • ${appState.selectedProfile} priority profile`;
   }
   if (dashSubRight) {
     const pickedNames = selectedIds.map((id) => CROPS_DATA[id]?.name).filter(Boolean);
@@ -1207,7 +1213,7 @@ function renderDashboard() {
   const mapSelectedMeta = document.getElementById('map-selected-field-meta');
   const mapRotationMeta = document.getElementById('map-rotation-preview-meta');
   if (mapSelectedMeta) {
-    mapSelectedMeta.textContent = `Selected field: ${field.id} • simulated field readings (Soil ${field.mapSoilScore.toFixed(2)} · Moisture ${field.mapMoisture.toFixed(2)})`;
+    mapSelectedMeta.textContent = `Selected field: ${activeFieldCode} • simulated field readings (Soil ${field.mapSoilScore.toFixed(2)} · Moisture ${field.mapMoisture.toFixed(2)})`;
   }
   if (mapRotationMeta && topPick) {
     mapRotationMeta.textContent = `Rotation preview: ${topPick.label}`;
@@ -1260,7 +1266,7 @@ function renderDashboard() {
       alertSub.textContent =
         'Backend response: Root-zone moisture is below the NASA satellite baseline. Prioritizing drought-tolerant legumes and lower water demand.';
     }
-    if (backendHeading) backendHeading.textContent = `Backend report for ${field.name} · Moisture Probe: DRY`;
+    if (backendHeading) backendHeading.textContent = `Backend report for ${activeFieldName} · Moisture Probe: DRY`;
     if (backendLine1) {
       backendLine1.textContent = `Your moisture probe indicates dry topsoil (${localMoist.toFixed(2)} m³/m³ vs NASA ${field.moistureAvg.toFixed(2)} m³/m³). Backend advises reducing tillage, scheduling supplemental irrigation if available, and leading with nitrogen-fixing legumes that tolerate dry spells.`;
     }
@@ -1279,7 +1285,7 @@ function renderDashboard() {
     if (alertSub) {
       alertSub.textContent = `Backend response: Root-zone moisture is well-supplied (${localMoist.toFixed(2)} m³/m³). High-yield crops and deep-rooted forages are supported.`;
     }
-    if (backendHeading) backendHeading.textContent = `Backend report for ${field.name} · Moisture Probe: WET`;
+    if (backendHeading) backendHeading.textContent = `Backend report for ${activeFieldName} · Moisture Probe: WET`;
     if (backendLine1) {
       backendLine1.textContent = `Your moisture probe confirms wet root-zone conditions (${localMoist.toFixed(2)} m³/m³ vs NASA ${field.moistureAvg.toFixed(2)} m³/m³). Backend advises monitoring field drainage to prevent root compaction and taking advantage of strong moisture reserves for high-biomass crops.`;
     }
