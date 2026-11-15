@@ -1148,6 +1148,36 @@ body {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
+.onboarding-intensity-box {
+  margin-top: 8px;
+  padding: 14px 16px;
+  background-color: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 2px;
+}
+
+.onboarding-intensity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.onboarding-intensity-label {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #ffffff;
+}
+
+.onboarding-intensity-readout {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
 /* Local sensor readings toggle */
 .sensor-toggle-row {
   display: flex;
