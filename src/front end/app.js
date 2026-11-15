@@ -1249,14 +1249,41 @@ function renderDashboard() {
   const kpiSoilVal = document.getElementById('kpi-soil-val');
   const kpiSoilSub = document.getElementById('kpi-soil-sub');
   const kpiRainVal = document.getElementById('kpi-rain-val');
+  const kpiRainSub = document.getElementById('kpi-rain-sub');
   const kpiMoistureVal = document.getElementById('kpi-moisture-val');
+  const kpiMoistureSub = document.getElementById('kpi-moisture-sub');
   const kpiTempVal = document.getElementById('kpi-temp-val');
+  const kpiTempSub = document.getElementById('kpi-temp-sub');
 
-  if (kpiSoilVal) kpiSoilVal.textContent = `${topPick.soilHealth.toFixed(2)} SH`;
-  if (kpiSoilSub) kpiSoilSub.textContent = `OC ${field.oc.toFixed(1)}% · pH ${field.ph.toFixed(1)}`;
+  const hasNasaData = Boolean(field.nasaSource && field.nasaSource !== 'demo');
+  const coordBadge =
+    typeof field.lat === 'number' && typeof field.lon === 'number'
+      ? `${field.lat.toFixed(2)}°, ${field.lon.toFixed(2)}°`
+      : '';
+
+  if (kpiSoilVal && topPick) kpiSoilVal.textContent = `${topPick.soilHealth.toFixed(2)} SH`;
+  if (kpiSoilSub) {
+    kpiSoilSub.textContent = hasNasaData
+      ? `OC ${field.oc.toFixed(1)}% · pH ${field.ph.toFixed(1)} · NASA/USDA`
+      : `OC ${field.oc.toFixed(1)}% · pH ${field.ph.toFixed(1)}`;
+  }
   if (kpiRainVal) kpiRainVal.textContent = `${annualRain} mm`;
+  if (kpiRainSub) {
+    kpiRainSub.textContent = hasNasaData
+      ? `NASA POWER · ${field.annualTotalMm ? field.annualTotalMm + ' mm/yr total' : coordBadge}`
+      : 'Illustrative annual total';
+  }
   if (kpiMoistureVal) kpiMoistureVal.textContent = `${field.moistureAvg.toFixed(2)} RZM`;
+  if (kpiMoistureSub) {
+    kpiMoistureSub.textContent = hasNasaData
+      ? `NASA GWETROOT · ${coordBadge}`
+      : 'Sample soil moisture';
+  }
   if (kpiTempVal) kpiTempVal.textContent = `${field.soilTempC.toFixed(1)}°C`;
+  if (kpiTempSub) {
+    const tempStatus = field.soilTempC >= 12.0 ? 'Above planting threshold' : 'Cool topsoil (<12°C)';
+    kpiTempSub.textContent = hasNasaData ? `NASA POWER · ${tempStatus}` : tempStatus;
+  }
 
   // Tab 1: 3-year recommended rotation cards
   if (topPick && topPick.crops.length >= 3) {
@@ -1321,7 +1348,7 @@ function renderDashboard() {
     if (avgScoreBadge) avgScoreBadge.textContent = `${scoreOutOf100} / 100`;
   }
 
-  // Ranked alternatives table (only RANK, ROTATION, TOTAL SCORE)
+  // Ranked alternatives table (RANK, ROTATION + per-sequence quick analysis, TOTAL SCORE)
   const tbody = document.getElementById('ranked-alternatives-tbody');
   if (tbody) {
     tbody.innerHTML = '';
@@ -1329,9 +1356,16 @@ function renderDashboard() {
       const tr = document.createElement('tr');
       tr.className = `ranked-row ${idx === appState.selectedRankIndex ? 'selected-rank-row' : ''}`;
       const rankNum = String(idx + 1).padStart(2, '0');
+      const defaultRowNote =
+        idx === 0
+          ? `Top match (${item.totalScore.toFixed(2)}) for ${annualRain} mm rainfall, ${field.moistureAvg.toFixed(2)} RZM moisture, and ${field.soilTempC.toFixed(1)}°C soil temp (water safety ${item.waterSafety.toFixed(2)}, soil health ${item.soilHealth.toFixed(2)}).`
+          : `Alternative #${idx + 1}: balances ${item.nFixAvg >= 0.45 ? 'legume nitrogen fixation (' + item.nFixAvg.toFixed(2) + ')' : 'root-depth diversity'} with ${item.yieldPotential.toFixed(2)} yield potential and ${item.waterSafety.toFixed(2)} water safety.`;
       tr.innerHTML = `
         <td class="col-rank">${rankNum}</td>
-        <td class="col-rotation">${item.label}</td>
+        <td class="col-rotation">
+          <div class="ranked-seq-title">${item.label}</div>
+          <div id="ranked-row-analysis-${idx}" class="ranked-row-analysis">${defaultRowNote}</div>
+        </td>
         <td class="col-score">${item.totalScore.toFixed(2)}</td>
       `;
       tr.addEventListener('click', () => {
@@ -1340,6 +1374,19 @@ function renderDashboard() {
       });
       tbody.appendChild(tr);
     });
+  }
+
+  // Default quick analysis under generated crop sequence (upgraded by Gemini /explain in api.js)
+  const bannerSeqText = document.getElementById('banner-sequence-analysis-text');
+  const seqAnalysisText = document.getElementById('sequence-analysis-text');
+  const seqAnalysisTitle = document.getElementById('sequence-analysis-title');
+  if (topPick) {
+    const defaultQuickAnalysis = `Generated sequence ${topPick.label} scores ${topPick.totalScore.toFixed(2)} at (${field.lat.toFixed(2)}°, ${field.lon.toFixed(2)}°) with ${annualRain} mm rainfall, ${field.moistureAvg.toFixed(2)} RZM root-zone moisture, ${field.soilTempC.toFixed(1)}°C soil temperature, and OC ${field.oc.toFixed(1)}% · pH ${field.ph.toFixed(1)} (soil health ${topPick.soilHealth.toFixed(2)}, water safety ${topPick.waterSafety.toFixed(2)}, yield ${topPick.yieldPotential.toFixed(2)}).`;
+    if (bannerSeqText) bannerSeqText.textContent = defaultQuickAnalysis;
+    if (seqAnalysisText) seqAnalysisText.textContent = defaultQuickAnalysis;
+    if (seqAnalysisTitle) {
+      seqAnalysisTitle.textContent = `Quick analysis for Rank #${String(appState.selectedRankIndex + 1).padStart(2, '0')} (${topPick.label}) · Gemini`;
+    }
   }
 
   // Tab 2: Render field borders on the map and update meta text

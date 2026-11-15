@@ -26,13 +26,24 @@
   function buildRequest() {
     const latInput = document.getElementById('step1-lat-input');
     const lonInput = document.getElementById('step1-lon-input');
-    const lat = parseFloat(latInput ? latInput.value : '');
-    const lon = parseFloat(lonInput ? lonInput.value : '');
+    let lat = parseFloat(latInput ? latInput.value : '');
+    let lon = parseFloat(lonInput ? lonInput.value : '');
+
+    // If the active field has a custom polygon drawn on the Google satellite map, use its center coordinates
+    const poly = appState.fieldPolygons && appState.fieldPolygons[appState.selectedFieldNumber];
+    if (Array.isArray(poly) && poly.length > 0) {
+      lat = poly.reduce((s, p) => s + p.lat, 0) / poly.length;
+      lon = poly.reduce((s, p) => s + p.lng, 0) / poly.length;
+    } else if ((!Number.isFinite(lat) || !Number.isFinite(lon)) && appState.farmLocation) {
+      lat = appState.farmLocation.lat;
+      lon = appState.farmLocation.lon;
+    }
+
     return {
       field_id: appState.selectedFieldId,
       city: appState.selectedCity,
-      lat: Number.isFinite(lat) ? lat : null,
-      lon: Number.isFinite(lon) ? lon : null,
+      lat: Number.isFinite(lat) ? Number(lat.toFixed(4)) : null,
+      lon: Number.isFinite(lon) ? Number(lon.toFixed(4)) : null,
       profile: appState.selectedProfile,
       intensity: appState.profileIntensity,
       selected_crops: appState.selectedCrops || [],
@@ -138,12 +149,16 @@
     const top = ranked[appState.selectedRankIndex] || ranked[0];
     const field = FIELDS_DATA[appState.selectedFieldId] || FIELDS_DATA.F001;
     if (!top) return null;
+    const reqCoords = buildRequest();
     const series = climateSeries(field);
     const probeCounts = appState.sensorEnabled && appState.activeTab === 'sensors';
-    const two = (n) => Number(n.toFixed(2));
+    const two = (n) => Number(Number(n || 0).toFixed(2));
+    const annualRain = Math.round(field.spring2024Precip + field.summer2024Precip);
     return {
       field_number: appState.selectedFieldNumber,
       city: appState.selectedCity,
+      lat: reqCoords.lat !== null ? reqCoords.lat : field.lat,
+      lon: reqCoords.lon !== null ? reqCoords.lon : field.lon,
       profile: appState.selectedProfile,
       previous_crop: appState.previousCropId,
       max_water: appState.maxWaterDemand,
@@ -157,6 +172,23 @@
         nitrogen_fixation: two(top.nFixAvg)
       },
       total_score: two(top.totalScore),
+      nasa_kpis: {
+        soil_health_score: two(top.soilHealth),
+        soil_oc_pct: Number(field.oc.toFixed(1)),
+        soil_ph: Number(field.ph.toFixed(1)),
+        annual_rainfall_mm: annualRain,
+        annual_total_mm: field.annualTotalMm || Math.round(annualRain * 1.8),
+        root_zone_moisture: two(field.moistureAvg),
+        soil_temp_c: Number(field.soilTempC.toFixed(1))
+      },
+      ranked_alternatives: ranked.slice(0, 5).map((r) => ({
+        label: r.label,
+        total_score: two(r.totalScore),
+        soil_health: two(r.soilHealth),
+        water_safety: two(r.waterSafety),
+        yield_potential: two(r.yieldPotential),
+        nitrogen_fixation: two(r.nFixAvg)
+      })),
       years: series.years,
       summer_temp_c: series.temp,
       season_rain_mm: series.rain
@@ -201,8 +233,19 @@
       };
       put('why-won-line-1', text.why_line_1);
       put('why-won-line-2', text.why_line_2);
+      put('banner-sequence-analysis-text', text.sequence_analysis);
+      put('sequence-analysis-text', text.sequence_analysis);
       put('climate-temp-explanation', text.temp_explanation);
       put('climate-rain-explanation', text.rain_explanation);
+      if (Array.isArray(text.ranked_analyses)) {
+        text.ranked_analyses.forEach((line, idx) => {
+          put(`ranked-row-analysis-${idx}`, line);
+        });
+      }
+      const badge = document.getElementById('sequence-analysis-badge');
+      if (badge) {
+        badge.textContent = text.source === 'gemini' ? 'NASA POWER · Gemini API Live' : 'NASA POWER · Gemini Analysis';
+      }
       const heading = document.getElementById('why-won-heading');
       if (heading && !heading.textContent.endsWith('· Gemini')) heading.textContent += ' · Gemini';
       return;
