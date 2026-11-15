@@ -32,7 +32,7 @@
             </h1>
 
             <button type="button" id="hero-login-scroll-btn" class="hero-login-btn">
-              Login/Sign-up
+              Continue
             </button>
 
             <div class="hero-mission-box">
@@ -61,42 +61,21 @@
           </div>
 
           <div class="login-right-panel">
-            <h2 class="login-welcome-title">Welcome back.</h2>
-            <p class="login-welcome-sub">Sign in to access your field recommendations.</p>
+            <h2 class="login-welcome-title">Made by</h2>
+            <p class="login-welcome-sub">NASA Space Apps Challenge 2026 — Field Shift Team</p>
 
-            <form id="login-form">
-              <div class="login-form-group">
-                <label class="login-label" for="login-email">Email address</label>
-                <input
-                  id="login-email"
-                  type="email"
-                  class="login-input"
-                  value="farmer@example.com"
-                  placeholder="farmer@example.com"
-                  required
-                />
-              </div>
+            <ul class="team-credits-list">
+              <li class="team-credit-item">Michael Vert</li>
+              <li class="team-credit-item">Aniket Dixit</li>
+              <li class="team-credit-item">Aiden Weng</li>
+              <li class="team-credit-item">Rishabh Nagarkar</li>
+              <li class="team-credit-item">Gautham Reddy Sagili</li>
+              <li class="team-credit-item">Charles Wang</li>
+            </ul>
 
-              <div class="login-form-group">
-                <label class="login-label" for="login-password">Password</label>
-                <input
-                  id="login-password"
-                  type="password"
-                  class="login-input"
-                  value="password1234"
-                  placeholder="••••••••••"
-                  required
-                />
-              </div>
-
-              <button type="submit" class="login-submit-btn">
-                <span>Continue to region setup &rarr;</span>
-              </button>
-            </form>
-
-            <a href="#login-section" class="login-forgot-link" data-nav-target="location-view">
-              Forgot password?
-            </a>
+            <button type="button" id="login-continue-btn" class="login-submit-btn">
+              <span>Continue &rarr;</span>
+            </button>
           </div>
         </div>
       </section>
@@ -318,7 +297,7 @@
               </div>
 
               <button type="button" id="confirm-region-btn" class="confirm-region-btn">
-                <span>Confirm region and continue &rarr;</span>
+                <span>Continue &rarr;</span>
               </button>
             </div>
           </div>
@@ -379,26 +358,30 @@
 
           <div class="sidebar-section-label">FIELD SETTINGS</div>
 
-          <!-- Dropdown 1: Field -->
+          <!-- Dropdown 1: Previous crop planted (single-select) -->
           <div class="sidebar-control-group">
-            <label class="sidebar-label">Field</label>
-            <button type="button" id="sidebar-field-trigger" class="custom-select-trigger">
-              <span id="sidebar-field-label">Select field...</span>
+            <label class="sidebar-label">Previous crop planted</label>
+            <button type="button" id="sidebar-prev-crop-trigger" class="custom-select-trigger">
+              <span id="sidebar-prev-crop-label">Field Corn (Silage &amp; Grain)</span>
               <span class="custom-select-chevron">&#8964;</span>
             </button>
-            <div id="sidebar-field-menu" class="field-dropdown-menu">
-              <button type="button" class="field-option-btn selected-field" data-field="F001">Field F001</button>
-              <button type="button" class="field-option-btn" data-field="F002">Field F002</button>
-              <button type="button" class="field-option-btn" data-field="F003">Field F003</button>
-              <button type="button" class="field-option-btn" data-field="F004">Field F004</button>
-              <button type="button" class="field-option-btn" data-field="F005">Field F005</button>
-              <button type="button" class="field-option-btn" data-field="F006">Field F006</button>
-              <button type="button" class="field-option-btn" data-field="F007">Field F007</button>
-              <button type="button" class="field-option-btn" data-field="F008">Field F008</button>
-              <button type="button" id="field-custom-map-btn" class="field-custom-map-btn">
-                Choose custom map location<br />&rarr;
-              </button>
-              <button type="button" id="field-menu-close-btn" class="field-close-btn">Close</button>
+            <div id="sidebar-prev-crop-menu" class="cream-popover-menu crops-popover-menu">
+              <div class="cream-popover-title">What was the previous crop planted?</div>
+              <div id="sidebar-prev-crop-list" class="crop-multiselect-list">
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C01">Hay &amp; Alfalfa (Haylage)</button>
+                <button type="button" class="cream-option-btn active-option" data-prev-crop-option="C02">Field Corn (Silage &amp; Grain)</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C03">Soybeans &amp; Small Grains</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C04">Apples</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C05">Grapes (Juice &amp; Wine)</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C06">Cherries, Peaches, Pears &amp; Plums</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C07">Berries</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C08">Sugar Maple (Maple Syrup)</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C09">Cabbage</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C10">Onions</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C11">Potatoes</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C12">Sweet Corn, Snap Beans &amp; Green Peas</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C13">Beets, Carrots, Squash &amp; Pumpkins</button>
+              </div>
             </div>
           </div>
 
@@ -614,31 +597,62 @@
             </div>
 
             <div class="white-panel-card">
-              <h3 class="panel-serif-heading">Rotation score breakdown</h3>
+              <div class="breakdown-header-row">
+                <div>
+                  <h3 class="panel-serif-heading" style="margin-bottom: 4px;">Rotation score breakdown</h3>
+                  <div class="breakdown-scale-note">Each metric is scored 0 to 1 · averaged into a score out of 100</div>
+                </div>
+                <div class="breakdown-avg-badge">
+                  <span class="breakdown-avg-label">AVERAGE SCORE</span>
+                  <span id="breakdown-avg-score" class="breakdown-avg-val">81 / 100</span>
+                </div>
+              </div>
+
+              <div class="breakdown-scale-axis">
+                <span>Metric</span>
+                <div class="breakdown-axis-ticks">
+                  <span>0.0</span>
+                  <span>0.5</span>
+                  <span>1.0</span>
+                </div>
+                <span style="text-align: right;">0–1</span>
+              </div>
+
               <div class="breakdown-rows">
                 <div class="breakdown-row">
                   <span class="breakdown-label">Soil health</span>
                   <div class="breakdown-track">
                     <div id="bar-soil-health" class="breakdown-fill" style="width: 82%;"></div>
                   </div>
+                  <span id="val-soil-health" class="breakdown-score-num">0.82</span>
                 </div>
                 <div class="breakdown-row">
                   <span class="breakdown-label">Water safety</span>
                   <div class="breakdown-track">
                     <div id="bar-water-safety" class="breakdown-fill" style="width: 88%;"></div>
                   </div>
+                  <span id="val-water-safety" class="breakdown-score-num">0.88</span>
                 </div>
                 <div class="breakdown-row">
                   <span class="breakdown-label">Resilience</span>
                   <div class="breakdown-track">
                     <div id="bar-resilience" class="breakdown-fill" style="width: 76%;"></div>
                   </div>
+                  <span id="val-resilience" class="breakdown-score-num">0.76</span>
                 </div>
                 <div class="breakdown-row">
                   <span class="breakdown-label">Yield potential</span>
                   <div class="breakdown-track">
                     <div id="bar-yield-potential" class="breakdown-fill" style="width: 71%;"></div>
                   </div>
+                  <span id="val-yield-potential" class="breakdown-score-num">0.71</span>
+                </div>
+                <div class="breakdown-row">
+                  <span class="breakdown-label">Nitrogen fixation</span>
+                  <div class="breakdown-track">
+                    <div id="bar-nitrogen-fix" class="breakdown-fill" style="width: 86%;"></div>
+                  </div>
+                  <span id="val-nitrogen-fix" class="breakdown-score-num">0.86</span>
                 </div>
               </div>
             </div>
@@ -649,30 +663,26 @@
             <table class="ranked-table">
               <thead>
                 <tr>
-                  <th style="width: 68px;">RANK</th>
-                  <th>ROTATION</th>
-                  <th style="width: 140px;">TOTAL SCORE</th>
-                  <th style="width: 140px;">WATER SAFETY</th>
+                  <th class="col-rank">RANK</th>
+                  <th class="col-rotation">ROTATION</th>
+                  <th class="col-score">TOTAL SCORE</th>
                 </tr>
               </thead>
               <tbody id="ranked-alternatives-tbody">
                 <tr class="ranked-row selected-rank-row">
-                  <td>01</td>
-                  <td>Soybeans &amp; Small Grains &rarr; Field Corn (Silage &amp; Grain) &rarr; Hay &amp; Alfalfa (Haylage)</td>
-                  <td>0.86</td>
-                  <td>0.88</td>
+                  <td class="col-rank">01</td>
+                  <td class="col-rotation">Soybeans &amp; Small Grains &rarr; Field Corn (Silage &amp; Grain) &rarr; Hay &amp; Alfalfa (Haylage)</td>
+                  <td class="col-score">0.86</td>
                 </tr>
                 <tr class="ranked-row">
-                  <td>02</td>
-                  <td>Sweet Corn, Snap Beans &amp; Green Peas &rarr; Cabbage &rarr; Onions</td>
-                  <td>0.81</td>
-                  <td>0.92</td>
+                  <td class="col-rank">02</td>
+                  <td class="col-rotation">Sweet Corn, Snap Beans &amp; Green Peas &rarr; Cabbage &rarr; Onions</td>
+                  <td class="col-score">0.81</td>
                 </tr>
                 <tr class="ranked-row">
-                  <td>03</td>
-                  <td>Soybeans &amp; Small Grains &rarr; Potatoes &rarr; Beets, Carrots, Squash &amp; Pumpkins</td>
-                  <td>0.77</td>
-                  <td>0.84</td>
+                  <td class="col-rank">03</td>
+                  <td class="col-rotation">Soybeans &amp; Small Grains &rarr; Potatoes &rarr; Beets, Carrots, Squash &amp; Pumpkins</td>
+                  <td class="col-score">0.77</td>
                 </tr>
               </tbody>
             </table>
@@ -682,23 +692,54 @@
         <!-- TAB 2: FIELD MAP & CLIMATE -->
         <section id="tab-panel-map" class="dash-tab-panel">
           <div class="map-climate-top-grid">
-            <div>
-              <div class="satellite-map-container">
-                <img
-                  src="assets/field-health-map.jpg"
-                  alt="Field health map showing F001 through F008"
-                  class="satellite-map-img"
-                />
-                <!-- Interactive clickable hotspots mapped to F001-F008 badges -->
-                <button type="button" class="field-hotspot active-hotspot" data-field="F001" title="Select Field F001" style="left: 15.5%; top: 21%; width: 14.5%; height: 13.5%;"></button>
-                <button type="button" class="field-hotspot" data-field="F002" title="Select Field F002" style="left: 43%; top: 18.5%; width: 16.5%; height: 13.5%;"></button>
-                <button type="button" class="field-hotspot" data-field="F003" title="Select Field F003" style="left: 72%; top: 16%; width: 14%; height: 13.5%;"></button>
-                <button type="button" class="field-hotspot" data-field="F004" title="Select Field F004" style="left: 11%; top: 43.5%; width: 18.5%; height: 13.5%;"></button>
-                <button type="button" class="field-hotspot" data-field="F005" title="Select Field F005" style="left: 68%; top: 39%; width: 16.5%; height: 13.5%;"></button>
-                <button type="button" class="field-hotspot" data-field="F006" title="Select Field F006" style="left: 13.5%; top: 67%; width: 14%; height: 13.5%;"></button>
-                <button type="button" class="field-hotspot" data-field="F007" title="Select Field F007" style="left: 39%; top: 65%; width: 17%; height: 13.5%;"></button>
-                <button type="button" class="field-hotspot" data-field="F008" title="Select Field F008" style="left: 67.5%; top: 62.5%; width: 14%; height: 13.5%;"></button>
+            <div class="white-panel-card map-builder-card">
+              <div class="map-builder-header">
+                <div>
+                  <h3 class="panel-serif-heading green-heading" style="margin-bottom: 4px;">Field map &amp; border planner</h3>
+                  <div class="water-demand-sub" style="margin-bottom: 0;">
+                    Type how many fields there are to generate square field borders, or click &amp; drag on the map to draw custom borders (API key placeholder for backend integration).
+                  </div>
+                </div>
+                <span class="map-api-badge">API Placeholder · Ready for Backend Key</span>
               </div>
+
+              <div class="map-controls-bar">
+                <div class="map-control-field">
+                  <label class="map-control-label" for="map-field-count-input">How many fields?</label>
+                  <input
+                    id="map-field-count-input"
+                    type="number"
+                    min="1"
+                    value="8"
+                    class="map-field-count-input"
+                    placeholder="Number of fields..."
+                  />
+                </div>
+
+                <div class="map-control-field">
+                  <label class="map-control-label" for="map-active-field-select">Active field</label>
+                  <select id="map-active-field-select" class="map-active-field-select"></select>
+                </div>
+
+                <div class="map-control-actions">
+                  <button type="button" id="map-draw-mode-btn" class="map-action-btn">
+                    Draw border on map
+                  </button>
+                  <button type="button" id="map-reset-grid-btn" class="map-action-btn secondary-map-btn">
+                    Auto-arrange squares
+                  </button>
+                </div>
+              </div>
+
+              <div id="map-draw-hint" class="map-draw-hint">
+                Click any square border (F001, F002, ...) to inspect that field, or click "Draw border on map" and drag across the satellite view to draw a square border for the active field.
+              </div>
+
+              <div id="satellite-map-canvas" class="satellite-map-container">
+                <div class="satellite-clean-terrain" aria-hidden="true"></div>
+                <div id="map-borders-layer" class="map-borders-layer"></div>
+              </div>
+
               <div class="map-caption-meta">
                 <div id="map-selected-field-meta">Selected field: F001 • simulated field readings</div>
                 <div id="map-rotation-preview-meta">Rotation preview: Soybeans &amp; Small Grains &rarr; Field Corn (Silage &amp; Grain) &rarr; Hay &amp; Alfalfa (Haylage)</div>
@@ -764,41 +805,29 @@
           </div>
 
           <div class="white-panel-card">
-            <h3 class="panel-serif-heading green-heading" style="margin-bottom: 6px;">Seasonal shifts · 2023 vs 2024</h3>
-            <div class="seasonal-sub">Illustrative trend comparison / rainfall, heat and NDVI</div>
+            <div class="climate-chart-header">
+              <div>
+                <h3 class="panel-serif-heading green-heading" style="margin-bottom: 4px;">5-Year temperature &amp; rainfall trend (2020–2024)</h3>
+                <div class="seasonal-sub" style="margin-bottom: 0;">Dual-axis 5-year history · Left Y-axis: Temperature (°C / °F) · Right Y-axis: Rainfall (mm)</div>
+              </div>
+              <div class="climate-chart-legend">
+                <span class="legend-item"><span class="legend-dot temp-dot"></span>Temperature (°C / °F)</span>
+                <span class="legend-item"><span class="legend-dot rain-dot"></span>Rainfall (mm)</span>
+              </div>
+            </div>
 
-            <div class="seasonal-bars-stage">
-              <div class="seasonal-bar-col">
-                <div id="season-bar-0" class="seasonal-bar-rect bar-2023" style="height: 82px;"></div>
-                <span class="seasonal-bar-label">Spring</span>
+            <div class="climate-line-chart-wrap">
+              <svg id="climate-line-chart-svg" viewBox="0 0 820 300" class="climate-line-chart-svg" aria-label="5-year temperature and rainfall dual axis line graph"></svg>
+            </div>
+
+            <div id="climate-trend-description" class="climate-trend-description">
+              <div class="climate-desc-item">
+                <strong>Temperature shift impact:</strong>
+                <span id="climate-temp-explanation">Loading 5-year temperature trend...</span>
               </div>
-              <div class="seasonal-bar-col">
-                <div id="season-bar-1" class="seasonal-bar-rect bar-2024" style="height: 122px;"></div>
-                <span class="seasonal-bar-label">Spring</span>
-              </div>
-              <div class="seasonal-bar-col">
-                <div id="season-bar-2" class="seasonal-bar-rect bar-2023" style="height: 108px;"></div>
-                <span class="seasonal-bar-label">Summer</span>
-              </div>
-              <div class="seasonal-bar-col">
-                <div id="season-bar-3" class="seasonal-bar-rect bar-2024" style="height: 68px;"></div>
-                <span class="seasonal-bar-label">Summer</span>
-              </div>
-              <div class="seasonal-bar-col">
-                <div id="season-bar-4" class="seasonal-bar-rect bar-2023" style="height: 92px;"></div>
-                <span class="seasonal-bar-label">Spring</span>
-              </div>
-              <div class="seasonal-bar-col">
-                <div id="season-bar-5" class="seasonal-bar-rect bar-2024" style="height: 64px;"></div>
-                <span class="seasonal-bar-label">Spring</span>
-              </div>
-              <div class="seasonal-bar-col">
-                <div id="season-bar-6" class="seasonal-bar-rect bar-2023" style="height: 76px;"></div>
-                <span class="seasonal-bar-label">Summer</span>
-              </div>
-              <div class="seasonal-bar-col">
-                <div id="season-bar-7" class="seasonal-bar-rect bar-2024" style="height: 48px;"></div>
-                <span class="seasonal-bar-label">Summer</span>
+              <div class="climate-desc-item">
+                <strong>Rainfall shift impact:</strong>
+                <span id="climate-rain-explanation">Loading 5-year rainfall trend...</span>
               </div>
             </div>
           </div>
@@ -807,9 +836,9 @@
         <!-- TAB 3: LIVE SENSOR READINGS -->
         <section id="tab-panel-sensors" class="dash-tab-panel">
           <div class="sensor-alert-banner">
-            <h2 id="sensor-alert-title" class="sensor-alert-title">Dry soil detected &mdash; rotation adjusted</h2>
+            <h2 id="sensor-alert-title" class="sensor-alert-title">Moisture probe: Dry soil selected &mdash; rotation adjusted</h2>
             <p id="sensor-alert-sub" class="sensor-alert-sub">
-              Demo: consider Soybeans &amp; Small Grains &rarr; Beets, Carrots, Squash &amp; Pumpkins for water resilience.
+              Backend response: Dry root-zone moisture detected. Prioritizing drought-tolerant legumes and reduced water demand.
             </p>
           </div>
 
@@ -833,11 +862,11 @@
             </div>
 
             <div class="white-panel-card">
-              <h3 class="panel-serif-heading" style="margin-bottom: 6px;">Elegoo Uno readings</h3>
-              <div class="sensor-card-sub">Local ground-truth · demo</div>
+              <h3 class="panel-serif-heading" style="margin-bottom: 6px;">Moisture probe readings</h3>
+              <div class="sensor-card-sub">Local moisture probe · ground-truth</div>
 
               <div class="sensor-reading-row">
-                <span class="sensor-reading-name">Root-zone moisture</span>
+                <span class="sensor-reading-name">Moisture probe status</span>
                 <span id="sensor-dev-rzm" class="sensor-reading-val">0.22 m³/m³ (Dry)</span>
               </div>
               <div class="sensor-reading-row">
@@ -852,35 +881,42 @@
           </div>
 
           <div class="white-panel-card">
-            <h3 class="panel-serif-heading">From satellite to soil.</h3>
+            <h3 class="panel-serif-heading">Moisture probe · decide Wet or Dry</h3>
             <div class="satellite-steps-list">
               <div class="satellite-step-line">
                 <span class="satellite-step-num">01</span>
-                <span>Move the capacitive probe from wet to dry soil.</span>
+                <span>Check the moisture probe in your soil and decide whether the soil is <strong>Wet</strong> or <strong>Dry</strong>.</span>
               </div>
               <div class="satellite-step-line">
                 <span class="satellite-step-num">02</span>
-                <span>Compare local readings against the NASA estimate.</span>
+                <span>Select <strong>Wet</strong> or <strong>Dry</strong> below to send your moisture probe state to the backend.</span>
               </div>
               <div class="satellite-step-line">
                 <span class="satellite-step-num">03</span>
-                <span>Watch the recommended crop rotation change.</span>
+                <span>Read the backend report below to see soil moisture guidance, irrigation advice, and your updated crop rotation.</span>
               </div>
             </div>
 
             <div class="probe-sim-bar">
-              <span class="probe-sim-label">Simulate Elegoo Uno capacitive probe state:</span>
+              <span class="probe-sim-label">Moisture probe decision (choose whether it is Wet or Dry):</span>
               <div class="probe-sim-buttons">
-                <button type="button" class="probe-mode-btn active-probe-mode" data-probe="dry">
-                  Dry soil probe
-                </button>
                 <button type="button" class="probe-mode-btn" data-probe="wet">
-                  Wet soil probe
+                  Moisture Probe: Wet
                 </button>
-                <button type="button" class="probe-mode-btn" data-probe="template">
-                  Template placeholders
+                <button type="button" class="probe-mode-btn active-probe-mode" data-probe="dry">
+                  Moisture Probe: Dry
                 </button>
               </div>
+            </div>
+
+            <div id="moisture-probe-backend-box" class="moisture-backend-response-box">
+              <div id="moisture-backend-heading" class="moisture-backend-heading">Backend report for Dry moisture probe</div>
+              <p id="moisture-backend-line-1" class="moisture-backend-text">
+                Soil moisture is below the satellite baseline. Backend recommends conserving root-zone water and avoiding consecutive high-transpiration crops.
+              </p>
+              <p id="moisture-backend-line-2" class="moisture-backend-text">
+                Backend rotation update: Soybeans &amp; Small Grains &rarr; Field Corn (Silage &amp; Grain) &rarr; Hay &amp; Alfalfa (Haylage).
+              </p>
             </div>
           </div>
         </section>
