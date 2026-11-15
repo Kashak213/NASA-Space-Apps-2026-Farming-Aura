@@ -25,3 +25,6 @@ ENV/
 .vscode/
 .idea/
 
+# Team setup notes that contain API keys
+TEAM_AI_AGENT_ENV_SETUP.txt
+

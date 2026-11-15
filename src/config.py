@@ -44,3 +44,13 @@ def get_google_maps_api_key() -> str | None:
     """Returns Google Maps key if set, otherwise None so the UI falls back to free Leaflet tiles."""
     return get_secret("GOOGLE_MAPS_API_KEY")
 
+
+def get_gemini_api_key() -> str | None:
+    """Backend-only Gemini key. Never send this to the browser."""
+    return get_secret("GEMINI_API_KEY")
+
+
+def get_gemini_model() -> str:
+    """Gemini model name, overridable with GEMINI_MODEL in .env."""
+    return get_secret("GEMINI_MODEL") or "gemini-3.1-flash-lite-preview"
+
