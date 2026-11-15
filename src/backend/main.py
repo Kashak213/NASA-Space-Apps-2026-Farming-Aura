@@ -31,6 +31,9 @@ from fetch_soil import fetch_usda_soil
 # Import the NASA POWER client to get sunlight, wind speed, rainfall, and temperature
 from nasa_client import fetch_nasa_power
 
+# Import the Mobile Measurement Station (MMS) serial telemetry reader
+from mms_sensor import get_mms_telemetry, start_mms_reader
+
 # Import the 7-weight scoring functions and preset farmer priority profiles from scoring.py
 from scoring import (
     PROFILES,
@@ -126,10 +129,13 @@ def resolve_farmer_crops(
 def build_climate_for_scoring(
     nasa_response: dict[str, Any],
     soil_data: dict[str, Any],
+    mms_telemetry: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     """
     Combine the NASA POWER summary dictionary with estimated soil moisture and
-    drought index values so scoring.py has every climate key it needs.
+    drought index values so scoring.py has every climate key it needs. If the
+    Mobile Measurement Station (MMS) is connected, blend its live ground-truth
+    readings into soil moisture, temperature, and drought index.
     """
     # Pull the averaged summary metrics and raw monthly time series from the NASA POWER response
     summary = dict(nasa_response.get("summary", {}))
@@ -164,6 +170,28 @@ def build_climate_for_scoring(
     awc = float(soil_data.get("awc", 0.18))
     soil_moisture_avg = round(max(0.12, min(0.48, (awc * 1.4) + 0.08 * precip_ratio)), 3)
 
+    # If the Mobile Measurement Station (MMS) is connected, incorporate its live readings
+    soil_temp_c: Optional[float] = None
+    air_humidity_pct: Optional[float] = None
+    is_raining = False
+    if mms_telemetry and mms_telemetry.get("connected"):
+        latest = mms_telemetry.get("latest") or {}
+        mms_moist_m3 = latest.get("soil_moisture_m3")
+        if mms_moist_m3 is not None:
+            # Blend 70% live MMS ground-truth root-zone moisture with 30% satellite/soil baseline
+            soil_moisture_avg = round(0.70 * float(mms_moist_m3) + 0.30 * soil_moisture_avg, 3)
+            if float(mms_moist_m3) < 0.24:
+                drought_index = round(min(0.85, drought_index + 0.15), 3)
+            elif float(mms_moist_m3) > 0.36:
+                drought_index = round(max(0.05, drought_index - 0.10), 3)
+
+        if latest.get("soil_temp_c") is not None:
+            soil_temp_c = float(latest["soil_temp_c"])
+        if latest.get("air_humidity_pct") is not None:
+            air_humidity_pct = float(latest["air_humidity_pct"])
+        if latest.get("is_raining") is not None:
+            is_raining = bool(latest["is_raining"])
+
     # Calculate how far above or below normal (950 mm) the yearly rainfall is as a percentage
     anomaly_precip_pct = round(((float(annual_precip) - 950.0) / 950.0) * 100.0, 1)
 
@@ -176,6 +204,9 @@ def build_climate_for_scoring(
         "estimated_annual_precip_mm": float(annual_precip),
         "t2m_avg_c": summary.get("t2m_avg_c") or 10.0,
         "summer_temp_c": summer_temp_c,
+        "soil_temp_c": soil_temp_c,
+        "air_humidity_pct": air_humidity_pct,
+        "is_raining": is_raining,
         "drought_index": drought_index,
         "soil_moisture_avg": soil_moisture_avg,
         "anomaly_precip_pct": anomaly_precip_pct,
@@ -278,9 +309,10 @@ def analyze_location_and_crops(
     )
     usda_result = fetch_usda_soil(lat=lat, lon=lon, use_cache=use_cache)
 
-    # Extract the normalized soil dictionary and build the combined climate dictionary for scoring.py
+    # Extract the normalized soil dictionary and check if the Mobile Measurement Station (MMS) is connected
     soil_data = usda_result["soil"]
-    climate_data = build_climate_for_scoring(nasa_result, soil_data)
+    mms_telemetry = get_mms_telemetry()
+    climate_data = build_climate_for_scoring(nasa_result, soil_data, mms_telemetry=mms_telemetry)
 
     # Step 2: Convert the crop names, IDs, or crop types from the frontend into crop dictionaries
     farmer_crops = resolve_farmer_crops(
@@ -369,7 +401,9 @@ def analyze_location_and_crops(
         "data_sources": {
             "nasa_power": nasa_result.get("source", "unknown"),
             "usda_soil": usda_result.get("source", "unknown"),
+            "mms": "live" if mms_telemetry.get("connected") else "offline",
         },
+        "mms_telemetry": mms_telemetry,
         "soil": {
             **soil_data,
             "baseline_soil_score": round(field_soil_baseline_score(soil_data), 3),
@@ -504,6 +538,12 @@ if FastAPI is not None:
     def list_priority_profiles() -> dict[str, Any]:
         """Return the 5 preset farmer priority profiles and their 7 weights for UI sliders."""
         return {"profiles": PROFILES}
+
+    @app.get("/mms/latest")
+    @app.get("/sensor/latest")
+    def get_latest_mms_reading() -> dict[str, Any]:
+        """Return live telemetry from the Mobile Measurement Station (MMS) or connected=False if offline."""
+        return get_mms_telemetry()
 
     @app.post("/analyze")
     def analyze_endpoint(request: AnalyzeRequestModel) -> dict[str, Any]:

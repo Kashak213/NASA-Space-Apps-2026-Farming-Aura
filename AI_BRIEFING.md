@@ -9,7 +9,7 @@
 - **Event:** NASA Space Apps Challenge 2026 (Nov 14–15, 2026)
 - **Team Repo:** `nasa space apps project teamfarming aura`
 - **Challenge:** *"Field Shift: Adapting Farms with NASA Data"*
-- **Objective:** Build a decision-support tool that combines NASA Earth observations (SMAP, MODIS, GPM, NASA POWER), local soil metrics (SoilGrids/USDA SSURGO), crop characteristics, and optional local hardware sensor inputs (Arduino/Raspberry Pi) to recommend optimal crop rotation strategies tailored to farmer priorities.
+- **Objective:** Build a decision-support tool that combines NASA Earth observations (SMAP, MODIS, GPM, NASA POWER), local soil metrics (SoilGrids/USDA SSURGO), crop characteristics, and optional local hardware sensor inputs from our **Mobile Measurement Station (MMS)** to recommend optimal crop rotation strategies tailored to farmer priorities.
 
 ---
 
@@ -25,6 +25,7 @@
   - **Difference between Comments and READMEs:**
     - **Code comments:** Casual, practical, and easy to skim. Explain what each block of code, math formula, or API step is doing and why so that any human teammate reading the file understands it right away without confusion, while keeping the code clean and readable.
     - **READMEs:** Same authentic student background, but slightly more technical, structured, and concise than code comments so it is clear we put real time and care into documenting our work.
+- **Hardware Naming Rule (CRITICAL):** Always refer to the physical sensor hardware unit as the **Mobile Measurement Station (MMS)** (or **MMS** for short). **Never** call it "Elegoo Uno", "Elegoo", or "Arduino" in UI text, documentation, presentation materials, comments, or API payloads.
 - **Exception for `AI_BRIEFING.md`:**
   - Keep `AI_BRIEFING.md` as technical, dense, and precise as needed. Do not dumb down `AI_BRIEFING.md` so that AI agents transferring work between computers or sessions retain full comprehension and save context tokens.
 
@@ -77,8 +78,8 @@
      1. Primary: `total_score` (Descending)
      2. Secondary: `water_stress` (Descending — breaks ties in favor of drought resilience)
      3. Tertiary: `nitrogen_fixation` (Descending — breaks ties in favor of soil-building legumes)
-3. **Optional Hardware Integration (Bonus Differentiator):**
-   - Decoupled Arduino / microcontroller sensor module reading localized soil temperature, moisture, or air pressure over Serial/HTTP as a ground-truth safety layer compared against satellite forecasts.
+3. **Mobile Measurement Station (MMS) Hardware Integration (Bonus Differentiator):**
+   - Decoupled **Mobile Measurement Station (MMS)** 4-sensor field unit reading localized capacitive soil moisture (`A0`), waterproof soil temperature (`D2`), ambient air temperature & relative humidity (`D3`), and surface rain detection (`A1`) over USB Serial (`9600` baud JSON stream) / HTTP as a ground-truth safety layer compared against satellite forecasts. Always display and refer to this unit as **Mobile Measurement Station (MMS)** (never "Elegoo Uno" or "Arduino").
 
 ---
 
@@ -165,7 +166,7 @@
    - Integrate SMAP soil moisture and MODIS NDVI layers (via `earthaccess` / AppEEARS or cached regional rasters/CSVs for instant UI responsiveness).
 2. **Phase 2 — Production Scoring Engine (`src/engine/`):**
    - Port and modularize the validated scoring, constraint filtering, and cyclic transition engine from `data/sample_data_test.py` into `src/engine/`.
-   - Add ground-truth hardware sensor delta adjustments (allowing local Arduino/sensor soil temperature, moisture, or pressure readings to override/adjust satellite anomaly scores).
+   - Add ground-truth **Mobile Measurement Station (MMS)** sensor delta adjustments (allowing local MMS soil temperature, soil moisture, air temperature/humidity, and rain readings to override/adjust satellite anomaly scores when connected, with automatic fallback to NASA/USDA data when the MMS is unplugged).
 3. **Phase 3 — Interactive Web UI & Map (`GitHub Pages` / `src/ui/`):**
    - Optional walkthrough/onboarding (farm location, farm/harvest goals, main crops) with **no login wall** and a **1-step "Skip / Load Sample Farm" button** so judges can bypass setup in one click.
    - Interactive map selector (Leaflet.js + Esri Satellite/NASA GIBS or Google Maps JS API, or `folium` in Streamlit) to pick a farm location or sample field.
@@ -238,3 +239,23 @@ Whether the frontend runs purely client-side on GitHub Pages or talks to the Pyt
 3. **Output Displayed in UI:**
    - Top-ranked multi-year crop rotation sequences (e.g., `Soybean -> Winter Wheat -> Corn`) sorted by `(total_score, water_stress, nitrogen_fixation)` descending.
    - Per-criterion score breakdown (0–100 scale), `penalty_multiplier`, and plain-English agronomic reasoning (e.g., legume nitrogen carry-over, root-depth compaction relief, drought trend resilience).
+
+---
+
+## 8. Mobile Measurement Station (MMS) Hardware Specification & Integration
+
+> **Naming Rule:** Always refer to the physical sensor hardware unit as the **Mobile Measurement Station (MMS)** (or **MMS**). Never refer to it as "Elegoo Uno" or "Arduino" in any UI labels, documentation, code comments, or API responses.
+
+1. **Sensors & Pin Mapping on the Mobile Measurement Station (MMS):**
+   - `A0`: Capacitive Soil Moisture Sensor v1.2 (`soil_moisture_pct`: `0–100%`, `soil_moisture_raw`: calibrated `520` dry air to `280` submerged)
+   - `D2`: DS18B20 Waterproof Stainless-Steel Soil Temperature Probe (`soil_temp_c`: `°C`, via 1-Wire adapter with built-in `4.7 kΩ` pull-up resistor)
+   - `D3`: DHT11 Ambient Air Temperature & Relative Humidity Sensor (`air_temp_c`: `°C`, `air_humidity_pct`: `% RH`)
+   - `A1`: Surface Rain Detection Sensor (`rain_intensity_pct`: `0–100%`, `rain_raw`: calibrated `60` dry to `270` wet, `is_raining`: `boolean`)
+2. **USB Serial Telemetry Stream (`9600` baud on `/dev/ttyACM0` / `/dev/ttyUSB0`):**
+   - Emits a single-line JSON packet every 2 seconds from `weather_box_firmware/weather_box_firmware.ino`:
+     ```json
+     {"soil_moisture_pct":16,"soil_moisture_raw":480,"soil_temp_c":21.69,"air_temp_c":22.0,"air_humidity_pct":49.0,"rain_intensity_pct":0,"rain_raw":22,"is_raining":false}
+     ```
+3. **Graceful Fallback Contract:**
+   - When the **Mobile Measurement Station (MMS)** is plugged in (`connected: true`), its live readings populate the frontend KPI cards and "Live sensor readings" tab and adjust field moisture/drought/temperature in the rotation scoring engine.
+   - When the **Mobile Measurement Station (MMS)** is unplugged (`connected: false`), the backend and frontend automatically fall back to NASA POWER + USDA SSURGO satellite/soil data and manual Wet/Dry simulation with zero errors.
