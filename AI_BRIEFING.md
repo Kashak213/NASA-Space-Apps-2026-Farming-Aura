@@ -64,6 +64,12 @@
          w7 * soil_compatibility        # Crop optimal pH/clay match + consecutive root-depth alternation
      )
      ```
+   - **5 Preset Farmer Priority Profiles (`PROFILES` in `src/backend/scoring.py`):**
+     - `Balanced`: `soil_health=0.20, water_stress=0.20, climate_res=0.15, nitrogen_fix=0.15, yield=0.15, drought_tol=0.10, soil_compat=0.05`
+     - `Max Yield`: `soil_health=0.10, water_stress=0.15, climate_res=0.10, nitrogen_fix=0.10, yield=0.40, drought_tol=0.10, soil_compat=0.05`
+     - `Water Conservation`: `soil_health=0.10, water_stress=0.35, climate_res=0.15, nitrogen_fix=0.10, yield=0.10, drought_tol=0.15, soil_compat=0.05`
+     - `Soil Health First`: `soil_health=0.30, water_stress=0.10, climate_res=0.10, nitrogen_fix=0.25, yield=0.10, drought_tol=0.10, soil_compat=0.05`
+     - `Climate Resilient`: `soil_health=0.15, water_stress=0.20, climate_res=0.25, nitrogen_fix=0.10, yield=0.10, drought_tol=0.15, soil_compat=0.05`
    - **Sequence Transition & Constraint Engine:**
      - Cyclic transition analysis (`sequence_transition_analysis`) penalizes back-to-back and wrap-around monoculture repeats (`seq[i] == seq[(i+1)%n]`) and consecutive same-family (`crop_type`) transitions, while rewarding legume-to-grain nitrogen carry-over and root-depth alternation.
      - Equipment/feasibility filtering (`filter_rotations_by_constraints`) and algorithmic N-year sequence generation (`generate_candidate_rotations`).
@@ -96,11 +102,12 @@
     ├── backend/                   # Python FastAPI backend & NASA POWER integration
     │   ├── main.py                # FastAPI routes (/analyze, CORS setup)
     │   ├── nasa_client.py         # NASA POWER API client (ALLSKY_SFC_SW_DWN, WS2M, PRECTOTCORR, T2M) + -999 stripping & offline cache
-    │   ├── scoring.py             # Crop suitability & climate shift alert logic
+    │   ├── scoring.py             # Crop suitability, 5 preset priority profiles, 7 weights & wind/sunlight sub-scores
+    │   ├── crops.py               # Crop catalog loader, lookup helpers, constraint filtering & N-year rotation generator
     │   ├── requirements.txt       # Backend dependencies (fastapi, uvicorn, requests)
     │   └── data/                  # Static & cached JSON files
     │       ├── ny_regions.json    # Static NY soil texture, pH & coordinates lookup
-    │       ├── crops.json         # Static 6 flagship NY crops thresholds
+    │       ├── crops.json         # 12 farm crops (grains, legumes, oilseeds, covers) & agronomic thresholds
     │       └── nasa_cache/        # Saved NASA POWER JSONs for offline demo backup
     ├── pipeline/                  # Live NASA POWER, SMAP, MODIS, GPM, and SoilGrids data fetchers
     ├── engine/                    # Production crop rotation scoring, transition penalties, and ML ranking
@@ -126,6 +133,14 @@
   - Updated `.gitignore` to block `.env.*`, `.streamlit/secrets.toml`, `*.pem`, and `*.key` while allowing `.env.example`.
   - Added `.env.example` and `src/config.py` (`get_secret`, `get_google_maps_api_key`) for safe key loading across local dev and deployment.
   - Added Section 7 below with dedicated instructions for the Frontend Team's AI assistants on building the interactive map for **GitHub Pages** (Leaflet + Esri/NASA GIBS zero-key stack vs. domain-restricted Google Maps JS API).
+- **Nov 14, 2026 — Crop Catalog & Rotation Generator in `src/backend/crops.py` (Google Antigravity):**
+  - Added `src/backend/crops.py` and populated `src/backend/data/crops.json` with all 12 crops (`C01`–`C12`: grains, legumes, oilseeds, and cover crops).
+  - Implemented `load_crops()`, `get_crop_by_id()`, `get_crop_by_name()`, `resolve_sequence_crops()`, `filter_rotations_by_constraints()`, and `generate_candidate_rotations()` with step-by-step plain-English comments.
+- **Nov 14, 2026 — 5 Preset Priority Profiles, Wind & Sunlight Sub-Score Integration & Inline Comments in `src/backend/scoring.py` (Google Antigravity):**
+  - Implemented `src/backend/scoring.py` with `PROFILES` (`Balanced`, `Max Yield`, `Water Conservation`, `Soil Health First`, `Climate Resilient`), each mapping the 7 factor weights (`soil_health`, `water_stress`, `climate_res`, `nitrogen_fix`, `yield`, `drought_tol`, `soil_compat`) to sum to `1.00`.
+  - Integrated NASA POWER 2m wind speed (`WS2M` / `ws2m_avg_m_s`) into `wind_stress_score()`, `soil_health_score()` (sandy topsoil wind erosion risk), `field_water_supply_score()` & `water_stress_score()` (wind-driven evaporation and leaf transpiration bump), and `climate_resilience_score()` (stalk lodging penalty and crop wind buffer).
+  - Integrated NASA POWER shortwave solar irradiance (`ALLSKY_SFC_SW_DWN` / `allsky_sfc_sw_dwn_avg`, in `MJ/m^2/day`) into `sunlight_suitability_score()`, `yield_potential_score()` (photosynthesis multiplier), `field_water_supply_score()` & `water_stress_score()` (solar evaporation and leaf heating bump when irradiance exceeds `18.0 MJ/m^2/day`), and `climate_resilience_score()`.
+  - Added the 7 sub-score functions, `sequence_transition_analysis()`, `score_rotation()`, `sort_rotations()`, and `compare_profiles_for_rotation()` with step-by-step plain-English comments explaining every block of code.
 - **Nov 14, 2026 — NASA POWER Client & Backend Structure (Google Antigravity):**
   - Created `src/backend/` structure (`main.py`, `nasa_client.py`, `scoring.py`, `requirements.txt`, `data/ny_regions.json`, `data/crops.json`, `data/nasa_cache/`).
   - Implemented `src/backend/nasa_client.py` connecting to NASA POWER (`daily` and `monthly` Agroclimatology endpoints) for `ALLSKY_SFC_SW_DWN`, `WS2M`, `PRECTOTCORR`, and `T2M` with `-999` fill-value stripping, `urllib`/`requests` support, and automatic JSON caching in `src/backend/data/nasa_cache/`.

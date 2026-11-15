@@ -1,0 +1,61 @@
+{
+  "Table": [
+    [
+      "mukey",
+      "map_unit_name",
+      "cokey",
+      "component_name",
+      "component_pct",
+      "drainage_class",
+      "horizon_name",
+      "depth_top_cm",
+      "depth_bottom_cm",
+      "organic_matter_pct",
+      "ph",
+      "bulk_density",
+      "cec",
+      "sand_pct",
+      "silt_pct",
+      "clay_pct",
+      "awc"
+    ],
+    [
+      "294676",
+      "Angola silt loam, 3 to 8 percent slopes",
+      "28356487",
+      "Angola",
+      "85",
+      "Somewhat poorly drained",
+      "H1",
+      "0",
+      "23",
+      "4.5",
+      "6.7",
+      "1.25",
+      "12.1",
+      "27",
+      "51",
+      "22",
+      "0.2"
+    ],
+    [
+      "294676",
+      "Angola silt loam, 3 to 8 percent slopes",
+      "28356487",
+      "Angola",
+      "85",
+      "Somewhat poorly drained",
+      "H2",
+      "23",
+      "56",
+      "1.5",
+      "6.7",
+      "1.73000001907349",
+      "17.2",
+      "23",
+      "45",
+      "32",
+      "0.15"
+    ]
+  ]
+}
