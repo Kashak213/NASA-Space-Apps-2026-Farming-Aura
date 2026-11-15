@@ -421,18 +421,72 @@
             </div>
           </div>
 
-          <!-- Dropdown 3: Equipment -->
+          <!-- Dropdown 3: Crops -->
           <div class="sidebar-control-group">
-            <label class="sidebar-label">Equipment</label>
+            <label class="sidebar-label">Crops</label>
             <button type="button" id="sidebar-equip-trigger" class="custom-select-trigger">
-              <span id="sidebar-equip-label">Select equipment...</span>
+              <span id="sidebar-equip-label">Select crops...</span>
               <span class="custom-select-chevron">&#8964;</span>
             </button>
-            <div id="sidebar-equip-menu" class="cream-popover-menu">
-              <div class="cream-popover-title">Choose equipment</div>
-              <div class="cream-popover-list">
-                <button type="button" class="cream-option-btn active-option" data-equip-option="Row-crop only">Row-crop only</button>
-                <button type="button" class="cream-option-btn" data-equip-option="All crop types">All crop types</button>
+            <div id="sidebar-equip-menu" class="cream-popover-menu crops-popover-menu">
+              <div class="cream-popover-title">Choose crops (pick 1 or more)</div>
+              <div id="sidebar-crops-list" class="crop-multiselect-list">
+                <button type="button" class="cream-option-btn crop-option-btn active-option" data-crop-option="C01">
+                  <span>Hay &amp; Alfalfa (Haylage)</span>
+                  <span class="crop-check-box">&#10003;</span>
+                </button>
+                <button type="button" class="cream-option-btn crop-option-btn active-option" data-crop-option="C02">
+                  <span>Field Corn (Silage &amp; Grain)</span>
+                  <span class="crop-check-box">&#10003;</span>
+                </button>
+                <button type="button" class="cream-option-btn crop-option-btn active-option" data-crop-option="C03">
+                  <span>Soybeans &amp; Small Grains</span>
+                  <span class="crop-check-box">&#10003;</span>
+                </button>
+                <button type="button" class="cream-option-btn crop-option-btn" data-crop-option="C04">
+                  <span>Apples</span>
+                  <span class="crop-check-box"></span>
+                </button>
+                <button type="button" class="cream-option-btn crop-option-btn" data-crop-option="C05">
+                  <span>Grapes (Juice &amp; Wine)</span>
+                  <span class="crop-check-box"></span>
+                </button>
+                <button type="button" class="cream-option-btn crop-option-btn" data-crop-option="C06">
+                  <span>Cherries, Peaches, Pears &amp; Plums</span>
+                  <span class="crop-check-box"></span>
+                </button>
+                <button type="button" class="cream-option-btn crop-option-btn" data-crop-option="C07">
+                  <span>Berries</span>
+                  <span class="crop-check-box"></span>
+                </button>
+                <button type="button" class="cream-option-btn crop-option-btn" data-crop-option="C08">
+                  <span>Sugar Maple (Maple Syrup)</span>
+                  <span class="crop-check-box"></span>
+                </button>
+                <button type="button" class="cream-option-btn crop-option-btn" data-crop-option="C09">
+                  <span>Cabbage</span>
+                  <span class="crop-check-box"></span>
+                </button>
+                <button type="button" class="cream-option-btn crop-option-btn" data-crop-option="C10">
+                  <span>Onions</span>
+                  <span class="crop-check-box"></span>
+                </button>
+                <button type="button" class="cream-option-btn crop-option-btn" data-crop-option="C11">
+                  <span>Potatoes</span>
+                  <span class="crop-check-box"></span>
+                </button>
+                <button type="button" class="cream-option-btn crop-option-btn" data-crop-option="C12">
+                  <span>Sweet Corn, Snap Beans &amp; Green Peas</span>
+                  <span class="crop-check-box"></span>
+                </button>
+                <button type="button" class="cream-option-btn crop-option-btn" data-crop-option="C13">
+                  <span>Beets, Carrots, Squash &amp; Pumpkins</span>
+                  <span class="crop-check-box"></span>
+                </button>
+              </div>
+              <div class="popover-actions-bar">
+                <button type="button" id="crops-clear-btn" class="popover-action-btn">Clear</button>
+                <button type="button" id="crops-done-btn" class="popover-action-btn primary-action">Apply</button>
               </div>
             </div>
           </div>
@@ -485,7 +539,7 @@
         <h1 id="dash-main-title" class="dash-title">Field F001</h1>
         <div class="dash-subtitle-row">
           <div id="dash-subtitle-left" class="dash-subtitle-left">Demo data • Balanced priority profile</div>
-          <div id="dash-subtitle-right" class="dash-subtitle-right">Equipment constraint: row crops only</div>
+          <div id="dash-subtitle-right" class="dash-subtitle-right">Crops selected (3): Hay &amp; Alfalfa (Haylage), Field Corn (Silage &amp; Grain), Soybeans &amp; Small Grains</div>
         </div>
 
         <!-- 4 KPI Cards -->
@@ -528,31 +582,31 @@
         <!-- TAB 1: CROP ROTATIONS -->
         <section id="tab-panel-rotations" class="dash-tab-panel active-panel visible-panel">
           <div class="rotation-banner-card">
-            <div class="rotation-banner-eyebrow">RECOMMENDED / THREE-YEAR ROTATION</div>
-            <h2 class="rotation-banner-title">A stronger season starts here.</h2>
+            <div id="rotation-banner-eyebrow" class="rotation-banner-eyebrow">RECOMMENDED / THREE-YEAR ROTATION</div>
+            <h2 id="rotation-banner-title" class="rotation-banner-title">A stronger season starts here.</h2>
 
             <div class="rotation-years-grid">
               <div class="year-step-card">
                 <div class="year-step-tag">YEAR 01</div>
-                <div id="year-01-crop" class="year-step-crop">Soybean</div>
+                <div id="year-01-crop" class="year-step-crop">Soybeans &amp; Small Grains</div>
                 <div id="year-01-role" class="year-step-role">Legume • nitrogen fixation</div>
               </div>
               <div class="year-step-card">
                 <div class="year-step-tag">YEAR 02</div>
-                <div id="year-02-crop" class="year-step-crop">Cover crop mix</div>
-                <div id="year-02-role" class="year-step-role">Soil building</div>
+                <div id="year-02-crop" class="year-step-crop">Field Corn (Silage &amp; Grain)</div>
+                <div id="year-02-role" class="year-step-role">Grain • yield potential</div>
               </div>
               <div class="year-step-card">
                 <div class="year-step-tag">YEAR 03</div>
-                <div id="year-03-crop" class="year-step-crop">Corn</div>
-                <div id="year-03-role" class="year-step-role">Grain • yield potential</div>
+                <div id="year-03-crop" class="year-step-crop">Hay &amp; Alfalfa (Haylage)</div>
+                <div id="year-03-role" class="year-step-role">Legume • deep roots &amp; soil building</div>
               </div>
             </div>
           </div>
 
           <div class="rotation-mid-grid">
             <div class="white-panel-card">
-              <h3 class="panel-serif-heading">Why this rotation won</h3>
+              <h3 id="why-won-heading" class="panel-serif-heading">Why this rotation won</h3>
               <div class="why-won-list">
                 <p id="why-won-line-1" class="why-won-item">Legume rotation supports soil nitrogen.</p>
                 <p id="why-won-line-2" class="why-won-item">Cover crops protect soil between seasons.</p>
@@ -604,19 +658,19 @@
               <tbody id="ranked-alternatives-tbody">
                 <tr class="ranked-row selected-rank-row">
                   <td>01</td>
-                  <td>Soybean &rarr; Cover crop mix &rarr; Corn</td>
+                  <td>Soybeans &amp; Small Grains &rarr; Field Corn (Silage &amp; Grain) &rarr; Hay &amp; Alfalfa (Haylage)</td>
                   <td>0.86</td>
                   <td>0.88</td>
                 </tr>
                 <tr class="ranked-row">
                   <td>02</td>
-                  <td>Sorghum &rarr; Soybean &rarr; Rye</td>
+                  <td>Sweet Corn, Snap Beans &amp; Green Peas &rarr; Cabbage &rarr; Onions</td>
                   <td>0.81</td>
                   <td>0.92</td>
                 </tr>
                 <tr class="ranked-row">
                   <td>03</td>
-                  <td>Corn &rarr; Soybean &rarr; Cover crop mix</td>
+                  <td>Soybeans &amp; Small Grains &rarr; Potatoes &rarr; Beets, Carrots, Squash &amp; Pumpkins</td>
                   <td>0.77</td>
                   <td>0.84</td>
                 </tr>
@@ -647,7 +701,7 @@
               </div>
               <div class="map-caption-meta">
                 <div id="map-selected-field-meta">Selected field: F001 • simulated field readings</div>
-                <div id="map-rotation-preview-meta">Rotation preview: Soybean &rarr; Cover crop &rarr; Corn</div>
+                <div id="map-rotation-preview-meta">Rotation preview: Soybeans &amp; Small Grains &rarr; Field Corn (Silage &amp; Grain) &rarr; Hay &amp; Alfalfa (Haylage)</div>
               </div>
             </div>
 
@@ -658,51 +712,51 @@
               <div class="crop-water-list">
                 <div class="crop-water-item">
                   <div class="crop-water-header">
-                    <span>Rye</span>
-                    <span class="crop-water-mm">180 mm</span>
+                    <span>Grapes (Juice &amp; Wine)</span>
+                    <span class="crop-water-mm">380 mm</span>
                   </div>
                   <div class="crop-water-bar-wrap">
-                    <div id="water-bar-rye" class="crop-water-bar" style="width: 28%;"></div>
+                    <div id="water-bar-c05" class="crop-water-bar" style="width: 59%;"></div>
                   </div>
                 </div>
 
                 <div class="crop-water-item">
                   <div class="crop-water-header">
-                    <span>Sorghum</span>
-                    <span class="crop-water-mm">300 mm</span>
+                    <span>Soybeans &amp; Small Grains</span>
+                    <span class="crop-water-mm">420 mm</span>
                   </div>
                   <div class="crop-water-bar-wrap">
-                    <div id="water-bar-sorghum" class="crop-water-bar" style="width: 47%;"></div>
+                    <div id="water-bar-c03" class="crop-water-bar" style="width: 65%;"></div>
                   </div>
                 </div>
 
                 <div class="crop-water-item">
                   <div class="crop-water-header">
-                    <span>Soybean</span>
-                    <span class="crop-water-mm">450 mm</span>
+                    <span>Potatoes</span>
+                    <span class="crop-water-mm">480 mm</span>
                   </div>
                   <div class="crop-water-bar-wrap">
-                    <div id="water-bar-soybean" class="crop-water-bar" style="width: 70%;"></div>
+                    <div id="water-bar-c11" class="crop-water-bar" style="width: 75%;"></div>
                   </div>
                 </div>
 
                 <div class="crop-water-item">
                   <div class="crop-water-header">
-                    <span>Corn</span>
+                    <span>Field Corn (Silage &amp; Grain)</span>
                     <span class="crop-water-mm">550 mm</span>
                   </div>
                   <div class="crop-water-bar-wrap">
-                    <div id="water-bar-corn" class="crop-water-bar exceeds-rain" style="width: 86%;"></div>
+                    <div id="water-bar-c02" class="crop-water-bar exceeds-rain" style="width: 86%;"></div>
                   </div>
                 </div>
 
                 <div class="crop-water-item">
                   <div class="crop-water-header">
-                    <span>Alfalfa</span>
-                    <span class="crop-water-mm">600 mm</span>
+                    <span>Hay &amp; Alfalfa (Haylage)</span>
+                    <span class="crop-water-mm">580 mm</span>
                   </div>
                   <div class="crop-water-bar-wrap">
-                    <div id="water-bar-alfalfa" class="crop-water-bar exceeds-rain" style="width: 94%;"></div>
+                    <div id="water-bar-c01" class="crop-water-bar exceeds-rain" style="width: 91%;"></div>
                   </div>
                 </div>
               </div>
@@ -755,7 +809,7 @@
           <div class="sensor-alert-banner">
             <h2 id="sensor-alert-title" class="sensor-alert-title">Dry soil detected &mdash; rotation adjusted</h2>
             <p id="sensor-alert-sub" class="sensor-alert-sub">
-              Demo: consider Sorghum &rarr; Soybean for water resilience.
+              Demo: consider Soybeans &amp; Small Grains &rarr; Beets, Carrots, Squash &amp; Pumpkins for water resilience.
             </p>
           </div>
 
