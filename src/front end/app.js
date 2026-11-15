@@ -3,7 +3,7 @@
 const FIELDS_DATA = {
   F001: {
     id: 'F001',
-    name: 'F001 · Test field',
+    name: 'Field F001',
     regionLabel: 'Albany, New York',
     lat: 41.5,
     lon: -93.6,
@@ -32,7 +32,7 @@ const FIELDS_DATA = {
   },
   F002: {
     id: 'F002',
-    name: 'F002 · Test field',
+    name: 'Field F002',
     regionLabel: 'Saratoga Springs, New York',
     lat: 41.7,
     lon: -93.4,
@@ -61,7 +61,7 @@ const FIELDS_DATA = {
   },
   F003: {
     id: 'F003',
-    name: 'F003 · Test field',
+    name: 'Field F003',
     regionLabel: 'Schenectady, New York',
     lat: 40.8,
     lon: -95.2,
@@ -90,7 +90,7 @@ const FIELDS_DATA = {
   },
   F004: {
     id: 'F004',
-    name: 'F004 · Test field',
+    name: 'Field F004',
     regionLabel: 'Troy, New York',
     lat: 42.1,
     lon: -92.8,
@@ -119,7 +119,7 @@ const FIELDS_DATA = {
   },
   F005: {
     id: 'F005',
-    name: 'F005 · Test field',
+    name: 'Field F005',
     regionLabel: 'Hudson, New York',
     lat: 41.3,
     lon: -94.1,
@@ -148,7 +148,7 @@ const FIELDS_DATA = {
   },
   F006: {
     id: 'F006',
-    name: 'F006 · Test field',
+    name: 'Field F006',
     regionLabel: 'Albany, New York',
     lat: 40.5,
     lon: -96.0,
@@ -177,7 +177,7 @@ const FIELDS_DATA = {
   },
   F007: {
     id: 'F007',
-    name: 'F007 · Test field',
+    name: 'Field F007',
     regionLabel: 'Saratoga Springs, New York',
     lat: 42.5,
     lon: -91.5,
@@ -206,7 +206,7 @@ const FIELDS_DATA = {
   },
   F008: {
     id: 'F008',
-    name: 'F008 · Test field',
+    name: 'Field F008',
     regionLabel: 'Hudson, New York',
     lat: 41.0,
     lon: -94.8,
@@ -681,7 +681,7 @@ function renderDashboard() {
   const dashSubLeft = document.getElementById('dash-subtitle-left');
   const dashSubRight = document.getElementById('dash-subtitle-right');
   if (dashEyebrow) dashEyebrow.textContent = `FIELD ${field.id} / DEMO DATA`;
-  if (dashMainTitle) dashMainTitle.textContent = `${field.name}, understood.`;
+  if (dashMainTitle) dashMainTitle.textContent = field.name;
   if (dashSubLeft) dashSubLeft.textContent = `Demo data • ${appState.selectedProfile} priority profile`;
   if (dashSubRight) {
     dashSubRight.textContent =
