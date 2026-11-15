@@ -291,7 +291,11 @@ const CROPS_DATA = {
   C10: { id: 'C10', name: 'Onions', type: 'root_veg', isPerennial: false, roleTag: 'Allium • shallow root cash crop', water: 410, nFix: 0.0, droughtTol: 0.35, phMin: 6.0, phMax: 7.0, clayMin: 12, clayMax: 30, yieldT: 10.5, rootM: 0.4, build: 0.25 },
   C11: { id: 'C11', name: 'Potatoes', type: 'root_veg', isPerennial: false, roleTag: 'Tuber • high yield or loose soil', water: 480, nFix: 0.0, droughtTol: 0.40, phMin: 5.2, phMax: 6.5, clayMin: 12, clayMax: 32, yieldT: 11.8, rootM: 0.7, build: 0.20 },
   C12: { id: 'C12', name: 'Sweet Corn, Snap Beans or Green Peas', type: 'legume', isPerennial: false, roleTag: 'Vegetable legume • nitrogen builder', water: 430, nFix: 0.65, droughtTol: 0.50, phMin: 5.8, phMax: 7.0, clayMin: 15, clayMax: 38, yieldT: 7.5, rootM: 0.9, build: 0.75 },
-  C13: { id: 'C13', name: 'Beets, Carrots, Squash or Pumpkins', type: 'vegetable', isPerennial: false, roleTag: 'Root or vine veg • broad ground cover', water: 400, nFix: 0.0, droughtTol: 0.55, phMin: 5.8, phMax: 7.0, clayMin: 12, clayMax: 35, yieldT: 9.2, rootM: 0.9, build: 0.45 }
+  C13: { id: 'C13', name: 'Beets, Carrots, Squash or Pumpkins', type: 'vegetable', isPerennial: false, roleTag: 'Root or vine veg • broad ground cover', water: 400, nFix: 0.0, droughtTol: 0.55, phMin: 5.8, phMax: 7.0, clayMin: 12, clayMax: 35, yieldT: 9.2, rootM: 0.9, build: 0.45 },
+  C14: { id: 'C14', name: 'Small Grains (Winter Wheat, Oats or Barley)', type: 'grain', isPerennial: false, roleTag: 'Grain • cool season cover or feed', water: 360, nFix: 0.0, droughtTol: 0.75, phMin: 5.6, phMax: 7.2, clayMin: 15, clayMax: 42, yieldT: 4.8, rootM: 1.1, build: 0.55 },
+  C15: { id: 'C15', name: 'Sweet Corn', type: 'grain', isPerennial: false, roleTag: 'Grain • high-value market crop', water: 450, nFix: 0.0, droughtTol: 0.45, phMin: 5.8, phMax: 7.0, clayMin: 15, clayMax: 36, yieldT: 12.5, rootM: 1.0, build: 0.30 },
+  C16: { id: 'C16', name: 'Beets or Carrots', type: 'root_veg', isPerennial: false, roleTag: 'Root vegetable • deep loose soil', water: 390, nFix: 0.0, droughtTol: 0.55, phMin: 6.0, phMax: 7.2, clayMin: 12, clayMax: 30, yieldT: 28.0, rootM: 0.8, build: 0.35 },
+  C17: { id: 'C17', name: 'Winter Cover Crop Mix (Rye or Crimson Clover)', type: 'cover', isPerennial: false, roleTag: 'Cover crop • nitrogen builder or erosion shield', water: 220, nFix: 0.65, droughtTol: 0.85, phMin: 5.0, phMax: 7.8, clayMin: 10, clayMax: 48, yieldT: 3.5, rootM: 1.4, build: 1.0 }
 };
 
 const CANDIDATE_SEQUENCES = [
@@ -1245,18 +1249,34 @@ function renderDashboard() {
   }
 
   // Top 4 KPI cards
-  const annualRain = Math.round(field.spring2024Precip + field.summer2024Precip);
+  const annualRain = field.annualPrecip || Math.round(field.spring2024Precip + field.summer2024Precip);
   const kpiSoilVal = document.getElementById('kpi-soil-val');
   const kpiSoilSub = document.getElementById('kpi-soil-sub');
   const kpiRainVal = document.getElementById('kpi-rain-val');
+  const kpiRainSub = document.getElementById('kpi-rain-sub');
   const kpiMoistureVal = document.getElementById('kpi-moisture-val');
+  const kpiMoistureSub = document.getElementById('kpi-moisture-sub');
   const kpiTempVal = document.getElementById('kpi-temp-val');
+  const kpiTempSub = document.getElementById('kpi-temp-sub');
 
-  if (kpiSoilVal) kpiSoilVal.textContent = `${topPick.soilHealth.toFixed(2)} SH`;
+  const curSoilScore = topPick ? topPick.soilHealth : (field.mapSoilScore || 0.76);
+  if (kpiSoilVal) kpiSoilVal.textContent = `${curSoilScore.toFixed(2)} SH`;
   if (kpiSoilSub) kpiSoilSub.textContent = `OC ${field.oc.toFixed(1)}% · pH ${field.ph.toFixed(1)}`;
   if (kpiRainVal) kpiRainVal.textContent = `${annualRain} mm`;
+  if (kpiRainSub) {
+    const r1m = field.recent1MonthPrecip || Math.round(annualRain / 12);
+    kpiRainSub.textContent = `1-mo: ${r1m} mm · NASA POWER`;
+  }
   if (kpiMoistureVal) kpiMoistureVal.textContent = `${field.moistureAvg.toFixed(2)} RZM`;
+  if (kpiMoistureSub) {
+    const rzw = field.gwetroot ? `Wetness ${field.gwetroot.toFixed(2)}` : 'Root-zone wetness';
+    kpiMoistureSub.textContent = `${rzw} · NASA POWER`;
+  }
   if (kpiTempVal) kpiTempVal.textContent = `${field.soilTempC.toFixed(1)}°C`;
+  if (kpiTempSub) {
+    const airT = (field.airTempC || field.tempSummer || 20.0).toFixed(1);
+    kpiTempSub.textContent = `Air ${airT}°C · Soil ${field.soilTempC.toFixed(1)}°C`;
+  }
 
   // Tab 1: 3-year recommended rotation cards
   if (topPick && topPick.crops.length >= 3) {
@@ -1389,9 +1409,11 @@ function renderDashboard() {
 
   if (appState.probeMode === 'dry') {
     const localMoist = Math.max(0.14, field.moistureAvg - 0.13);
+    const airT = (field.airTempC || field.tempSummer || 20.0).toFixed(1);
+    const r1m = field.recent1MonthPrecip || field.summer2024Precip || 85;
     if (nasaRzm) nasaRzm.textContent = `${field.moistureAvg.toFixed(2)} m³/m³`;
-    if (nasaTemp) nasaTemp.textContent = `${field.tempSummer.toFixed(1)} °C`;
-    if (nasaPrecip) nasaPrecip.textContent = `${field.summer2024Precip} mm`;
+    if (nasaTemp) nasaTemp.textContent = `${airT} °C`;
+    if (nasaPrecip) nasaPrecip.textContent = `${r1m} mm`;
     if (devRzm) devRzm.textContent = `${localMoist.toFixed(2)} m³/m³ (Dry)`;
     if (devSt) devSt.textContent = `${(field.soilTempC + 2.3).toFixed(1)} °C`;
     if (devAh) devAh.textContent = '38 % RH';
@@ -1409,9 +1431,11 @@ function renderDashboard() {
     }
   } else {
     const localMoist = Math.min(0.49, field.moistureAvg + 0.06);
+    const airT = (field.airTempC || field.tempSummer || 20.0).toFixed(1);
+    const r1m = field.recent1MonthPrecip || field.summer2024Precip || 85;
     if (nasaRzm) nasaRzm.textContent = `${field.moistureAvg.toFixed(2)} m³/m³`;
-    if (nasaTemp) nasaTemp.textContent = `${field.tempSummer.toFixed(1)} °C`;
-    if (nasaPrecip) nasaPrecip.textContent = `${field.summer2024Precip} mm`;
+    if (nasaTemp) nasaTemp.textContent = `${airT} °C`;
+    if (nasaPrecip) nasaPrecip.textContent = `${r1m} mm`;
     if (devRzm) devRzm.textContent = `${localMoist.toFixed(2)} m³/m³ (Wet)`;
     if (devSt) devSt.textContent = `${field.soilTempC.toFixed(1)} °C`;
     if (devAh) devAh.textContent = '68 % RH';

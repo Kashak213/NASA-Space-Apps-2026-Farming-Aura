@@ -1,0 +1,61 @@
+{
+  "Table": [
+    [
+      "mukey",
+      "map_unit_name",
+      "cokey",
+      "component_name",
+      "component_pct",
+      "drainage_class",
+      "horizon_name",
+      "depth_top_cm",
+      "depth_bottom_cm",
+      "organic_matter_pct",
+      "ph",
+      "bulk_density",
+      "cec",
+      "sand_pct",
+      "silt_pct",
+      "clay_pct",
+      "awc"
+    ],
+    [
+      "286897",
+      "Euclid silt loam, occasionally flooded",
+      "28403947",
+      "Euclid",
+      "90",
+      "Somewhat poorly drained",
+      "H1",
+      "0",
+      "23",
+      "2.5",
+      "5.9",
+      "1.37999999523163",
+      "15",
+      "11.6",
+      "68.9",
+      "19.5",
+      "0.2"
+    ],
+    [
+      "286897",
+      "Euclid silt loam, occasionally flooded",
+      "28403947",
+      "Euclid",
+      "90",
+      "Somewhat poorly drained",
+      "H2",
+      "23",
+      "107",
+      "0.75",
+      "5.3",
+      "1.54999995231628",
+      "13.5",
+      "7.3",
+      "66.2",
+      "26.5",
+      "0.17"
+    ]
+  ]
+}

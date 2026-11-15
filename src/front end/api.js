@@ -1,60 +1,106 @@
 // Connects the dashboard to the Python backend (src/backend/main.py).
-// app.js still draws everything. This file swaps the rotation ranking for the backend's answer,
-// adds Gemini's plain-English explanations, and falls back to the built-in scoring and text
-// in app.js whenever the backend can't be reached.
+// app.js draws everything. This file connects the backend algorithms:
+// 1. Sends frontend dropdown inputs (GPS coords, previous crop, selected crops, profile, water demand) to POST /analyze
+// 2. Receives NASA POWER climate data, USDA SSURGO soil lab data, and ranked crop rotations
+// 3. Updates the dashboard KPIs (Soil health, pH, OC, Annual rainfall, 1-mo precip, Soil moisture, Soil temp, Air temp, N-fixation)
+// 4. Feeds Gemini AI plain-English rotation explanations via POST /explain
 
 (() => {
-  // Where the backend lives. Served by uvicorn it is the same address as the page.
-  // Opened from a file or Live Server it looks for a backend on this computer.
-  // On a public site like GitHub Pages it stays off unless window.FARMING_AURA_API
-  // is set to the deployed backend URL before this script loads.
   const onThisComputer = location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname);
   const sameServer = onThisComputer && location.port === '8000';
   const API_BASE = window.FARMING_AURA_API || (sameServer ? '' : onThisComputer ? 'http://localhost:8000' : null);
   if (API_BASE === null) return;
 
-  const RETRY_AFTER_MS = 15000;
+  const RETRY_AFTER_MS = 10000;
   const answers = new Map(); // request text -> backend response
-  const waiting = new Set(); // requests that are in the air right now
+  const waiting = new Set(); // requests currently in flight
   let backendDownSince = 0;
-  let lastSource = null; // 'live', 'cache' or 'demo' from the latest backend answer we showed
+  let lastSource = null;
 
-  // untouched copy of the sample fields so NASA numbers can be removed again
-  const sampleFields = JSON.parse(JSON.stringify(FIELDS_DATA));
-  const localRanking = getRankedRotations;
+  // Untouched copy of sample fields so we can blend or restore cleanly
+  const sampleFields = typeof FIELDS_DATA !== 'undefined' ? JSON.parse(JSON.stringify(FIELDS_DATA)) : {};
+  const localRanking = typeof getRankedRotations === 'function' ? getRankedRotations : () => [];
 
+  // 1. GATHER ALL FRONTEND INPUTS FROM DROPDOWNS & MAP CONTROLS
   function buildRequest() {
     const latInput = document.getElementById('step1-lat-input');
     const lonInput = document.getElementById('step1-lon-input');
-    const lat = parseFloat(latInput ? latInput.value : '');
-    const lon = parseFloat(lonInput ? lonInput.value : '');
+    const inputLat = parseFloat(latInput ? latInput.value : '');
+    const inputLon = parseFloat(lonInput ? lonInput.value : '');
+
+    const city = (typeof CITY_LOCATIONS !== 'undefined' && appState.selectedCity)
+      ? CITY_LOCATIONS[appState.selectedCity]
+      : null;
+
+    const lat = Number.isFinite(inputLat)
+      ? inputLat
+      : (appState.farmLocation?.lat ?? (city ? parseFloat(city.lat) : 42.6526));
+    const lon = Number.isFinite(inputLon)
+      ? inputLon
+      : (appState.farmLocation?.lon ?? (city ? parseFloat(city.lon) : -73.7562));
+
     return {
-      field_id: appState.selectedFieldId,
-      city: appState.selectedCity,
-      lat: Number.isFinite(lat) ? lat : null,
-      lon: Number.isFinite(lon) ? lon : null,
-      profile: appState.selectedProfile,
-      intensity: appState.profileIntensity,
-      selected_crops: appState.selectedCrops || [],
-      previous_crop: appState.previousCropId,
-      max_water: appState.maxWaterDemand,
-      // same rule app.js uses, the dry probe only counts while the sensor tab is open
+      field_id: appState.selectedFieldId || 'F001',
+      city: appState.selectedCity || 'Albany',
+      lat: Number.isFinite(lat) ? lat : 42.6526,
+      lon: Number.isFinite(lon) ? lon : -73.7562,
+      profile: appState.selectedProfile || 'Balanced',
+      profile_name: appState.selectedProfile || 'Balanced',
+      intensity: appState.profileIntensity || 50,
+      selected_crops: (appState.selectedCrops && appState.selectedCrops.length) ? appState.selectedCrops : ['C01', 'C02', 'C03'],
+      previous_crop: appState.previousCropId || 'C02',
+      max_water: appState.maxWaterDemand || 550,
+      max_water_demand_mm: appState.maxWaterDemand || 550,
+      rotation_length: 3,
+      top_n: 5,
       dry_probe: appState.sensorEnabled && appState.probeMode === 'dry' && appState.activeTab === 'sensors'
     };
   }
 
-  // Put NASA's rain and temperature onto the selected field, or put the sample numbers back
+  // 2. APPLY BACKEND NASA & USDA VALUES TO ALL FIELDS IN FIELDS_DATA
   function applyFieldUpdate(fieldId, update) {
-    const field = FIELDS_DATA[fieldId];
-    if (!field || !sampleFields[fieldId]) return;
-    Object.assign(field, sampleFields[fieldId], update || {});
+    if (!update || typeof FIELDS_DATA === 'undefined') return;
+    Object.keys(FIELDS_DATA).forEach((fid) => {
+      const f = FIELDS_DATA[fid];
+      if (f) Object.assign(f, update);
+    });
   }
 
-  // The backend sends crop ids, app.js wants the full crop objects
+  // 3. CONVERT BACKEND ROTATION SHAPE INTO DASHBOARD OBJECT
   function toDashboardShape(row) {
-    return { ...row, crops: row.seqIds.map((id) => CROPS_DATA[id]).filter(Boolean) };
+    const seq = Array.isArray(row.seqIds)
+      ? row.seqIds
+      : (typeof row.seq_ids === 'string' ? row.seq_ids.split('->').map((s) => s.trim()) : []);
+
+    const crops = seq.map((id) => {
+      if (typeof CROPS_DATA !== 'undefined' && CROPS_DATA[id]) return CROPS_DATA[id];
+      return {
+        id,
+        name: id,
+        roleTag: 'Crop rotation partner',
+        water: 400,
+        nFix: 0.5,
+        droughtTol: 0.5,
+        type: 'cover',
+        isPerennial: false
+      };
+    });
+
+    return {
+      ...row,
+      seqIds: seq,
+      crops,
+      label: row.label || row.seq_names || crops.map((c) => c.name).join(' → '),
+      totalScore: Number(row.totalScore ?? row.total_score ?? 0.75),
+      soilHealth: Number(row.soilHealth ?? row.soil_health ?? 0.75),
+      waterSafety: Number(row.waterSafety ?? row.water_stress ?? 0.8),
+      resilience: Number(row.resilience ?? row.climate_res ?? 0.8),
+      yieldPotential: Number(row.yieldPotential ?? row.yield_potential ?? 0.7),
+      nFixAvg: Number(row.nFixAvg ?? row.nitrogen_fixation ?? 0.6)
+    };
   }
 
+  // 4. SEND INPUTS TO BACKEND AND RECEIVE DATA
   function askBackend(key, request) {
     if (waiting.has(key)) return;
     if (backendDownSince && Date.now() - backendDownSince < RETRY_AFTER_MS) return;
@@ -66,54 +112,67 @@
       body: JSON.stringify(request)
     })
       .then((res) => {
-        if (!res.ok) throw new Error(`backend said ${res.status}`);
+        if (!res.ok) throw new Error(`backend status ${res.status}`);
         return res.json();
       })
       .then((data) => {
-        if (!data || !Array.isArray(data.ranked) || !data.ranked.length) throw new Error('empty answer');
+        const rawRotations = data.ranked || data.recommended_rotations;
+        if (!data || !Array.isArray(rawRotations) || !rawRotations.length) throw new Error('empty rotation list');
         backendDownSince = 0;
+
+        // Ensure ranked array is formatted
+        data.ranked = rawRotations.map(toDashboardShape);
+
+        // Save into memory cache
         answers.set(key, data);
-        // only redraw if the farmer hasn't changed something else in the meantime
-        if (JSON.stringify(buildRequest()) === key) renderAll();
+
+        // Update USDA soil and NASA climate numbers
+        applyFieldUpdate(request.field_id, data.field_update);
+        lastSource = data.nasa_source || (data.data_sources?.nasa_power) || 'live';
+
+        // Re-render dashboard if user state still matches
+        if (JSON.stringify(buildRequest()) === key && typeof renderAll === 'function') {
+          renderAll();
+        }
       })
       .catch((err) => {
-        if (!backendDownSince) console.warn('[Farming Aura] backend not reachable, using built-in scoring.', err.message);
+        if (!backendDownSince) console.warn('[Farming Aura] backend analyze failed, using fallback:', err.message);
         backendDownSince = Date.now();
         const hadBackend = lastSource !== null;
         lastSource = null;
-        if (hadBackend) renderAll();
+        if (hadBackend && typeof renderAll === 'function') renderAll();
       })
       .finally(() => waiting.delete(key));
   }
 
-  // app.js calls this every time it redraws
+  // 5. INTERCEPT getRankedRotations CALLED BY app.js
   getRankedRotations = function () {
     const request = buildRequest();
     const key = JSON.stringify(request);
     const data = answers.get(key);
 
-    if (data) {
+    if (data && Array.isArray(data.ranked) && data.ranked.length) {
       applyFieldUpdate(request.field_id, data.field_update);
-      lastSource = data.nasa_source;
+      lastSource = data.nasa_source || (data.data_sources?.nasa_power) || 'live';
       return data.ranked.map(toDashboardShape);
     }
 
+    // Trigger backend fetch
     askBackend(key, request);
+
     if (backendDownSince) {
-      applyFieldUpdate(request.field_id, null);
       lastSource = null;
     }
     return localRanking();
   };
 
-  // ---- Gemini explanations (written by the backend's /explain route) ----
-  const AI_WAIT_MS = 700; // wait for sliders to settle so we don't burn through the free rate limit
-  const aiAnswers = new Map(); // request text -> the four explanation strings (or null if Gemini had nothing)
+  // 6. GEMINI AI EXPLANATIONS
+  const AI_WAIT_MS = 600;
+  const aiAnswers = new Map();
   const aiWaiting = new Set();
-  let aiEnabled = true; // flips off if the backend says there is no GEMINI_API_KEY
+  let aiEnabled = true;
   let aiTimer = null;
 
-  // Same numbers the chart in app.js plots, so the explanation matches what the farmer sees
   function climateSeries(field) {
     const rain2023 = Math.round(field.spring2023Precip + field.summer2023Precip);
     const rain2024 = Math.round(field.spring2024Precip + field.summer2024Precip);
@@ -140,7 +199,7 @@
     if (!top) return null;
     const series = climateSeries(field);
     const probeCounts = appState.sensorEnabled && appState.activeTab === 'sensors';
-    const two = (n) => Number(n.toFixed(2));
+    const two = (n) => Number(Number(n || 0).toFixed(2));
     return {
       field_number: appState.selectedFieldNumber,
       city: appState.selectedCity,
@@ -179,15 +238,15 @@
         if (data.enabled === false) aiEnabled = false;
         aiAnswers.set(key, data.text || null);
         const now = buildExplainRequest();
-        if (data.text && now && JSON.stringify(now) === key) renderDashboard();
+        if (data.text && now && JSON.stringify(now) === key && typeof renderDashboard === 'function') {
+          renderDashboard();
+        }
       })
       .catch((err) => console.warn('[Farming Aura] Gemini explanation not available.', err.message))
       .finally(() => aiWaiting.delete(key));
   }
 
-  // Swap the template sentences for Gemini's once they arrive, otherwise leave app.js's text alone
   function showGeminiText() {
-    // /explain works on its own, so Gemini text shows even when /analyze can't rank for us
     if (!aiEnabled) return;
     const request = buildExplainRequest();
     if (!request) return;
@@ -208,7 +267,7 @@
       return;
     }
 
-    if (aiAnswers.has(key)) return; // already asked and Gemini had nothing
+    if (aiAnswers.has(key)) return;
     clearTimeout(aiTimer);
     aiTimer = setTimeout(() => {
       const latest = buildExplainRequest();
@@ -216,14 +275,14 @@
     }, AI_WAIT_MS);
   }
 
-  // After app.js draws the dashboard, say where the numbers came from and add the Gemini text
-  const drawDashboard = renderDashboard;
+  // 7. AFTER DRAWING DASHBOARD, UPDATE BADGES & TRIGGER GEMINI
+  const drawDashboard = typeof renderDashboard === 'function' ? renderDashboard : () => {};
   renderDashboard = function () {
     drawDashboard();
     const eyebrow = document.getElementById('dash-eyebrow-text');
     const labels = {
-      live: 'PYTHON BACKEND · NASA POWER LIVE',
-      cache: 'PYTHON BACKEND · NASA POWER (SAVED COPY)',
+      live: 'PYTHON BACKEND · NASA POWER & USDA LIVE',
+      cache: 'PYTHON BACKEND · NASA POWER & USDA (SAVED COPY)',
       demo: 'PYTHON BACKEND · SAMPLE CLIMATE DATA'
     };
     if (eyebrow && lastSource && labels[lastSource]) {
@@ -232,7 +291,6 @@
     showGeminiText();
   };
 
-  // handy in the browser console: FarmingAuraAPI.status()
   window.FarmingAuraAPI = {
     status: () => ({ apiBase: API_BASE || location.origin, connected: lastSource !== null, nasa: lastSource, gemini: aiEnabled }),
     request: buildRequest
