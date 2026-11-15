@@ -22,7 +22,12 @@ from main import analyze_farm_request
 from scoring import PROFILES, WEIGHT_KEYS
 
 
-def prompt_float(prompt_text: str, default_val: float) -> float:
+def prompt_float(
+    prompt_text: str,
+    default_val: float,
+    min_val: Optional[float] = None,
+    max_val: Optional[float] = None,
+) -> float:
     """
     Ask the user to type a decimal number (like latitude or longitude).
     If the user just presses Enter, return default_val.
@@ -32,7 +37,14 @@ def prompt_float(prompt_text: str, default_val: float) -> float:
         if not raw:
             return default_val
         try:
-            return float(raw)
+            val = float(raw)
+            if min_val is not None and val < min_val:
+                print(f"  -> Value must be at least {min_val}.")
+                continue
+            if max_val is not None and val > max_val:
+                print(f"  -> Value must be at most {max_val}.")
+                continue
+            return val
         except ValueError:
             print("  -> Please enter a valid number (for example 42.70 or -76.80).")
 
@@ -55,14 +67,52 @@ def prompt_int(prompt_text: str, default_val: int, min_val: int, max_val: int) -
             print("  -> Please enter a whole number.")
 
 
+def prompt_previous_crop(catalog: list[dict[str, Any]]) -> Optional[list[str]]:
+    """
+    Ask the user what crop (or sequence of crops) was already farmed on the
+    field prior to Year 1 so the model can factor in nitrogen carry-over, soil
+    compaction recovery, and pest/disease break rules.
+    """
+    print("\n" + "=" * 74)
+    print("  STEP 2A: WHAT CROP WAS ALREADY FARMED ON THIS FIELD?")
+    print("=" * 74)
+    print(f"  {'#':<4} {'ID':<6} {'Crop Name':<42} {'Family':<14}")
+    print(f"  {'-' * 4} {'-' * 6} {'-' * 42} {'-' * 14}")
+    for idx, crop in enumerate(catalog, 1):
+        print(
+            f"  {idx:<4} {crop['crop_id']:<6} {crop['crop_name'][:42]:<42} "
+            f"{crop['crop_type']:<14}"
+        )
+
+    print("\n  Enter the crop that was farmed last season (number, ID like C02, or name like Field Corn).")
+    print("  Press Enter if no prior crop history is known.")
+    raw = input("\n  Already farmed crop(s): ").strip()
+    if not raw or raw.lower() in ("none", "no", "skip"):
+        return None
+
+    chosen_prev: list[str] = []
+    for part in raw.split(","):
+        token = part.strip()
+        if not token:
+            continue
+        if token.isdigit():
+            num = int(token)
+            if 1 <= num <= len(catalog):
+                chosen_prev.append(str(catalog[num - 1]["crop_id"]))
+                continue
+        chosen_prev.append(token)
+
+    return chosen_prev if chosen_prev else None
+
+
 def prompt_crops(catalog: list[dict[str, Any]]) -> Optional[list[str]]:
     """
-    Show the numbered table of all 13 New York crops and let the user type
+    Show the numbered table of all 17 New York crop groups and let the user type
     crop numbers (1, 2, 3), crop IDs (C01, C02), crop names (Field Corn, Soybeans),
     or crop types (grain, legume, vegetable). Pressing Enter selects all crops.
     """
     print("\n" + "=" * 74)
-    print("  STEP 2: CHOOSE CROPS TO FARM")
+    print("  STEP 2B: CHOOSE CROPS TO FARM IN THE NEW ROTATION")
     print("=" * 74)
     print(f"  {'#':<4} {'ID':<6} {'Crop Name':<36} {'Family':<14} {'Water (mm)'}")
     print(f"  {'-' * 4} {'-' * 6} {'-' * 36} {'-' * 14} {'-' * 10}")
@@ -74,7 +124,7 @@ def prompt_crops(catalog: list[dict[str, Any]]) -> Optional[list[str]]:
 
     print("\n  Enter crops separated by commas.")
     print("  You can type numbers (2, 3, 11), IDs (C02, C03, C11), names (Corn, Soybeans, Potatoes),")
-    print("  or crop families (grain, legume, vegetable). Press Enter to test all 13 crops.")
+    print("  or crop families (grain, legume, vegetable). Press Enter to test all 17 crop groups.")
 
     raw = input("\n  Your crop selection: ").strip()
     if not raw or raw.lower() == "all":
@@ -173,33 +223,34 @@ def display_results(result: dict[str, Any]) -> None:
     print("=" * 74)
 
     # 1. Print NASA POWER weather summary and USDA SSURGO soil summary
-    print(f"\n  [1] NASA POWER Weather Data (source: {sources['nasa_power']})")
+    print(f"\n  [1] NASA POWER Weather Data (source: {sources['nasa_power']}, region: {climate.get('region_matched', 'NY')})")
     print(
-        f"      Sunlight (ALLSKY_SFC_SW_DWN): {climate['allsky_sfc_sw_dwn_avg']} MJ/m^2/day\n"
-        f"      Wind Speed at 2m (WS2M):      {climate['ws2m_avg_m_s']} m/s\n"
-        f"      Est. Annual Precipitation:    {climate['annual_precip_mm']} mm/year\n"
-        f"      Avg Temp / Summer Temp:       {climate['t2m_avg_c']} C / {climate['summer_temp_c']} C\n"
-        f"      Estimated Drought Index:      {climate['drought_index']} (Soil Moisture: {climate['soil_moisture_avg']})"
+        f"      Growing-Season Sunlight:      {climate.get('growing_season_solar_mj_m2_day', climate['allsky_sfc_sw_dwn_avg'])} MJ/m^2/day (Annual: {climate['allsky_sfc_sw_dwn_avg']})\n"
+        f"      Wind Speed at 2m (WS2M):      {climate.get('growing_season_wind_m_s', climate['ws2m_avg_m_s'])} m/s\n"
+        f"      Precipitation (Grow / Year):  {climate.get('growing_season_precip_mm')} mm (May-Sep) / {climate['annual_precip_mm']} mm/year\n"
+        f"      Temp (Growing / Summer):      {climate.get('growing_season_temp_c')} C / {climate['summer_temp_c']} C\n"
+        f"      Root-Zone Wetness & Drought:  GWETROOT={climate.get('growing_season_gwetroot')} | Moisture={climate['soil_moisture_avg']} | Drought={climate['drought_index']}\n"
+        f"      2023->2024 Climate Trends:    Rain Trend={climate.get('precip_anom_trend')}% | Drought Trend={climate.get('drought_trend')}"
     )
 
     print(f"\n  [2] USDA SSURGO Soil Data (source: {sources['usda_soil']})")
     print(
         f"      Map Unit Name:      {soil['map_unit_name']} ({soil['drainage_class']})\n"
         f"      Organic Carbon:     {soil['organic_carbon_pct']}% (Organic Matter: {soil['organic_matter_pct']}%)\n"
-        f"      Soil pH:            {soil['ph']} | Bulk Density: {soil['bulk_density']} g/cm3 | CEC: {soil['cec']}\n"
+        f"      Soil pH:            {soil['ph']} | Topsoil BD: {soil['bulk_density']} g/cm3 | Subsoil BD: {soil.get('subsoil_bulk_density')} g/cm3 | CEC: {soil['cec']}\n"
         f"      Texture (S/Si/C):   {soil['sand_pct']}% Sand / {soil['silt_pct']}% Silt / {soil['clay_pct']}% Clay\n"
-        f"      Baseline Soil Score: {soil['baseline_soil_score']}"
+        f"      Baseline Soil Score: {soil['baseline_soil_score']} (Drainage Score: {soil.get('drainage_score')})"
     )
 
     # 2. Print individual crop suitability scores for the user's selected crops
     print("\n  [3] Individual Crop Suitability on This Field:")
-    print(f"      {'ID':<5} {'Crop Name':<35} {'SoilFit':>8} {'Water':>8} {'Yield':>8} {'Drought':>8}")
-    print(f"      {'-' * 5} {'-' * 35} {'-' * 8} {'-' * 8} {'-' * 8} {'-' * 8}")
+    print(f"      {'ID':<5} {'Crop Name':<42} {'SoilFit':>8} {'Drain':>7} {'Water':>7} {'Yield':>7}")
+    print(f"      {'-' * 5} {'-' * 42} {'-' * 8} {'-' * 7} {'-' * 7} {'-' * 7}")
     for item in result["individual_crop_suitability"]:
         print(
-            f"      {item['crop_id']:<5} {item['crop_name'][:35]:<35} "
-            f"{item['soil_compatibility']:>8.3f} {item['water_stress']:>8.3f} "
-            f"{item['yield_potential']:>8.3f} {item['drought_tolerance']:>8.3f}"
+            f"      {item['crop_id']:<5} {item['crop_name'][:42]:<42} "
+            f"{item['soil_compatibility']:>8.3f} {item.get('drainage_suitability', 0.85):>7.3f} "
+            f"{item['water_stress']:>7.3f} {item['yield_potential']:>7.3f}"
         )
 
     # 3. If the user entered 2+ specific crops, show the score for their exact sequence order
@@ -231,6 +282,15 @@ def display_results(result: dict[str, Any]) -> None:
             f"{rot['yield_potential']:>6.3f} {rot['wind_safety']:>6.3f} {rot['sunlight_score']:>6.3f}"
         )
         print(f"            -> {rot['seq_names']}")
+        prev_eff = rot.get("previous_crop_effect", {})
+        if prev_eff.get("has_previous_crop"):
+            prev_names_str = ", ".join(prev_eff.get("previous_crop_names", []))
+            print(
+                f"               [Prior Crop: {prev_names_str} -> Year 1 Effect: {prev_eff.get('year1_transition')} "
+                f"| N-Carryover: +{prev_eff.get('prev_n_carryover_credit', 0.0):.3f} "
+                f"| Soil Recovery: +{prev_eff.get('prev_soil_recovery_bonus', 0.0):.3f} "
+                f"| Penalty: -{prev_eff.get('prev_penalty_applied', 0.0):.3f}]"
+            )
 
     # 5. Show how the #1 winning rotation scores across all 5 preset profiles
     comparison = result.get("top_rotation_profile_comparison", {})
@@ -255,9 +315,10 @@ def run_interactive_tester() -> None:
         print("  STEP 1: ENTER FARM COORDINATES (LATITUDE & LONGITUDE)")
         print("  (Examples: Finger Lakes NY = 42.70, -76.80 | Hudson Valley NY = 41.75, -74.08)")
         print("=" * 74)
-        lat = prompt_float("  Enter Latitude ", 42.70)
-        lon = prompt_float("  Enter Longitude", -76.80)
+        lat = prompt_float("  Enter Latitude ", 42.70, min_val=-90.0, max_val=90.0)
+        lon = prompt_float("  Enter Longitude", -76.80, min_val=-180.0, max_val=180.0)
 
+        previous_crops = prompt_previous_crop(catalog)
         selected_crops = prompt_crops(catalog)
         profile_name, custom_weights = prompt_scoring_profile()
 
@@ -271,6 +332,7 @@ def run_interactive_tester() -> None:
         payload = {
             "lat": lat,
             "lon": lon,
+            "previous_crops": previous_crops,
             "selected_crops": selected_crops,
             "profile_name": profile_name,
             "custom_weights": custom_weights,
