@@ -38,7 +38,7 @@
       selected_crops: appState.selectedCrops || [],
       previous_crop: appState.previousCropId,
       max_water: appState.maxWaterDemand,
-      // same rule app.js uses, the dry probe only counts while the sensor tab is open
+      // same rule app.js uses, the dry MMS Mobile Measuring Station only counts while the sensor tab is open
       dry_probe: appState.sensorEnabled && appState.probeMode === 'dry' && appState.activeTab === 'sensors'
     };
   }

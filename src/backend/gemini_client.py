@@ -33,7 +33,7 @@ Use ONLY the numbers and names in the DATA below. Do not make up any numbers, da
 
 Return a JSON object with exactly these four string fields:
 "why_line_1": one sentence on the main reason the recommended rotation scored well on this field. Mention one or two of its real scores.
-"why_line_2": one sentence of practical advice for this rotation given the previous crop, the water limit and the moisture probe.
+"why_line_2": one sentence of practical advice for this rotation given the previous crop, the water limit and the MMS Mobile Measuring Station.
 "temp_explanation": one or two sentences on what the summer temperature trend in the chart means for these crops.
 "rain_explanation": one or two sentences on what the rainfall trend in the chart means for these crops.
 

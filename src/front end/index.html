@@ -806,7 +806,7 @@
         <!-- TAB 3: LIVE SENSOR READINGS -->
         <section id="tab-panel-sensors" class="dash-tab-panel">
           <div class="sensor-alert-banner">
-            <h2 id="sensor-alert-title" class="sensor-alert-title">Moisture probe: Dry soil selected &mdash; rotation adjusted</h2>
+            <h2 id="sensor-alert-title" class="sensor-alert-title">MMS Mobile Measuring Station: Dry soil selected &mdash; rotation adjusted</h2>
             <p id="sensor-alert-sub" class="sensor-alert-sub">
               Backend response: Dry root-zone moisture detected. Prioritizing drought-tolerant legumes and reduced water demand.
             </p>
@@ -832,11 +832,11 @@
             </div>
 
             <div class="white-panel-card">
-              <h3 class="panel-serif-heading" style="margin-bottom: 6px;">Moisture probe readings</h3>
-              <div class="sensor-card-sub">Local moisture probe · ground-truth</div>
+              <h3 class="panel-serif-heading" style="margin-bottom: 6px;">MMS Mobile Measuring Station readings</h3>
+              <div class="sensor-card-sub">Local MMS Mobile Measuring Station · ground-truth</div>
 
               <div class="sensor-reading-row">
-                <span class="sensor-reading-name">Moisture probe status</span>
+                <span class="sensor-reading-name">MMS status</span>
                 <span id="sensor-dev-rzm" class="sensor-reading-val">0.22 m³/m³ (Dry)</span>
               </div>
               <div class="sensor-reading-row">
@@ -847,19 +847,23 @@
                 <span class="sensor-reading-name">Air humidity</span>
                 <span id="sensor-dev-ah" class="sensor-reading-val">38 % RH</span>
               </div>
+              <div class="sensor-reading-row">
+                <span class="sensor-reading-name">Rain sensor</span>
+                <span id="sensor-dev-rain" class="sensor-reading-val">No MMS data</span>
+              </div>
             </div>
           </div>
 
           <div class="white-panel-card">
-            <h3 class="panel-serif-heading">Moisture probe · decide Wet or Dry</h3>
+            <h3 class="panel-serif-heading">MMS Mobile Measuring Station · decide Wet or Dry</h3>
             <div class="satellite-steps-list">
               <div class="satellite-step-line">
                 <span class="satellite-step-num">01</span>
-                <span>Check the moisture probe in your soil and decide whether the soil is <strong>Wet</strong> or <strong>Dry</strong>.</span>
+                <span>Check the MMS Mobile Measuring Station in your soil and decide whether the soil is <strong>Wet</strong> or <strong>Dry</strong>.</span>
               </div>
               <div class="satellite-step-line">
                 <span class="satellite-step-num">02</span>
-                <span>Select <strong>Wet</strong> or <strong>Dry</strong> below to send your moisture probe state to the backend.</span>
+                <span>Select <strong>Wet</strong> or <strong>Dry</strong> below to send your MMS Mobile Measuring Station state to the backend.</span>
               </div>
               <div class="satellite-step-line">
                 <span class="satellite-step-num">03</span>
@@ -868,19 +872,19 @@
             </div>
 
             <div class="probe-sim-bar">
-              <span class="probe-sim-label">Moisture probe decision (choose whether it is Wet or Dry):</span>
+              <span class="probe-sim-label">MMS Mobile Measuring Station decision (choose whether it is Wet or Dry):</span>
               <div class="probe-sim-buttons">
                 <button type="button" class="probe-mode-btn" data-probe="wet">
-                  Moisture Probe: Wet
+                  MMS Mobile Measuring Station: Wet
                 </button>
                 <button type="button" class="probe-mode-btn active-probe-mode" data-probe="dry">
-                  Moisture Probe: Dry
+                  MMS Mobile Measuring Station: Dry
                 </button>
               </div>
             </div>
 
             <div id="moisture-probe-backend-box" class="moisture-backend-response-box">
-              <div id="moisture-backend-heading" class="moisture-backend-heading">Backend report for Dry moisture probe</div>
+              <div id="moisture-backend-heading" class="moisture-backend-heading">Backend report for Dry MMS Mobile Measuring Station</div>
               <p id="moisture-backend-line-1" class="moisture-backend-text">
                 Soil moisture is below the satellite baseline. Backend recommends conserving root-zone water and avoiding consecutive high-transpiration crops.
               </p>
@@ -915,7 +919,8 @@
           </svg>
           <strong>Google Gemini:</strong>
         </span>
-        Powers plain-English crop rotation explanations and climate impact analysis, synthesizing raw NASA meteorological shifts and USDA soil science into actionable recommendations for farmers.
+        Powers plain-English crop rotation explanations and climate impact analysis, synthesizing raw NASA meteorological shifts and USDA soil science into actionable recommendations for farmers.<br /><br />
+        <strong>MMS Mobile Measuring Station:</strong> Local ground-truth sensor reading capacitive soil moisture, soil temperature, air humidity, and surface rain detection to calibrate satellite estimates.
       </p>
       <button type="button" id="close-sources-modal-btn" class="modal-close-btn">Close</button>
     </div>

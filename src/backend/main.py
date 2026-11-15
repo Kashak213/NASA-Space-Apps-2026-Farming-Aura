@@ -42,8 +42,15 @@ from fetch_soil import fetch_usda_soil
 # Import the NASA POWER client to get sunlight, wind speed, rainfall, temperature, and root wetness
 from nasa_client import fetch_nasa_power
 
-# Gemini writes the plain-English dashboard explanations; the key stays on the backend only
+# Gemini writes the plain-English dashboard explanations, the key stays on the backend only
 from gemini_client import explain_dashboard, gemini_is_configured
+
+# Import the Mobile Measurement Station (MMS) serial telemetry reader
+try:
+    from mms_sensor import get_mms_telemetry, start_mms_reader
+except ImportError:
+    get_mms_telemetry = lambda auto_start=False: {"connected": False, "latest": {}}
+    start_mms_reader = lambda: None
 
 # gemini_client puts src/ on sys.path, so the shared .env reader is importable here
 from config import get_google_maps_api_key  # noqa: E402
@@ -248,6 +255,7 @@ def build_climate_for_scoring(
     soil_data: dict[str, Any],
     lat: float = 42.70,
     lon: float = -76.80,
+    mms_telemetry: Optional[dict[str, Any]] = None,
     sensor_overrides: Optional[dict[str, float]] = None,
 ) -> dict[str, Any]:
     """
@@ -355,6 +363,29 @@ def build_climate_for_scoring(
     moisture_factor = min(1.0, soil_moisture_avg / 0.34)
     solar_factor = min(1.0, growing_solar / 18.5)
     thermal_factor = max(0.4, min(1.0, (growing_temp_c - 8.0) / 11.0))
+
+    # If the Mobile Measurement Station (MMS) is connected, incorporate its live readings
+    soil_temp_c: Optional[float] = None
+    air_humidity_pct: Optional[float] = None
+    is_raining = False
+    if mms_telemetry and mms_telemetry.get("connected"):
+        latest = mms_telemetry.get("latest") or {}
+        mms_moist_m3 = latest.get("soil_moisture_m3")
+        if mms_moist_m3 is not None:
+            # Blend 70% live MMS ground-truth root-zone moisture with 30% satellite and soil baseline
+            soil_moisture_avg = round(0.70 * float(mms_moist_m3) + 0.30 * soil_moisture_avg, 3)
+            if float(mms_moist_m3) < 0.24:
+                drought_index = round(min(0.85, drought_index + 0.15), 3)
+            elif float(mms_moist_m3) > 0.36:
+                drought_index = round(max(0.05, drought_index - 0.10), 3)
+
+        if latest.get("soil_temp_c") is not None:
+            soil_temp_c = float(latest["soil_temp_c"])
+        if latest.get("air_humidity_pct") is not None:
+            air_humidity_pct = float(latest["air_humidity_pct"])
+        if latest.get("is_raining") is not None:
+            is_raining = bool(latest["is_raining"])
+
     estimated_ndvi = (
         override_ndvi
         if override_ndvi is not None
@@ -535,11 +566,13 @@ def analyze_location_and_crops(
     usda_result = fetch_usda_soil(lat=lat_f, lon=lon_f, use_cache=use_cache)
 
     soil_data = dict(usda_result["soil"])
+    mms_telemetry = get_mms_telemetry()
     climate_data = build_climate_for_scoring(
         nasa_result,
         soil_data,
         lat=lat_f,
         lon=lon_f,
+        mms_telemetry=mms_telemetry,
         sensor_overrides=sensor_overrides,
     )
 
@@ -647,7 +680,9 @@ def analyze_location_and_crops(
         "data_sources": {
             "nasa_power": nasa_result.get("source", "unknown"),
             "usda_soil": usda_result.get("source", "unknown"),
+            "mms": "live" if mms_telemetry.get("connected") else "offline",
         },
+        "mms_telemetry": mms_telemetry,
         "soil": {
             **soil_data,
             "baseline_soil_score": round(field_soil_baseline_score(soil_data), 3),
@@ -807,6 +842,17 @@ if FastAPI is not None:
             description="Optional local sensor overrides (soil_moisture, soil_ph, air_temp_c, ndvi_avg)",
         )
 
+    @app.on_event("startup")
+    def boot_mms_reader() -> None:
+        """Start reading the Mobile Measurement Station (MMS) when the server starts."""
+        start_mms_reader()
+
+    @app.get("/mms/latest")
+    @app.get("/sensor/latest")
+    def get_latest_mms_reading() -> dict[str, Any]:
+        """Return live telemetry from the Mobile Measurement Station (MMS) or connected=False if offline."""
+        return get_mms_telemetry()
+
     @app.get("/health")
     def health_check() -> dict[str, Any]:
         """Simple health check endpoint so the frontend knows the backend server is awake."""
@@ -895,7 +941,7 @@ if FastAPI is not None:
             "farmer_priority": req.profile if req.profile in PROFILES else "Balanced",
             "previous_crop": previous["crop_name"] if previous else "not given",
             "max_water_demand_mm_per_year": req.max_water,
-            "moisture_probe": req.probe if req.probe in ("wet", "dry") else "not used",
+            "mms_mobile_measuring_station": req.probe if req.probe in ("wet", "dry") else "not used",
             "recommended_rotation": [
                 {
                     "year": i + 1,
