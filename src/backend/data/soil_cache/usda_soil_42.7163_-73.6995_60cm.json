@@ -1,0 +1,42 @@
+{
+  "Table": [
+    [
+      "mukey",
+      "map_unit_name",
+      "cokey",
+      "component_name",
+      "component_pct",
+      "drainage_class",
+      "horizon_name",
+      "depth_top_cm",
+      "depth_bottom_cm",
+      "organic_matter_pct",
+      "ph",
+      "bulk_density",
+      "cec",
+      "sand_pct",
+      "silt_pct",
+      "clay_pct",
+      "awc"
+    ],
+    [
+      "293210",
+      "Udorthents, sandy",
+      "28582538",
+      "Udorthents",
+      "90",
+      "Excessively drained",
+      "H1",
+      "0",
+      "152",
+      "0.1",
+      "5.6",
+      "1.52999997138977",
+      "3.6",
+      "78.5",
+      "16.5",
+      "5",
+      "0.05"
+    ]
+  ]
+}
