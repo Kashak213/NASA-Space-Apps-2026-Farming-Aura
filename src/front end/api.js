@@ -194,6 +194,9 @@
     const key = JSON.stringify(request);
     const text = aiAnswers.get(key);
 
+    const whyTag = document.getElementById('why-won-gemini-tag');
+    const climateTag = document.getElementById('climate-gemini-tag');
+
     if (text) {
       const put = (id, value) => {
         const el = document.getElementById(id);
@@ -207,23 +210,13 @@
       if (heading) {
         heading.textContent = heading.textContent.replace(/\s*·\s*Gemini\s*$/i, '');
       }
-      let tag = document.getElementById('why-won-gemini-tag');
-      if (!tag) {
-        const list = document.querySelector('.why-won-list');
-        if (list) {
-          tag = document.createElement('div');
-          tag.id = 'why-won-gemini-tag';
-          tag.className = 'why-won-attribution';
-          tag.innerHTML = '<strong>Generated from Gemini</strong>';
-          list.appendChild(tag);
-        }
-      }
-      if (tag) tag.style.display = 'block';
+      if (whyTag) whyTag.style.display = 'inline-flex';
+      if (climateTag) climateTag.style.display = 'inline-flex';
       return;
     }
 
-    const tag = document.getElementById('why-won-gemini-tag');
-    if (tag) tag.style.display = 'none';
+    if (whyTag) whyTag.style.display = 'none';
+    if (climateTag) climateTag.style.display = 'none';
 
     if (aiAnswers.has(key)) return; // already asked and Gemini had nothing
     clearTimeout(aiTimer);
