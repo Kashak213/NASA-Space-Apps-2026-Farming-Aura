@@ -96,20 +96,18 @@ def find_nearest_ny_region(lat: float, lon: float) -> Optional[dict[str, Any]]:
 # even when FastAPI is not installed on a teammate's laptop yet
 from contextlib import asynccontextmanager
 
-FastAPI: Any = None
-HTTPException: Any = None
-CORSMiddleware: Any = None
-HTMLResponse: Any = None
-BaseModel: Any = object
-Field: Any = None
-
 try:
     from fastapi import FastAPI, HTTPException
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import HTMLResponse
     from pydantic import BaseModel, Field
 except ImportError:
-    pass
+    FastAPI = None  # type: ignore[assignment,misc]
+    HTTPException = None  # type: ignore[assignment,misc]
+    CORSMiddleware = None  # type: ignore[assignment,misc]
+    HTMLResponse = None  # type: ignore[assignment,misc]
+    BaseModel = object  # type: ignore[assignment,misc]
+    Field = None  # type: ignore[assignment,misc]
 
 
 def compute_polygon_centroid_and_acres(polygon_points: list[dict[str, Any]]) -> dict[str, float]:
@@ -796,7 +794,13 @@ def load_ui_html() -> str:
     return "<html><body><h2>Field Shift UI not found at src/ui/index.html</h2></body></html>"
 
 
-if FastAPI is not None:
+if (
+    FastAPI is not None
+    and CORSMiddleware is not None
+    and HTMLResponse is not None
+    and Field is not None
+    and HTTPException is not None
+):
     # Start reading the Mobile Measurement Station (MMS) as soon as the server boots.
     # If the MMS is not plugged in, get_mms_telemetry() just reports connected=False.
     @asynccontextmanager
