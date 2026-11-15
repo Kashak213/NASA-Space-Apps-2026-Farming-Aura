@@ -29,12 +29,14 @@ NASA_POWER_MONTHLY_URL = "https://power.larc.nasa.gov/api/temporal/monthly/point
 # WS2M = wind speed at 2m which drives transpiration water loss (m/s)
 # PRECTOTCORR = corrected daily rainfall (mm/day)
 # T2M = air temperature at 2m (degrees Celsius)
+# TS = earth skin / surface soil temperature (degrees Celsius)
 # GWETROOT = satellite-assimilated root-zone soil wetness (0.0 to 1.0 fraction)
 NASA_PARAMETERS: tuple[str, ...] = (
     "ALLSKY_SFC_SW_DWN",
     "WS2M",
     "PRECTOTCORR",
     "T2M",
+    "TS",
     "GWETROOT",
 )
 
@@ -43,6 +45,7 @@ PARAMETER_LABELS: dict[str, str] = {
     "WS2M": "Wind Speed at 2 Meters",
     "PRECTOTCORR": "Precipitation Corrected",
     "T2M": "Temperature at 2 Meters",
+    "TS": "Earth Skin Surface Soil Temperature",
     "GWETROOT": "Root Zone Soil Wetness",
 }
 
@@ -244,6 +247,9 @@ def summarize_parameters(
     temp_avg = _day_weighted_mean("T2M")
     growing_temp_avg = _day_weighted_mean("T2M", GROWING_SEASON_MONTHS)
     summer_temp_avg = _day_weighted_mean("T2M", SUMMER_MONTHS)
+    ts_avg = _day_weighted_mean("TS")
+    growing_ts_avg = _day_weighted_mean("TS", GROWING_SEASON_MONTHS)
+    summer_ts_avg = _day_weighted_mean("TS", SUMMER_MONTHS)
     gwetroot_avg = _day_weighted_mean("GWETROOT")
     growing_gwetroot_avg = _day_weighted_mean("GWETROOT", GROWING_SEASON_MONTHS)
 
@@ -266,7 +272,7 @@ def summarize_parameters(
 
     if len(yearly_precip) >= 2:
         years_sorted = sorted(yearly_precip.keys())
-        first_yr, last_yr = years_sorted[0], years_sorted[-1]
+        first_yr, last_yr = years_sorted[-2], years_sorted[-1]
         p_first = yearly_precip[first_yr] * 365.25
         p_last = yearly_precip[last_yr] * 365.25
         if p_first > 0:
@@ -274,7 +280,7 @@ def summarize_parameters(
 
     if len(yearly_summer_precip) >= 2:
         years_sorted = sorted(yearly_summer_precip.keys())
-        first_yr, last_yr = years_sorted[0], years_sorted[-1]
+        first_yr, last_yr = years_sorted[-2], years_sorted[-1]
         sp_first = yearly_summer_precip[first_yr]
         sp_last = yearly_summer_precip[last_yr]
         st_diff = (
@@ -295,6 +301,9 @@ def summarize_parameters(
         "t2m_avg_c": temp_avg,
         "growing_season_temp_c": growing_temp_avg or temp_avg,
         "summer_temp_c": summer_temp_avg or growing_temp_avg or temp_avg,
+        "ts_avg_c": ts_avg,
+        "growing_season_ts_c": growing_ts_avg or ts_avg,
+        "summer_ts_c": summer_ts_avg or growing_ts_avg or ts_avg,
         "gwetroot_avg": gwetroot_avg,
         "growing_season_gwetroot": growing_gwetroot_avg or gwetroot_avg,
         "precip_anom_trend": precip_anom_trend,

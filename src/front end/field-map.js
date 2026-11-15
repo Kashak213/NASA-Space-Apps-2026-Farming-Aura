@@ -77,6 +77,7 @@
       .map((p) => ({ lat: p.lat(), lng: p.lng() }));
     updateLabel(num);
     updateHint();
+    if (typeof renderDashboard === 'function') renderDashboard();
   }
 
   function updateLabel(num) {
@@ -152,6 +153,7 @@
     points.push({ lat: latLng.lat(), lng: latLng.lng() });
     drawField(num);
     updateHint();
+    if (typeof renderDashboard === 'function') renderDashboard();
   }
 
   // ---- Controls: swap app.js's square-drawing buttons for point-based ones ----
@@ -196,6 +198,7 @@
         if (points && points.length) points.pop();
         drawField(appState.selectedFieldNumber);
         updateHint();
+        if (typeof renderDashboard === 'function') renderDashboard();
       });
     }
     if (clearBtn) {
@@ -203,6 +206,7 @@
         delete appState.fieldPolygons[appState.selectedFieldNumber];
         drawField(appState.selectedFieldNumber);
         updateHint();
+        if (typeof renderDashboard === 'function') renderDashboard();
       });
     }
 

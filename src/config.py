@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 
+
 # parse .env manually so we don't crash if someone forgot to pip install python-dotenv
 def _load_dotenv_file(env_path: Path | None = None) -> None:
     if env_path is None:

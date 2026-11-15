@@ -474,23 +474,23 @@
         <div class="kpi-cards-grid">
           <div class="kpi-card">
             <div class="kpi-label">Soil health</div>
-            <div id="kpi-soil-val" class="kpi-value">0.81 SH</div>
-            <div id="kpi-soil-sub" class="kpi-sub">OC 2.8% · pH 6.5</div>
+            <div id="kpi-soil-val" class="kpi-value">0.80 SH</div>
+            <div id="kpi-soil-sub" class="kpi-sub">OC 2.49% · pH 6.36 · Hudson silt loam</div>
           </div>
           <div class="kpi-card">
             <div class="kpi-label">Annual rainfall</div>
-            <div id="kpi-rain-val" class="kpi-value">530 mm</div>
-            <div class="kpi-sub">Illustrative annual total</div>
+            <div id="kpi-rain-val" class="kpi-value">778 mm</div>
+            <div id="kpi-rain-sub" class="kpi-sub">NASA POWER · 1202 mm/yr total</div>
           </div>
           <div class="kpi-card">
             <div class="kpi-label">Root-zone moisture</div>
-            <div id="kpi-moisture-val" class="kpi-value">0.35 RZM</div>
-            <div class="kpi-sub">Sample soil moisture</div>
+            <div id="kpi-moisture-val" class="kpi-value">0.66 RZM</div>
+            <div id="kpi-moisture-sub" class="kpi-sub">NASA GWETROOT · 42.65°, -73.76°</div>
           </div>
           <div class="kpi-card">
             <div class="kpi-label">Soil temperature</div>
-            <div id="kpi-temp-val" class="kpi-value">18.6°C</div>
-            <div class="kpi-sub">Above planting threshold</div>
+            <div id="kpi-temp-val" class="kpi-value">19.1°C</div>
+            <div id="kpi-temp-sub" class="kpi-sub">NASA POWER · Above planting threshold</div>
           </div>
         </div>
 
@@ -529,6 +529,13 @@
                 <div id="year-03-crop" class="year-step-crop">Hay or Alfalfa (Haylage)</div>
                 <div id="year-03-role" class="year-step-role">Legume • deep roots &amp; soil building</div>
               </div>
+            </div>
+
+            <div id="banner-sequence-analysis-wrap" class="banner-sequence-analysis">
+              <span class="banner-analysis-tag">QUICK ANALYSIS · GEMINI</span>
+              <span id="banner-sequence-analysis-text" class="banner-analysis-body">
+                Analyzing generated crop sequence with NASA POWER climate and soil data for your selected location...
+              </span>
             </div>
           </div>
 
@@ -617,7 +624,7 @@
           </div>
 
           <div class="white-panel-card">
-            <h3 class="panel-serif-heading">Ranked alternatives · illustrative scores</h3>
+            <h3 id="ranked-alternatives-heading" class="panel-serif-heading">Ranked alternatives · NASA &amp; soil scores</h3>
             <table class="ranked-table">
               <thead>
                 <tr>
@@ -644,6 +651,16 @@
                 </tr>
               </tbody>
             </table>
+
+            <div id="sequence-quick-analysis-box" class="sequence-quick-analysis-box">
+              <div class="sequence-analysis-header">
+                <span id="sequence-analysis-title" class="sequence-analysis-title">Quick analysis under generated crop sequence · Gemini</span>
+                <span id="sequence-analysis-badge" class="sequence-analysis-badge">NASA POWER · Gemini API</span>
+              </div>
+              <p id="sequence-analysis-text" class="sequence-analysis-text">
+                Generating quick agronomic analysis for this crop sequence using NASA POWER satellite rainfall, root-zone moisture, and soil temperature...
+              </p>
+            </div>
           </div>
         </section>
 
