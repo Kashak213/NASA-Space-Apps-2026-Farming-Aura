@@ -16,6 +16,7 @@ ENV/
 .env
 .env.*
 !.env.example
+TEAM_AI_AGENT_ENV_SETUP.txt
 .streamlit/secrets.toml
 *.pem
 *.key
