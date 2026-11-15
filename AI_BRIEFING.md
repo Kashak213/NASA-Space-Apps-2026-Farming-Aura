@@ -205,12 +205,12 @@ Use **Leaflet.js** (`https://unpkg.com/leaflet@1.9.4/dist/leaflet.js`) with a la
      - **MODIS Terra NDVI (8-Day):** `MODIS_Terra_NDVI_8Day` (`tileMatrixSet`: `GoogleMapsCompatible_Level9`, `format`: `png`)
      - **SMAP L4 Root Zone Soil Moisture:** `SMAP_L4_Analyzed_Root_Zone_Soil_Moisture` (`tileMatrixSet`: `GoogleMapsCompatible_Level6`, `format`: `png`)
 
-### 7.3 Optional Google Maps JS API Integration (How to Keep Keys Safe)
-If the frontend team builds a Google Maps view (`Maps JavaScript API`) or uses Google Places Autocomplete:
-1. **Local Development:**
-   - Copy `.env.example` to `.env` and set `GOOGLE_MAPS_API_KEY=...`.
-   - For Python scripts/backends, import `get_google_maps_api_key()` from `src/config.py` (returns `None` if unconfigured so the app can automatically fall back to Leaflet).
-   - For Vite/React/static JS builds, read `import.meta.env.VITE_GOOGLE_MAPS_API_KEY` (or `process.env.GOOGLE_MAPS_API_KEY`) from `.env` and automatically fall back to the Leaflet map if the key is missing or set to the placeholder string.
+### 7.3 Google Maps JS API & Gemini Flash-Lite Integration (How to Keep Keys Safe)
+See `TEAM_ENV_SETUP.md` for the ready-to-share teammate AI setup prompt.
+1. **Local Development (`.env`):**
+   - Copy `.env.example` to `.env` and set `GOOGLE_MAPS_API_KEY=...`, `GEMINI_API_KEY=...`, and `GEMINI_MODEL=gemini-3.1-flash-lite-preview`.
+   - For Python scripts/backends, import `get_google_maps_api_key()`, `get_gemini_api_key()`, and `get_gemini_model()` from `src/config.py` (each returns `None` if unconfigured so the app falls back to free satellite tiles and deterministic explanations).
+   - **Strict Key Separation:** `GOOGLE_MAPS_API_KEY` is served via `GET /config` for the browser `Maps JavaScript API` (locked down via HTTP website referrers in Google Cloud Console). `GEMINI_API_KEY` must remain **backend-only** in Python and must never be returned by `GET /config` or embedded in frontend JS.
 2. **GitHub Pages Deployment (GitHub Actions Injection):**
    - Store the real key in **GitHub Repository Settings → Secrets and variables → Actions → `GOOGLE_MAPS_API_KEY`**.
    - During the GitHub Pages build workflow (`.github/workflows/deploy.yml`), pass `GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}` as an environment variable to the build step so the key is never committed to git history.

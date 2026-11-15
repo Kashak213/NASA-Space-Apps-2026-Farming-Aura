@@ -26,8 +26,8 @@ for _p in (str(BACKEND_DIR), str(SRC_DIR)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-# Import the Google Maps API key helper from src/config.py (.env and Hugging Face Secrets)
-from config import get_google_maps_api_key
+# Import the Google Maps and Gemini API key helpers from src/config.py (.env and Hugging Face Secrets)
+from config import get_gemini_api_key, get_gemini_model, get_google_maps_api_key
 
 # Import crop lookup helpers and rotation generators from crops.py
 from crops import (
@@ -775,14 +775,16 @@ def analyze_farm_request(payload: dict[str, Any]) -> dict[str, Any]:
 
 def get_frontend_config_payload() -> dict[str, Any]:
     """
-    Return the Google Maps API key from .env or Hugging Face Spaces Secrets so the
-    frontend can load the interactive Google Satellite map and fall back to Leaflet
-    only when no key is configured.
+    Return the Google Maps API key and Gemini availability status from .env or
+    Hugging Face Spaces Secrets. Never expose the raw Gemini key to the browser.
     """
     gmaps_key = get_google_maps_api_key()
+    gemini_key = get_gemini_api_key()
     return {
         "google_maps_api_key": gmaps_key,
         "has_google_maps_key": bool(gmaps_key),
+        "has_gemini_key": bool(gemini_key),
+        "gemini_model": get_gemini_model(),
     }
 
 

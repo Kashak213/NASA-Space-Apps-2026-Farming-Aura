@@ -41,6 +41,17 @@ def get_secret(key_name: str, default: str | None = None) -> str | None:
 
 
 def get_google_maps_api_key() -> str | None:
-    """Returns Google Maps key if set, otherwise None so the UI falls back to free Leaflet tiles."""
+    """Return Google Maps key if set, otherwise None so the UI falls back to free satellite tiles."""
     return get_secret("GOOGLE_MAPS_API_KEY")
+
+
+def get_gemini_api_key() -> str | None:
+    """Return Gemini API key for backend explanation generation, or None if not configured yet."""
+    return get_secret("GEMINI_API_KEY")
+
+
+def get_gemini_model() -> str:
+    """Return the configured Gemini Flash-Lite model ID from .env or default to gemini-3.1-flash-lite-preview."""
+    return get_secret("GEMINI_MODEL", default="gemini-3.1-flash-lite-preview") or "gemini-3.1-flash-lite-preview"
+
 
