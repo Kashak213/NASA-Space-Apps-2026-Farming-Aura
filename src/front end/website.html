@@ -3712,18 +3712,38 @@ function scoreSequenceForField(seqIds, field, profileName, sensorDryOverride) {
 
   const baseBalanced = PRIORITY_PROFILES.Balanced;
   const targetWeights = PRIORITY_PROFILES[profileName] || baseBalanced;
-  const intensityNorm = clip((appState.profileIntensity - 1) / 99, 0, 1);
+  const clamped = clip(Number(appState.profileIntensity) || 50, 1, 100);
   // At 50 intensity use the profile's standard weights; scale emphasis smoothly from 1 to 100
-  const powerScale = 0.25 + intensityNorm * 1.75;
-  const rawWeights = {
-    soil_health: baseBalanced.soil_health + (targetWeights.soil_health - baseBalanced.soil_health) * powerScale,
-    water_stress: baseBalanced.water_stress + (targetWeights.water_stress - baseBalanced.water_stress) * powerScale,
-    climate_res: baseBalanced.climate_res + (targetWeights.climate_res - baseBalanced.climate_res) * powerScale,
-    nitrogen_fix: baseBalanced.nitrogen_fix + (targetWeights.nitrogen_fix - baseBalanced.nitrogen_fix) * powerScale,
-    yield: baseBalanced.yield + (targetWeights.yield - baseBalanced.yield) * powerScale,
-    drought_tol: baseBalanced.drought_tol + (targetWeights.drought_tol - baseBalanced.drought_tol) * powerScale,
-    soil_compat: baseBalanced.soil_compat + (targetWeights.soil_compat - baseBalanced.soil_compat) * powerScale
-  };
+  const powerScale = clamped <= 50
+    ? 0.15 + ((clamped - 1) / 49) * 0.85
+    : 1.0 + ((clamped - 50) / 50) * 1.50;
+
+  let rawWeights;
+  if (profileName === 'Balanced' || targetWeights === baseBalanced) {
+    const uniform = 1 / 7;
+    const balScale = clamped <= 50
+      ? (clamped - 1) / 49
+      : 1.0 + ((clamped - 50) / 50) * 1.75;
+    rawWeights = {
+      soil_health: uniform + (baseBalanced.soil_health - uniform) * balScale,
+      water_stress: uniform + (baseBalanced.water_stress - uniform) * balScale,
+      climate_res: uniform + (baseBalanced.climate_res - uniform) * balScale,
+      nitrogen_fix: uniform + (baseBalanced.nitrogen_fix - uniform) * balScale,
+      yield: uniform + (baseBalanced.yield - uniform) * balScale,
+      drought_tol: uniform + (baseBalanced.drought_tol - uniform) * balScale,
+      soil_compat: uniform + (baseBalanced.soil_compat - uniform) * balScale
+    };
+  } else {
+    rawWeights = {
+      soil_health: baseBalanced.soil_health + (targetWeights.soil_health - baseBalanced.soil_health) * powerScale,
+      water_stress: baseBalanced.water_stress + (targetWeights.water_stress - baseBalanced.water_stress) * powerScale,
+      climate_res: baseBalanced.climate_res + (targetWeights.climate_res - baseBalanced.climate_res) * powerScale,
+      nitrogen_fix: baseBalanced.nitrogen_fix + (targetWeights.nitrogen_fix - baseBalanced.nitrogen_fix) * powerScale,
+      yield: baseBalanced.yield + (targetWeights.yield - baseBalanced.yield) * powerScale,
+      drought_tol: baseBalanced.drought_tol + (targetWeights.drought_tol - baseBalanced.drought_tol) * powerScale,
+      soil_compat: baseBalanced.soil_compat + (targetWeights.soil_compat - baseBalanced.soil_compat) * powerScale
+    };
+  }
   const weightSum = Object.values(rawWeights).reduce((acc, v) => acc + Math.max(0.01, v), 0);
   const w = {};
   Object.keys(rawWeights).forEach((k) => {

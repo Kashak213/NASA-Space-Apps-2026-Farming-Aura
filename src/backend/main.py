@@ -729,12 +729,27 @@ def _compute_intensity_weights(profile_name: str, intensity: int = 50) -> dict[s
     base_balanced = PROFILES["Balanced"]
     target_weights = PROFILES.get(profile_name, base_balanced)
     intensity_clamped = max(1.0, min(100.0, float(intensity)))
-    intensity_norm = (intensity_clamped - 1.0) / 99.0
-    power_scale = 0.25 + intensity_norm * 1.75
-    raw_weights = {
-        k: max(0.01, base_val + (target_weights.get(k, base_val) - base_val) * power_scale)
-        for k, base_val in base_balanced.items()
-    }
+    if intensity_clamped <= 50.0:
+        power_scale = 0.15 + ((intensity_clamped - 1.0) / 49.0) * 0.85
+    else:
+        power_scale = 1.0 + ((intensity_clamped - 50.0) / 50.0) * 1.50
+
+    if profile_name == "Balanced" or target_weights == base_balanced:
+        uniform = 1.0 / len(base_balanced)
+        bal_scale = (
+            ((intensity_clamped - 1.0) / 49.0)
+            if intensity_clamped <= 50.0
+            else 1.0 + ((intensity_clamped - 50.0) / 50.0) * 1.75
+        )
+        raw_weights = {
+            k: max(0.01, uniform + (base_val - uniform) * bal_scale)
+            for k, base_val in base_balanced.items()
+        }
+    else:
+        raw_weights = {
+            k: max(0.01, base_val + (target_weights.get(k, base_val) - base_val) * power_scale)
+            for k, base_val in base_balanced.items()
+        }
     tot = sum(raw_weights.values())
     return {k: round(v / tot, 4) for k, v in raw_weights.items()}
 
@@ -1176,6 +1191,7 @@ if FastAPI is not None:
         lat: Optional[float] = None
         lon: Optional[float] = None
         profile: str = "Balanced"
+        intensity: int = 50
         previous_crop: Optional[str] = None
         max_water: int = 550
         probe: str = "off"
@@ -1209,7 +1225,7 @@ if FastAPI is not None:
 
         facts = {
             "field": f"Field F{max(1, req.field_number):03d} at {loc_label}{coord_str}",
-            "farmer_priority": req.profile if req.profile in PROFILES else "Balanced",
+            "farmer_priority": f"{req.profile if req.profile in PROFILES else 'Balanced'} (intensity {max(1, min(100, req.intensity))}/100)",
             "previous_crop": previous["crop_name"] if previous else "not given",
             "max_water_demand_mm_per_year": req.max_water,
             "mms_mobile_measuring_station": req.probe if req.probe in ("wet", "dry") else "not used",

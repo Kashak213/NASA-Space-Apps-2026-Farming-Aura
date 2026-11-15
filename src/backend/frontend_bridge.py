@@ -69,13 +69,25 @@ def compute_intensity_weights(profile_name: str, intensity: int = 50) -> dict[st
     base_balanced = PROFILES["Balanced"]
     target_weights = PROFILES.get(profile_name, base_balanced)
     intensity_clamped = clip(float(intensity), 1.0, 100.0)
-    intensity_norm = clip((intensity_clamped - 1.0) / 99.0, 0.0, 1.0)
-    power_scale = 0.25 + intensity_norm * 1.75
+    if intensity_clamped <= 50.0:
+        power_scale = 0.15 + ((intensity_clamped - 1.0) / 49.0) * 0.85
+    else:
+        power_scale = 1.0 + ((intensity_clamped - 50.0) / 50.0) * 1.50
 
     raw_weights: dict[str, float] = {}
-    for key, base_val in base_balanced.items():
-        target_val = target_weights.get(key, base_val)
-        raw_weights[key] = max(0.01, base_val + (target_val - base_val) * power_scale)
+    if profile_name == "Balanced" or target_weights == base_balanced:
+        uniform = 1.0 / len(base_balanced)
+        bal_scale = (
+            ((intensity_clamped - 1.0) / 49.0)
+            if intensity_clamped <= 50.0
+            else 1.0 + ((intensity_clamped - 50.0) / 50.0) * 1.75
+        )
+        for key, base_val in base_balanced.items():
+            raw_weights[key] = max(0.01, uniform + (base_val - uniform) * bal_scale)
+    else:
+        for key, base_val in base_balanced.items():
+            target_val = target_weights.get(key, base_val)
+            raw_weights[key] = max(0.01, base_val + (target_val - base_val) * power_scale)
 
     total = sum(raw_weights.values())
     return {k: round(v / total, 4) for k, v in raw_weights.items()}

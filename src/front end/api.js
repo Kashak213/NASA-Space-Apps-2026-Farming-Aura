@@ -52,6 +52,7 @@
       lat: Number.isFinite(lat) ? Number(lat.toFixed(4)) : null,
       lon: Number.isFinite(lon) ? Number(lon.toFixed(4)) : null,
       profile: appState.selectedProfile,
+      intensity: clip(Number(appState.profileIntensity) || 50, 1, 100),
       selected_crops: appState.selectedCrops || [],
       previous_crop: appState.previousCropId,
       max_water: appState.maxWaterDemand,
@@ -59,6 +60,22 @@
       dry_probe: appState.sensorEnabled && appState.probeMode === 'dry' && appState.activeTab === 'sensors'
     };
   }
+
+  // Key that ignores profile/intensity so we can re-weight cached backend candidate rows instantly while dragging the slider
+  function buildFieldPoolKey(request) {
+    return JSON.stringify({
+      field_id: request.field_id,
+      city: request.city,
+      lat: request.lat,
+      lon: request.lon,
+      selected_crops: request.selected_crops,
+      previous_crop: request.previous_crop,
+      max_water: request.max_water,
+      dry_probe: request.dry_probe
+    });
+  }
+
+  const poolAnswers = new Map(); // fieldPoolKey -> latest backend response
 
   // ---- Translating between the dashboard and the backend's /analyze (src/backend/main.py) ----
   const DRY_PROBE_SOIL_MOISTURE = 0.12; // volumetric water content the dry probe reading stands for
@@ -71,6 +88,7 @@
       selected_crops: request.selected_crops,
       previous_crop: request.previous_crop || null,
       profile_name: request.profile || 'Balanced',
+      intensity: Number.isFinite(request.intensity) ? request.intensity : 50,
       max_water_demand_mm: Number.isFinite(request.max_water) ? request.max_water : null,
       top_n: 20 // ask for plenty, a few can be dropped when they repeat a crop group the dashboard merges
     };
@@ -109,8 +127,51 @@
     })
     .catch(() => {});
 
+  function computeIntensityWeights(profileName, intensityVal) {
+    const baseBalanced = PRIORITY_PROFILES.Balanced;
+    const targetWeights = PRIORITY_PROFILES[profileName] || baseBalanced;
+    const clamped = clip(Number(intensityVal) || 50, 1, 100);
+    const powerScale = clamped <= 50
+      ? 0.15 + ((clamped - 1) / 49) * 0.85
+      : 1.0 + ((clamped - 50) / 50) * 1.50;
+
+    let rawWeights;
+    if (profileName === 'Balanced' || targetWeights === baseBalanced) {
+      const uniform = 1 / 7;
+      const balScale = clamped <= 50
+        ? (clamped - 1) / 49
+        : 1.0 + ((clamped - 50) / 50) * 1.75;
+      rawWeights = {
+        soil_health: uniform + (baseBalanced.soil_health - uniform) * balScale,
+        water_stress: uniform + (baseBalanced.water_stress - uniform) * balScale,
+        climate_res: uniform + (baseBalanced.climate_res - uniform) * balScale,
+        nitrogen_fix: uniform + (baseBalanced.nitrogen_fix - uniform) * balScale,
+        yield: uniform + (baseBalanced.yield - uniform) * balScale,
+        drought_tol: uniform + (baseBalanced.drought_tol - uniform) * balScale,
+        soil_compat: uniform + (baseBalanced.soil_compat - uniform) * balScale
+      };
+    } else {
+      rawWeights = {
+        soil_health: baseBalanced.soil_health + (targetWeights.soil_health - baseBalanced.soil_health) * powerScale,
+        water_stress: baseBalanced.water_stress + (targetWeights.water_stress - baseBalanced.water_stress) * powerScale,
+        climate_res: baseBalanced.climate_res + (targetWeights.climate_res - baseBalanced.climate_res) * powerScale,
+        nitrogen_fix: baseBalanced.nitrogen_fix + (targetWeights.nitrogen_fix - baseBalanced.nitrogen_fix) * powerScale,
+        yield: baseBalanced.yield + (targetWeights.yield - baseBalanced.yield) * powerScale,
+        drought_tol: baseBalanced.drought_tol + (targetWeights.drought_tol - baseBalanced.drought_tol) * powerScale,
+        soil_compat: baseBalanced.soil_compat + (targetWeights.soil_compat - baseBalanced.soil_compat) * powerScale
+      };
+    }
+    const weightSum = Object.values(rawWeights).reduce((acc, v) => acc + Math.max(0.01, v), 0);
+    const w = {};
+    Object.keys(rawWeights).forEach((k) => {
+      w[k] = Math.max(0.01, rawWeights[k]) / weightSum;
+    });
+    return w;
+  }
+
   // Backend rotation row -> the row shape app.js draws
-  function toDashboardRow(row, selectedIds) {
+  function toDashboardRow(row, request) {
+    const selectedIds = request.selected_crops || [];
     const seqIds = String(row.seq_ids || '')
       .split('->')
       .map((s) => s.trim())
@@ -118,17 +179,36 @@
     const crops = seqIds.map((id) => CROPS_DATA[id]);
     if (!seqIds.length || crops.some((c) => !c)) return null;
     const matchCount = seqIds.filter((id) => selectedIds.includes(id)).length;
-    const totalScore = Number(row.total_score) || 0;
+    const soilHealth = Number(row.soil_health) || 0;
+    const waterSafety = Number(row.water_stress) || 0; // backend's water_stress: higher = safer
+    const resilience = Number(row.climate_res) || 0;
+    const yieldPotential = Number(row.yield_potential) || 0;
+    const nFixAvg = Number(row.nitrogen_fixation) || 0;
+    const droughtTol = Number(row.drought_tolerance) || 0.5;
+    const soilCompat = Number(row.soil_compatibility) || 0.7;
+    const penaltyMult = Number(row.penalty_multiplier) || 1.0;
+
+    const w = computeIntensityWeights(request.profile || 'Balanced', request.intensity);
+    const weightedSum =
+      w.soil_health * soilHealth +
+      w.water_stress * waterSafety +
+      w.climate_res * resilience +
+      w.nitrogen_fix * nFixAvg +
+      w.yield * yieldPotential +
+      w.drought_tol * droughtTol +
+      w.soil_compat * soilCompat;
+    const totalScore = Number(clip(weightedSum * penaltyMult, 0, 1).toFixed(4));
+
     return {
       seqIds,
       crops,
       label: crops.map((c) => c.name).join(' → '),
       totalScore,
-      soilHealth: Number(row.soil_health) || 0,
-      waterSafety: Number(row.water_stress) || 0, // backend's water_stress: higher = safer
-      resilience: Number(row.climate_res) || 0,
-      yieldPotential: Number(row.yield_potential) || 0,
-      nFixAvg: Number(row.nitrogen_fixation) || 0,
+      soilHealth,
+      waterSafety,
+      resilience,
+      yieldPotential,
+      nFixAvg,
       matchCount,
       sortScore: totalScore + SELECTED_CROP_BONUS * matchCount
     };
@@ -136,7 +216,7 @@
 
   function toRankedRows(data, request) {
     const rows = (data.recommended_rotations || [])
-      .map((row) => toDashboardRow(row, request.selected_crops))
+      .map((row) => toDashboardRow(row, request))
       .filter(Boolean);
     rows.sort((a, b) => b.sortScore - a.sortScore || b.totalScore - a.totalScore);
     return rows;
@@ -294,6 +374,7 @@
         }
         backendDownSince = 0;
         answers.set(key, data);
+        poolAnswers.set(buildFieldPoolKey(request), data);
         // only redraw if the farmer hasn't changed something else in the meantime
         if (JSON.stringify(buildRequest()) === key) renderAll();
       })
@@ -349,6 +430,18 @@
     }
 
     askBackend(key, request);
+
+    // While the new intensity/profile request is in flight, immediately re-weight the cached candidate pool for this field
+    const poolData = poolAnswers.get(buildFieldPoolKey(request));
+    if (poolData && !backendDownSince) {
+      const rows = toRankedRows(poolData, request);
+      if (rows.length) {
+        applyFieldUpdate(request.field_id, toFieldUpdate(poolData));
+        lastSource = (poolData.data_sources || {}).nasa_power || 'demo';
+        return rows;
+      }
+    }
+
     if (backendDownSince) {
       applyFieldUpdate(request.field_id, null);
       lastSource = null;
@@ -397,6 +490,7 @@
       lat: reqCoords.lat !== null ? reqCoords.lat : field.lat,
       lon: reqCoords.lon !== null ? reqCoords.lon : field.lon,
       profile: appState.selectedProfile,
+      intensity: clip(Number(appState.profileIntensity) || 50, 1, 100),
       previous_crop: appState.previousCropId,
       max_water: appState.maxWaterDemand,
       probe: probeCounts ? appState.probeMode : 'off',
