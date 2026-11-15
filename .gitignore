@@ -27,6 +27,7 @@ ENV/
 
 # Internal AI handoff notes
 AI_BRIEFING.md
+TEAM_AI_AGENT_ENV_SETUP.txt
 
 # Team setup notes that contain API keys
 TEAM_AI_AGENT_ENV_SETUP.txt

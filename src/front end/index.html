@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -195,7 +195,6 @@
                 <div id="step1-region-selected" class="region-display-box">Albany, New York</div>
 
                 <h2 class="region-section-title">LATITUDE / LONGITUDE</h2>
-                <div id="step1-latlon-display" class="region-display-box">42.6526, -73.7562</div>
 
                 <div class="region-latlon-grid">
                   <div class="region-coord-pill">
@@ -537,6 +536,19 @@
               <div class="why-won-list">
                 <p id="why-won-line-1" class="why-won-item">Legume rotation supports soil nitrogen.</p>
                 <p id="why-won-line-2" class="why-won-item">Cover crops protect soil between seasons.</p>
+                <div id="why-won-gemini-tag" class="gemini-attribution-tag">
+                  <svg class="gemini-sparkle-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z" fill="url(#gemini-sparkle-gradient-why)"/>
+                    <defs>
+                      <linearGradient id="gemini-sparkle-gradient-why" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#4E82EE"/>
+                        <stop offset="50%" stop-color="#9B72CB"/>
+                        <stop offset="100%" stop-color="#D96570"/>
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <span>Generated from Gemini</span>
+                </div>
               </div>
             </div>
 
@@ -773,6 +785,19 @@
                 <strong>Rainfall shift impact:</strong>
                 <span id="climate-rain-explanation">Loading 5-year rainfall trend...</span>
               </div>
+              <div id="climate-gemini-tag" class="gemini-attribution-tag">
+                <svg class="gemini-sparkle-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z" fill="url(#gemini-sparkle-gradient-climate)"/>
+                  <defs>
+                    <linearGradient id="gemini-sparkle-gradient-climate" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stop-color="#4E82EE"/>
+                      <stop offset="50%" stop-color="#9B72CB"/>
+                      <stop offset="100%" stop-color="#D96570"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <span>Generated from Gemini</span>
+              </div>
             </div>
           </div>
         </section>
@@ -780,7 +805,7 @@
         <!-- TAB 3: LIVE SENSOR READINGS -->
         <section id="tab-panel-sensors" class="dash-tab-panel">
           <div class="sensor-alert-banner">
-            <h2 id="sensor-alert-title" class="sensor-alert-title">Moisture probe: Dry soil selected &mdash; rotation adjusted</h2>
+            <h2 id="sensor-alert-title" class="sensor-alert-title">MMS Mobile Measuring Station: Dry soil selected &mdash; rotation adjusted</h2>
             <p id="sensor-alert-sub" class="sensor-alert-sub">
               Backend response: Dry root-zone moisture detected. Prioritizing drought-tolerant legumes and reduced water demand.
             </p>
@@ -806,11 +831,11 @@
             </div>
 
             <div class="white-panel-card">
-              <h3 class="panel-serif-heading" style="margin-bottom: 6px;">Moisture probe readings</h3>
-              <div class="sensor-card-sub">Local moisture probe · ground-truth</div>
+              <h3 class="panel-serif-heading" style="margin-bottom: 6px;">MMS Mobile Measuring Station readings</h3>
+              <div class="sensor-card-sub">Local MMS Mobile Measuring Station · ground-truth</div>
 
               <div class="sensor-reading-row">
-                <span class="sensor-reading-name">Moisture probe status</span>
+                <span class="sensor-reading-name">MMS status</span>
                 <span id="sensor-dev-rzm" class="sensor-reading-val">0.22 m³/m³ (Dry)</span>
               </div>
               <div class="sensor-reading-row">
@@ -821,19 +846,23 @@
                 <span class="sensor-reading-name">Air humidity</span>
                 <span id="sensor-dev-ah" class="sensor-reading-val">38 % RH</span>
               </div>
+              <div class="sensor-reading-row">
+                <span class="sensor-reading-name">Rain sensor</span>
+                <span id="sensor-dev-rain" class="sensor-reading-val">No MMS data</span>
+              </div>
             </div>
           </div>
 
           <div class="white-panel-card">
-            <h3 class="panel-serif-heading">Moisture probe · decide Wet or Dry</h3>
+            <h3 class="panel-serif-heading">MMS Mobile Measuring Station · decide Wet or Dry</h3>
             <div class="satellite-steps-list">
               <div class="satellite-step-line">
                 <span class="satellite-step-num">01</span>
-                <span>Check the moisture probe in your soil and decide whether the soil is <strong>Wet</strong> or <strong>Dry</strong>.</span>
+                <span>Check the MMS Mobile Measuring Station in your soil and decide whether the soil is <strong>Wet</strong> or <strong>Dry</strong>.</span>
               </div>
               <div class="satellite-step-line">
                 <span class="satellite-step-num">02</span>
-                <span>Select <strong>Wet</strong> or <strong>Dry</strong> below to send your moisture probe state to the backend.</span>
+                <span>Select <strong>Wet</strong> or <strong>Dry</strong> below to send your MMS Mobile Measuring Station state to the backend.</span>
               </div>
               <div class="satellite-step-line">
                 <span class="satellite-step-num">03</span>
@@ -842,19 +871,19 @@
             </div>
 
             <div class="probe-sim-bar">
-              <span class="probe-sim-label">Moisture probe decision (choose whether it is Wet or Dry):</span>
+              <span class="probe-sim-label">MMS Mobile Measuring Station decision (choose whether it is Wet or Dry):</span>
               <div class="probe-sim-buttons">
                 <button type="button" class="probe-mode-btn" data-probe="wet">
-                  Moisture Probe: Wet
+                  MMS Mobile Measuring Station: Wet
                 </button>
                 <button type="button" class="probe-mode-btn active-probe-mode" data-probe="dry">
-                  Moisture Probe: Dry
+                  MMS Mobile Measuring Station: Dry
                 </button>
               </div>
             </div>
 
             <div id="moisture-probe-backend-box" class="moisture-backend-response-box">
-              <div id="moisture-backend-heading" class="moisture-backend-heading">Backend report for Dry moisture probe</div>
+              <div id="moisture-backend-heading" class="moisture-backend-heading">Backend report for Dry MMS Mobile Measuring Station</div>
               <p id="moisture-backend-line-1" class="moisture-backend-text">
                 Soil moisture is below the satellite baseline. Backend recommends conserving root-zone water and avoiding consecutive high-transpiration crops.
               </p>
@@ -872,10 +901,25 @@
   <!-- DATA SOURCES MODAL -->
   <div id="data-sources-modal" class="modal-backdrop">
     <div class="modal-card">
-      <h2 class="modal-title">Data Sources</h2>
+      <h2 class="modal-title">Data Sources &amp; AI Intelligence</h2>
       <p class="modal-body">
         <strong>NASA (National Aeronautics and Space Administration):</strong> Provides satellite Earth observations, meteorological models, and remote sensing datasets. This includes NASA POWER and GPM for solar irradiance, surface temperatures, and historical precipitation patterns, alongside SMAP and MODIS for root-zone soil moisture monitoring and vegetation health dynamics.<br /><br />
-        <strong>USDA (United States Department of Agriculture):</strong> Delivers comprehensive agronomic and soil intelligence across national agricultural regions. This includes USDA SSURGO and NRCS soil taxonomy databases for soil composition (organic matter, bulk density, pH levels, sand/clay percentages, cation exchange capacity) and regional crop rotation guidelines for sustainable field management.
+        <strong>USDA (United States Department of Agriculture):</strong> Delivers comprehensive agronomic and soil intelligence across national agricultural regions. This includes USDA SSURGO and NRCS soil taxonomy databases for soil composition (organic matter, bulk density, pH levels, sand/clay percentages, cation exchange capacity) and regional crop rotation guidelines for sustainable field management.<br /><br />
+        <span class="modal-source-header">
+          <svg class="gemini-sparkle-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z" fill="url(#gemini-sparkle-gradient-modal)"/>
+            <defs>
+              <linearGradient id="gemini-sparkle-gradient-modal" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#4E82EE"/>
+                <stop offset="50%" stop-color="#9B72CB"/>
+                <stop offset="100%" stop-color="#D96570"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <strong>Google Gemini:</strong>
+        </span>
+        Powers plain-English crop rotation explanations and climate impact analysis, synthesizing raw NASA meteorological shifts and USDA soil science into actionable recommendations for farmers.<br /><br />
+        <strong>MMS Mobile Measuring Station:</strong> Local ground-truth sensor reading capacitive soil moisture, soil temperature, air humidity, and surface rain detection to calibrate satellite estimates.
       </p>
       <button type="button" id="close-sources-modal-btn" class="modal-close-btn">Close</button>
     </div>

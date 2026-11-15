@@ -1,0 +1,61 @@
+{
+  "Table": [
+    [
+      "mukey",
+      "map_unit_name",
+      "cokey",
+      "component_name",
+      "component_pct",
+      "drainage_class",
+      "horizon_name",
+      "depth_top_cm",
+      "depth_bottom_cm",
+      "organic_matter_pct",
+      "ph",
+      "bulk_density",
+      "cec",
+      "sand_pct",
+      "silt_pct",
+      "clay_pct",
+      "awc"
+    ],
+    [
+      "288806",
+      "Urban land-Udorthents complex, 0 to 8 percent slopes",
+      "28901172",
+      "Udorthents",
+      "30",
+      "Moderately well drained",
+      "H1",
+      "0",
+      "10",
+      "2.5",
+      "5.9",
+      "1.5",
+      "15.3",
+      "42.1",
+      "37.9",
+      "20",
+      "0.09"
+    ],
+    [
+      "288806",
+      "Urban land-Udorthents complex, 0 to 8 percent slopes",
+      "28901172",
+      "Udorthents",
+      "30",
+      "Moderately well drained",
+      "H2",
+      "10",
+      "178",
+      "0.1",
+      "6.5",
+      "1.60000002384186",
+      "7.6",
+      "45",
+      "43",
+      "12",
+      "0.09"
+    ]
+  ]
+}

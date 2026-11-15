@@ -160,17 +160,24 @@ window.farmingAuraGoogleReady = new Promise((resolve) => {
   });
 
   // ---- Google Map (only when the backend gives us a key) ----
-  const onThisComputer = location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname);
-  const sameServer = onThisComputer && location.port === '8000';
-  const API_BASE = window.FARMING_AURA_API || (sameServer ? '' : onThisComputer ? 'http://localhost:8000' : null);
-  if (API_BASE === null) return resolveGoogleReady(false);
+  const isLocalDevPort = ['localhost', '127.0.0.1'].includes(location.hostname) && location.port !== '' && location.port !== '8000' && location.port !== '7860';
+  const isStaticGhPages = location.hostname.endsWith('.github.io');
+  const API_BASE = window.FARMING_AURA_API !== undefined
+    ? window.FARMING_AURA_API
+    : (location.protocol === 'file:' || isLocalDevPort)
+      ? 'http://localhost:8000'
+      : isStaticGhPages
+        ? null
+        : '';
 
-  let GOOGLE_MAPS_API_KEY = null;
-  try {
-    const res = await fetch(`${API_BASE}/config`);
-    if (res.ok) GOOGLE_MAPS_API_KEY = (await res.json()).google_maps_api_key;
-  } catch (err) {
-    console.warn('[Farming Aura] backend not reachable, keeping the schematic map.', err.message);
+  let GOOGLE_MAPS_API_KEY = window.GOOGLE_MAPS_API_KEY || null;
+  if (!GOOGLE_MAPS_API_KEY && API_BASE !== null) {
+    try {
+      const res = await fetch(`${API_BASE}/config`);
+      if (res.ok) GOOGLE_MAPS_API_KEY = (await res.json()).google_maps_api_key;
+    } catch (err) {
+      console.warn('[Farming Aura] backend not reachable, keeping the schematic map.', err.message);
+    }
   }
   if (!GOOGLE_MAPS_API_KEY) return resolveGoogleReady(false);
 

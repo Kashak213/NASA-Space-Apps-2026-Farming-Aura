@@ -1,0 +1,61 @@
+{
+  "Table": [
+    [
+      "mukey",
+      "map_unit_name",
+      "cokey",
+      "component_name",
+      "component_pct",
+      "drainage_class",
+      "horizon_name",
+      "depth_top_cm",
+      "depth_bottom_cm",
+      "organic_matter_pct",
+      "ph",
+      "bulk_density",
+      "cec",
+      "sand_pct",
+      "silt_pct",
+      "clay_pct",
+      "awc"
+    ],
+    [
+      "294407",
+      "Oakville loamy fine sand, undulating",
+      "28354378",
+      "Oakville",
+      "70",
+      "Well drained",
+      "H1",
+      "0",
+      "18",
+      "2",
+      "6.2",
+      "1.42999994754791",
+      "4.5",
+      "80.3",
+      "14.7",
+      "5",
+      "0.11"
+    ],
+    [
+      "294407",
+      "Oakville loamy fine sand, undulating",
+      "28354378",
+      "Oakville",
+      "70",
+      "Well drained",
+      "H2",
+      "18",
+      "94",
+      "0.5",
+      "6.4",
+      "1.48000001907349",
+      "4",
+      "78.6",
+      "16.4",
+      "5",
+      "0.08"
+    ]
+  ]
+}
