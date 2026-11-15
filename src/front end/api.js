@@ -187,7 +187,8 @@
 
   // Swap the template sentences for Gemini's once they arrive, otherwise leave app.js's text alone
   function showGeminiText() {
-    if (!aiEnabled || lastSource === null) return;
+    // /explain works on its own, so Gemini text shows even when /analyze can't rank for us
+    if (!aiEnabled) return;
     const request = buildExplainRequest();
     if (!request) return;
     const key = JSON.stringify(request);
