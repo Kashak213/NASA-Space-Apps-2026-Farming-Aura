@@ -36,6 +36,10 @@
     let lat = parseFloat(latInput ? latInput.value : '');
     let lon = parseFloat(lonInput ? lonInput.value : '');
 
+    // Reject out-of-bounds placeholder coordinates (e.g. 9999 / -9999)
+    if (!Number.isFinite(lat) || Math.abs(lat) > 90) lat = NaN;
+    if (!Number.isFinite(lon) || Math.abs(lon) > 180) lon = NaN;
+
     // If the active field has a custom polygon drawn on the Google satellite map, use its center coordinates
     const poly = appState.fieldPolygons && appState.fieldPolygons[appState.selectedFieldNumber];
     if (Array.isArray(poly) && poly.length > 0) {
@@ -44,6 +48,11 @@
     } else if ((!Number.isFinite(lat) || !Number.isFinite(lon)) && appState.farmLocation) {
       lat = appState.farmLocation.lat;
       lon = appState.farmLocation.lon;
+    }
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      const fallbackField = FIELDS_DATA[appState.selectedFieldId] || FIELDS_DATA.F001;
+      lat = fallbackField.lat;
+      lon = fallbackField.lon;
     }
 
     return {
@@ -56,8 +65,9 @@
       selected_crops: appState.selectedCrops || [],
       previous_crop: appState.previousCropId,
       max_water: appState.maxWaterDemand,
-      // same rule app.js uses, the dry MMS Mobile Measuring Station only counts while the sensor tab is open
-      dry_probe: appState.sensorEnabled && appState.probeMode === 'dry' && appState.activeTab === 'sensors'
+      sensor_enabled: Boolean(appState.sensorEnabled),
+      probe_mode: appState.sensorEnabled ? appState.probeMode : 'off',
+      dry_probe: Boolean(appState.sensorEnabled && appState.probeMode === 'dry')
     };
   }
 
@@ -481,7 +491,7 @@
     if (!top) return null;
     const reqCoords = buildRequest();
     const series = climateSeries(field);
-    const probeCounts = appState.sensorEnabled && appState.activeTab === 'sensors';
+    const probeCounts = Boolean(appState.sensorEnabled);
     const two = (n) => Number(Number(n || 0).toFixed(2));
     const annualRain = Math.round(field.spring2024Precip + field.summer2024Precip);
     return {
@@ -493,6 +503,7 @@
       intensity: clip(Number(appState.profileIntensity) || 50, 1, 100),
       previous_crop: appState.previousCropId,
       max_water: appState.maxWaterDemand,
+      local_sensors_enabled: probeCounts,
       probe: probeCounts ? appState.probeMode : 'off',
       rotation: top.seqIds,
       scores: {

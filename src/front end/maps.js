@@ -146,15 +146,40 @@ window.farmingAuraGoogleReady = new Promise((resolve) => {
     searchInput.addEventListener('input', () => showStatus(''));
   }
 
+  // Sanitize any invalid initial coordinate values (e.g. 9999 / -9999) and wire manual coordinate inputs
+  function sanitizeCoordInputs() {
+    const latEl = document.getElementById('step1-lat-input');
+    const lonEl = document.getElementById('step1-lon-input');
+    if (!latEl || !lonEl) return { lat: 42.6526, lon: -73.7562 };
+    let lat = parseFloat(latEl.value);
+    let lon = parseFloat(lonEl.value);
+    if (!Number.isFinite(lat) || Math.abs(lat) > 90) {
+      lat = 42.6526;
+      latEl.value = '42.6526';
+    }
+    if (!Number.isFinite(lon) || Math.abs(lon) > 180) {
+      lon = -73.7562;
+      lonEl.value = '-73.7562';
+    }
+    return { lat, lon };
+  }
+  sanitizeCoordInputs();
+
   // Typing coordinates by hand moves the map too
   ['step1-lat-input', 'step1-lon-input'].forEach((id) => {
     const input = document.getElementById(id);
     if (!input) return;
     input.addEventListener('change', () => {
-      const lat = parseFloat(document.getElementById('step1-lat-input').value);
-      const lon = parseFloat(document.getElementById('step1-lon-input').value);
+      const latEl = document.getElementById('step1-lat-input');
+      const lonEl = document.getElementById('step1-lon-input');
+      const lat = parseFloat(latEl.value);
+      const lon = parseFloat(lonEl.value);
       if (Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
+        showStatus('');
         setLocation(lat, lon, 'Custom coordinates');
+      } else {
+        showStatus('Latitude must be between -90 and 90, and Longitude between -180 and 180.', true);
+        sanitizeCoordInputs();
       }
     });
   });
@@ -227,8 +252,7 @@ window.farmingAuraGoogleReady = new Promise((resolve) => {
       const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
       MarkerClass = AdvancedMarkerElement;
 
-      const lat = parseFloat(document.getElementById('step1-lat-input').value) || 42.6526;
-      const lon = parseFloat(document.getElementById('step1-lon-input').value) || -73.7562;
+      const { lat, lon } = sanitizeCoordInputs();
       map = new Map(mapBox, {
         center: { lat, lng: lon },
         zoom: 12,
@@ -249,11 +273,31 @@ window.farmingAuraGoogleReady = new Promise((resolve) => {
     }
   }
 
+  function refreshLocationMap() {
+    if (canvas.clientWidth > 0) {
+      if (!started) {
+        startMap();
+      } else if (map && window.google && google.maps && google.maps.event) {
+        const { lat, lon } = sanitizeCoordInputs();
+        google.maps.event.trigger(map, 'resize');
+        map.setCenter({ lat, lng: lon });
+      }
+    }
+    if (window.map && typeof window.map.invalidateSize === 'function') {
+      window.map.invalidateSize();
+    }
+  }
+
+  window.refreshFarmingAuraLocationMap = () => {
+    requestAnimationFrame(refreshLocationMap);
+    setTimeout(refreshLocationMap, 80);
+  };
+
   // A map made inside a hidden screen comes out blank, so wait until the location screen is showing
   const watcher = new ResizeObserver(() => {
     if (canvas.clientWidth > 0) {
-      watcher.disconnect();
-      startMap();
+      if (!started) startMap();
+      else refreshLocationMap();
     }
   });
   watcher.observe(canvas);

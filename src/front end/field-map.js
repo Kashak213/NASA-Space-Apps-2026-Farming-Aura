@@ -301,12 +301,30 @@
   window.addEventListener('farming-aura-maps-failed', giveUp);
 
   // A map made inside a hidden tab comes out blank, so wait until the planner is showing
-  new ResizeObserver(() => {
+  function refreshFieldMap() {
     if (container.clientWidth === 0) return;
-    if (!started) startMap();
-    else if (map && pendingCenter) {
-      map.setCenter(pendingCenter);
-      pendingCenter = null;
+    if (!started) {
+      startMap();
+    } else if (map) {
+      if (window.google && google.maps && google.maps.event) {
+        google.maps.event.trigger(map, 'resize');
+      }
+      if (pendingCenter) {
+        map.setCenter(pendingCenter);
+        pendingCenter = null;
+      } else {
+        const farm = farmLocation();
+        map.setCenter({ lat: farm.lat, lng: farm.lon });
+      }
     }
+  }
+
+  window.refreshFarmingAuraFieldMap = () => {
+    requestAnimationFrame(refreshFieldMap);
+    setTimeout(refreshFieldMap, 80);
+  };
+
+  new ResizeObserver(() => {
+    refreshFieldMap();
   }).observe(container);
 })();

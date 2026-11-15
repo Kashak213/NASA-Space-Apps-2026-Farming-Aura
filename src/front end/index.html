@@ -201,18 +201,41 @@
                 <div class="region-latlon-grid">
                   <div class="region-coord-pill">
                     <span>Latitude</span>
-                    <input id="step1-lat-input" type="text" class="region-coord-input" value="42.6526" />
+                    <input
+                      id="step1-lat-input"
+                      type="text"
+                      inputmode="decimal"
+                      class="region-coord-input"
+                      placeholder="e.g., 42.6526"
+                      min="-90"
+                      max="90"
+                      value="42.6526"
+                    />
                   </div>
                   <div class="region-coord-pill">
                     <span>Longitude</span>
-                    <input id="step1-lon-input" type="text" class="region-coord-input" value="-73.7562" />
+                    <input
+                      id="step1-lon-input"
+                      type="text"
+                      inputmode="decimal"
+                      class="region-coord-input"
+                      placeholder="e.g., -73.7562"
+                      min="-180"
+                      max="180"
+                      value="-73.7562"
+                    />
                   </div>
                 </div>
               </div>
 
-              <button type="button" id="confirm-region-btn" class="confirm-region-btn">
-                <span>Continue &rarr;</span>
-              </button>
+              <div class="onboarding-nav-row">
+                <button type="button" id="back-to-landing-btn" class="onboarding-back-btn" data-nav-target="landing-view">
+                  <span>&larr; Back</span>
+                </button>
+                <button type="button" id="confirm-region-btn" class="confirm-region-btn">
+                  <span>Continue &rarr;</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -268,6 +291,15 @@
                 step="1"
                 value="50"
               />
+            </div>
+
+            <div class="onboarding-nav-row profile-nav-row">
+              <button type="button" id="back-to-location-btn" class="onboarding-back-btn" data-nav-target="location-view">
+                <span>&larr; Back</span>
+              </button>
+              <button type="button" id="confirm-profile-btn" class="confirm-region-btn" data-nav-target="dashboard-view">
+                <span>Continue &rarr;</span>
+              </button>
             </div>
           </div>
         </div>

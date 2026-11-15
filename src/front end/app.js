@@ -731,7 +731,7 @@ function getRankedRotations() {
   const field = FIELDS_DATA[appState.selectedFieldId] || FIELDS_DATA.F001;
   const selectedIds = appState.selectedCrops || [];
   const maxWater = appState.maxWaterDemand;
-  const dryProbeActive = appState.sensorEnabled && appState.probeMode === 'dry' && appState.activeTab === 'sensors';
+  const dryProbeActive = Boolean(appState.sensorEnabled && appState.probeMode === 'dry');
 
   const candidatePool = buildCandidatePool(selectedIds);
 
@@ -799,6 +799,9 @@ function evaluateCropSelection(selectedIds, topPick) {
   const count = selectedIds.length;
   const pickedNames = selectedIds.map((id) => CROPS_DATA[id]?.name).filter(Boolean);
   const recLabel = topPick ? topPick.label : 'Soybeans or Small Grains → Field Corn (Silage or Grain) → Hay or Alfalfa (Haylage)';
+  const sensorClause = appState.sensorEnabled
+    ? `MMS Mobile Measuring Station active (${appState.probeMode === 'dry' ? 'Dry soil mode' : 'Wet soil mode'})`
+    : 'satellite baseline only (local MMS sensor disabled)';
 
   if (count === 0) {
     return {
@@ -806,7 +809,7 @@ function evaluateCropSelection(selectedIds, topPick) {
       bannerTitle: 'This might be a better idea to start with.',
       heading: 'Suggestion: Pick 1 to 3 crops in the sidebar',
       line1: 'You have not selected any crops yet — try picking your preferred New York crops in the Crops dropdown on the left.',
-      line2: `Better suggestion for this field: ${recLabel} (template ready for backend integration).`
+      line2: `Better suggestion for this field: ${recLabel} (${sensorClause}).`
     };
   }
 
@@ -816,7 +819,7 @@ function evaluateCropSelection(selectedIds, topPick) {
       bannerTitle: 'Picking this many crops is bad — try this better 3-crop plan.',
       heading: 'Why picking this many crops is bad',
       line1: `Selecting ${count} crops at once (${pickedNames.slice(0, 4).join(', ')}${count > 4 ? '...' : ''}) splits field management, mixes incompatible harvest schedules, and weakens soil recovery.`,
-      line2: `Better suggestion: Narrow your field down to ${recLabel} for stronger soil nitrogen and higher yield.`
+      line2: `Better suggestion: Narrow your field down to ${recLabel} for stronger soil nitrogen and higher yield (${sensorClause}).`
     };
   }
 
@@ -826,7 +829,7 @@ function evaluateCropSelection(selectedIds, topPick) {
       bannerTitle: 'This is a good crop selection for your field.',
       heading: 'This is a good crop mix — why it works',
       line1: `Your 3 selected crops (${pickedNames.join(', ')}) form a strong rotation that balances nitrogen fixation, root depth, and pest resistance.`,
-      line2: `Recommended 3-year sequence: ${recLabel} within your ${appState.maxWaterDemand} mm water budget.`
+      line2: `Recommended 3-year sequence: ${recLabel} within your ${appState.maxWaterDemand} mm water budget • ${sensorClause}.`
     };
   }
 
@@ -837,7 +840,7 @@ function evaluateCropSelection(selectedIds, topPick) {
       bannerTitle: 'This might be a better idea than planting a single crop.',
       heading: 'Suggestion: This might be a better idea',
       line1: `You only picked ${pickedNames[0]} — planting 1 crop repeatedly depletes soil nutrients and builds up crop-specific pests.`,
-      line2: `Better suggestion: Rotate ${pickedNames[0]} inside ${recLabel} to restore nitrogen and protect topsoil.`
+      line2: `Better suggestion: Rotate ${pickedNames[0]} inside ${recLabel} to restore nitrogen and protect topsoil (${sensorClause}).`
     };
   }
 
@@ -847,7 +850,7 @@ function evaluateCropSelection(selectedIds, topPick) {
       bannerTitle: 'This might be a better idea for a full 3-year cycle.',
       heading: 'Suggestion: This might be a better idea',
       line1: `You picked ${pickedNames.join(' and ')} — adding a 3rd complementary crop completes a 3-year cycle and boosts organic carbon.`,
-      line2: `Better suggestion: Try ${recLabel} to pair your selection with balanced soil recovery.`
+      line2: `Better suggestion: Try ${recLabel} to pair your selection with balanced soil recovery (${sensorClause}).`
     };
   }
 
@@ -857,12 +860,12 @@ function evaluateCropSelection(selectedIds, topPick) {
     bannerTitle: 'This might be a better idea for soil balance.',
     heading: 'Suggestion: This might be a better idea',
     line1: `Your 3 picks (${pickedNames.join(', ')}) either lack a nitrogen-fixing legume or mix perennial tree/vine crops with annual row crops.`,
-    line2: `Better suggestion: Swap in a complementary nitrogen builder with ${recLabel}.`
+    line2: `Better suggestion: Swap in a complementary nitrogen builder with ${recLabel} (${sensorClause}).`
   };
 }
 
-// Switch between top-level views with smooth fade transitions
-function navigateToView(viewId) {
+// Switch between top-level views with smooth fade transitions and browser history support
+function navigateToView(viewId, pushHistory = true) {
   const allViews = document.querySelectorAll('.app-view');
   const target = document.getElementById(viewId);
   if (!target) return;
@@ -880,8 +883,32 @@ function navigateToView(viewId) {
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       target.classList.add('visible-view');
+      if (viewId === 'location-view' && typeof window.refreshFarmingAuraLocationMap === 'function') {
+        window.refreshFarmingAuraLocationMap();
+      } else if (viewId === 'dashboard-view' && typeof window.refreshFarmingAuraFieldMap === 'function') {
+        window.refreshFarmingAuraFieldMap();
+      }
     });
   });
+
+  setTimeout(() => {
+    if (viewId === 'location-view' && typeof window.refreshFarmingAuraLocationMap === 'function') {
+      window.refreshFarmingAuraLocationMap();
+    } else if (viewId === 'dashboard-view' && typeof window.refreshFarmingAuraFieldMap === 'function') {
+      window.refreshFarmingAuraFieldMap();
+    }
+  }, 120);
+
+  if (pushHistory && window.history && typeof window.history.pushState === 'function') {
+    const hashTarget = viewId === 'landing-view' ? window.location.pathname + window.location.search : `#${viewId}`;
+    if (window.location.hash !== `#${viewId}`) {
+      try {
+        window.history.pushState({ viewId }, '', hashTarget);
+      } catch (_err) {
+        // ignore file:// history restrictions
+      }
+    }
+  }
 
   appState.currentView = viewId;
   renderAll();
@@ -906,10 +933,21 @@ function switchDashboardTab(tabKey) {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           panel.classList.add('visible-panel');
+          if (tabKey === 'map' && typeof window.refreshFarmingAuraFieldMap === 'function') {
+            window.refreshFarmingAuraFieldMap();
+          }
         });
       });
     }
   });
+
+  if (tabKey === 'map') {
+    setTimeout(() => {
+      if (typeof window.refreshFarmingAuraFieldMap === 'function') {
+        window.refreshFarmingAuraFieldMap();
+      }
+    }, 100);
+  }
 
   // Update sensor switch color to match Figma (green on Tab 2/3, brown on Tab 1)
   const sensorSwitch = document.getElementById('sidebar-sensor-switch');
@@ -1546,11 +1584,33 @@ function renderDashboard() {
 
   const liveMms = isMmsLive() ? appState.mms.latest : null;
 
-  if (appState.probeMode === 'dry') {
+  if (nasaRzm) nasaRzm.textContent = `${field.moistureAvg.toFixed(2)} m³/m³`;
+  if (nasaTemp) nasaTemp.textContent = `${field.tempSummer.toFixed(1)} °C`;
+  if (nasaPrecip) nasaPrecip.textContent = `${field.summer2024Precip} mm`;
+
+  if (!appState.sensorEnabled) {
+    if (devRzm) devRzm.textContent = 'Disabled (satellite only)';
+    if (devSt) devSt.textContent = `${field.soilTempC.toFixed(1)} °C (satellite)`;
+    if (devAh) devAh.textContent = 'Disabled in sidebar';
+    if (devRain) devRain.textContent = 'Disabled in sidebar';
+    if (alertTitle) {
+      alertTitle.textContent = 'MMS Mobile Measuring Station: Disabled in sidebar — using NASA satellite baseline only';
+    }
+    if (alertSub) {
+      alertSub.textContent =
+        'Local sensor readings are currently turned off in the sidebar. Toggle "Local sensor readings" on in the sidebar or click Wet / Dry below to activate MMS ground-truth calibration.';
+    }
+    if (backendHeading) {
+      backendHeading.textContent = `Backend report for ${activeFieldName} · Satellite Baseline Only (MMS Disabled)`;
+    }
+    if (backendLine1) {
+      backendLine1.textContent = `Local MMS sensor override is disabled. Rotations are scored using NASA POWER root-zone moisture (${field.moistureAvg.toFixed(2)} m³/m³) and ${field.summer2024Precip} mm summer precipitation without local probe adjustments.`;
+    }
+    if (backendLine2) {
+      backendLine2.textContent = `Click "MMS Mobile Measuring Station: Wet" or "MMS Mobile Measuring Station: Dry" above (or enable the sidebar toggle) to apply local soil moisture readings to ${topPick ? topPick.label : 'your rotation'}.`;
+    }
+  } else if (appState.probeMode === 'dry') {
     const localMoist = liveMms && liveMms.soil_moisture_m3 != null ? liveMms.soil_moisture_m3 : Math.max(0.14, field.moistureAvg - 0.13);
-    if (nasaRzm) nasaRzm.textContent = `${field.moistureAvg.toFixed(2)} m³/m³`;
-    if (nasaTemp) nasaTemp.textContent = `${field.tempSummer.toFixed(1)} °C`;
-    if (nasaPrecip) nasaPrecip.textContent = `${field.summer2024Precip} mm`;
     if (devRzm) devRzm.textContent = `${localMoist.toFixed(2)} m³/m³ (Dry)`;
     if (devSt) devSt.textContent = `${(liveMms && liveMms.soil_temp_c != null ? liveMms.soil_temp_c : field.soilTempC + 2.3).toFixed(1)} °C`;
     if (devAh) devAh.textContent = liveMms && liveMms.air_humidity_pct != null ? `${Math.round(liveMms.air_humidity_pct)} % RH` : '38 % RH';
@@ -1568,9 +1628,6 @@ function renderDashboard() {
     }
   } else {
     const localMoist = liveMms && liveMms.soil_moisture_m3 != null ? liveMms.soil_moisture_m3 : Math.min(0.49, field.moistureAvg + 0.06);
-    if (nasaRzm) nasaRzm.textContent = `${field.moistureAvg.toFixed(2)} m³/m³`;
-    if (nasaTemp) nasaTemp.textContent = `${field.tempSummer.toFixed(1)} °C`;
-    if (nasaPrecip) nasaPrecip.textContent = `${field.summer2024Precip} mm`;
     if (devRzm) devRzm.textContent = `${localMoist.toFixed(2)} m³/m³ (Wet)`;
     if (devSt) devSt.textContent = `${(liveMms && liveMms.soil_temp_c != null ? liveMms.soil_temp_c : field.soilTempC).toFixed(1)} °C`;
     if (devAh) devAh.textContent = liveMms && liveMms.air_humidity_pct != null ? `${Math.round(liveMms.air_humidity_pct)} % RH` : '68 % RH';
@@ -1587,17 +1644,17 @@ function renderDashboard() {
     }
   }
 
-  if (devRain) {
+  if (appState.sensorEnabled && devRain) {
     devRain.textContent = liveMms
       ? (liveMms.is_raining ? `Raining (${liveMms.rain_intensity_pct}%)` : 'Dry')
       : 'No MMS data';
   }
-  if (liveMms && alertTitle) {
+  if (appState.sensorEnabled && liveMms && alertTitle) {
     alertTitle.textContent = `MMS Mobile Measuring Station: ${appState.probeMode === 'dry' ? 'Dry' : 'Wet'} soil detected — live telemetry`;
   }
 
   document.querySelectorAll('.probe-mode-btn').forEach((btn) => {
-    btn.classList.toggle('active-probe-mode', btn.dataset.probe === appState.probeMode);
+    btn.classList.toggle('active-probe-mode', Boolean(appState.sensorEnabled && btn.dataset.probe === appState.probeMode));
   });
 }
 
@@ -1965,18 +2022,33 @@ document.addEventListener('DOMContentLoaded', () => {
   // Tab 3 MMS Mobile Measuring Station Wet / Dry decision buttons
   document.querySelectorAll('.probe-mode-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
+      // Automatically enable local sensor readings in the sidebar if the user clicks Wet or Dry
+      if (!appState.sensorEnabled) {
+        appState.sensorEnabled = true;
+      }
       // While the MMS is live, the sensor decides Wet or Dry
-      if (isMmsLive()) return;
-      appState.probeMode = btn.dataset.probe;
+      if (!isMmsLive()) {
+        appState.probeMode = btn.dataset.probe;
+      }
       renderDashboard();
     });
   });
 
-  // Top nav Demo & Data sources links and brand home links
+  // Top nav Demo & Data sources links, Back buttons, and brand home links
   document.querySelectorAll('[data-nav-target]').forEach((el) => {
     el.addEventListener('click', () => {
       navigateToView(el.dataset.navTarget);
     });
+  });
+
+  // Browser Back / Forward navigation across onboarding steps
+  window.addEventListener('popstate', (e) => {
+    const stateView = e.state && e.state.viewId;
+    const hashView = window.location.hash ? window.location.hash.replace('#', '') : 'landing-view';
+    const targetView = stateView || hashView || 'landing-view';
+    if (document.getElementById(targetView)) {
+      navigateToView(targetView, false);
+    }
   });
 
   document.querySelectorAll('.open-sources-modal-btn').forEach((btn) => {

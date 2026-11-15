@@ -67,7 +67,8 @@ def build_fallback_explanation(facts):
     priority = facts.get("farmer_priority", "Balanced")
     prev_crop = facts.get("previous_crop", "the previous crop")
     max_water = facts.get("max_water_demand_mm_per_year", 550)
-    probe = facts.get("moisture_probe", "not used")
+    probe = facts.get("moisture_probe") or facts.get("mms_mobile_measuring_station", "not used")
+    sensors_enabled = facts.get("local_sensors_enabled", probe in ("wet", "dry"))
     rot = facts.get("recommended_rotation", [])
     scores = facts.get("scores_0_to_1", {})
     total_score = facts.get("rotation_total_score_0_to_1", 0.75)
@@ -93,11 +94,12 @@ def build_fallback_explanation(facts):
         f"On {field_desc}, {seq_label} earned a {total_score:.2f} total score under the {priority} profile, "
         f"driven by {ws_score:.2f} water safety and {sh_score:.2f} soil health with NASA rainfall at {rain_mm} mm and root-zone moisture at {rzm:.2f} RZM."
     )
-    probe_note = (
-        "with the dry moisture probe active, conserve topsoil water via reduced tillage"
-        if probe == "dry"
-        else "with adequate root-zone moisture, maintain residue cover between harvests"
-    )
+    if not sensors_enabled or probe in ("not used", "off", "disabled (satellite only)"):
+        probe_note = "with local MMS sensors disabled (satellite baseline only), monitor topsoil moisture before planting"
+    elif "dry" in str(probe).lower():
+        probe_note = "with the MMS Mobile Measuring Station enabled (Dry soil mode), conserve topsoil water via reduced tillage"
+    else:
+        probe_note = "with the MMS Mobile Measuring Station enabled (Wet soil mode), maintain residue cover and monitor field drainage"
     why_line_2 = (
         f"Following {prev_crop}, starting Year 1 with {crop_names[0]} breaks pest cycles and keeps peak crop water demand ({max_crop_water} mm) "
         f"within your {max_water} mm budget; {probe_note}."

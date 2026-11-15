@@ -1194,6 +1194,7 @@ if FastAPI is not None:
         intensity: int = 50
         previous_crop: Optional[str] = None
         max_water: int = 550
+        local_sensors_enabled: bool = True
         probe: str = "off"
         rotation: list[str] = []
         scores: dict[str, float] = {}
@@ -1223,12 +1224,17 @@ if FastAPI is not None:
         )
         loc_label = req.city or "selected Google Map location"
 
+        probe_state = req.probe if (req.local_sensors_enabled and req.probe in ("wet", "dry")) else "not used"
         facts = {
             "field": f"Field F{max(1, req.field_number):03d} at {loc_label}{coord_str}",
             "farmer_priority": f"{req.profile if req.profile in PROFILES else 'Balanced'} (intensity {max(1, min(100, req.intensity))}/100)",
             "previous_crop": previous["crop_name"] if previous else "not given",
             "max_water_demand_mm_per_year": req.max_water,
-            "mms_mobile_measuring_station": req.probe if req.probe in ("wet", "dry") else "not used",
+            "local_sensors_enabled": bool(req.local_sensors_enabled),
+            "mms_mobile_measuring_station": (
+                f"enabled ({probe_state} soil)" if probe_state in ("wet", "dry") else "disabled (satellite only)"
+            ),
+            "moisture_probe": probe_state,
             "nasa_kpis": req.nasa_kpis,
             "recommended_rotation": [
                 {
