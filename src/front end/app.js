@@ -379,8 +379,10 @@ const appState = {
   mms: { connected: false, latest: null, lastJson: '' }
 };
 
-// Where the backend lives. If the page is served by the backend itself (port 8000) use relative URLs.
-const MMS_API_BASE = (location.protocol === 'http:' && location.port === '8000') ? '' : 'http://127.0.0.1:8000';
+// Where the backend lives. Use relative URLs when served by FastAPI locally or on Hugging Face Spaces.
+const MMS_API_BASE = (location.protocol === 'file:' || location.port === '5500' || location.port === '3000')
+  ? 'http://127.0.0.1:8000'
+  : '';
 
 // True when the MMS is plugged in, sending fresh data, and the sidebar sensor toggle is on
 function isMmsLive() {
