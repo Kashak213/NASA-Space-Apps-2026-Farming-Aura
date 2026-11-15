@@ -49,6 +49,7 @@
    - **Interactive Map Stack (Zero-Key Default + Optional Google Maps):**
      - **Default (No API Key Required):** **Leaflet.js** in the browser (or `folium` in Python) using **Esri World Imagery** satellite tiles, **OpenStreetMap** base tiles, and **NASA GIBS WMTS** satellite overlays (MODIS NDVI, SMAP Soil Moisture).
      - **Optional Google Maps Integration:** Supported via `GOOGLE_MAPS_API_KEY` loaded from `.env` / `src/config.py` locally, or injected at build time via GitHub Actions Secrets and locked down with Google Cloud HTTP Referrer restrictions (see Section 7 for exact Frontend AI instructions).
+   - **Judge-Friendly Onboarding & No Auth Gate:** Never add a login/sign-up wall (violates NASA Space Apps public-access rules). If using an onboarding/walkthrough flow (farm location, farm/harvest goals, main crops), **always include a 1-step "Skip / Load Sample Farm" button** (and pre-filled defaults/clickable chips) so judges can jump straight into the live dashboard in one click.
    - **No Frontend Code Built Yet:** The frontend team is building the UI separately using Section 7 of this briefing as their AI context handoff.
 2. **Backend / Recommendation Engine:**
    - Multi-criteria weighted scoring & sequence transition formula that ranks candidate multi-year crop rotation sequences:
@@ -151,7 +152,8 @@
    - Port and modularize the validated scoring, constraint filtering, and cyclic transition engine from `data/sample_data_test.py` into `src/engine/`.
    - Add ground-truth hardware sensor delta adjustments (allowing local Arduino/sensor soil temperature, moisture, or pressure readings to override/adjust satellite anomaly scores).
 3. **Phase 3 — Interactive Web UI & Map (`GitHub Pages` / `src/ui/`):**
-   - Interactive map selector (Leaflet.js + Esri Satellite/NASA GIBS or Google Maps JS API) to pick a farm location or sample field.
+   - Optional walkthrough/onboarding (farm location, farm/harvest goals, main crops) with **no login wall** and a **1-step "Skip / Load Sample Farm" button** so judges can bypass setup in one click.
+   - Interactive map selector (Leaflet.js + Esri Satellite/NASA GIBS or Google Maps JS API, or `folium` in Streamlit) to pick a farm location or sample field.
    - Farmer priority weight sliders (`Balanced`, `Max Yield`, `Water Conservation`, `Soil Health First`, `Climate Resilient`, plus custom sliders) and equipment constraint toggles (`row_crop_only`).
    - Ranked crop rotation cards with multi-year sequence breakdown, component score radar/bar charts, and historical climate/NDVI trend visualizations.
 4. **Phase 4 — Verification, Demo Video & Submission:**
