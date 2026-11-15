@@ -361,12 +361,15 @@ const appState = {
   currentView: 'landing-view',
   activeTab: 'rotations',
   selectedCity: 'Albany',
+  fieldCount: 1,
+  selectedFields: ['F001'],
+  activeFieldSlot: 0,
   selectedFieldId: 'F001',
   selectedProfile: 'Balanced',
   selectedCrops: ['C01', 'C02', 'C03'],
   maxWaterDemand: 550,
   sensorEnabled: true,
-  probeMode: 'dry', // 'template' | 'wet' | 'dry'
+  probeMode: 'dry', // 'wet' | 'dry'
   mapZoom: 1.0,
   selectedRankIndex: 0
 };
@@ -781,6 +784,9 @@ function selectCityLocation(cityKey) {
 
   appState.selectedCity = cityKey;
   appState.selectedFieldId = city.defaultField;
+  if (appState.selectedFields.length > 0) {
+    appState.selectedFields[appState.activeFieldSlot] = city.defaultField;
+  }
 
   const regionBox = document.getElementById('step1-region-selected');
   const latLonBox = document.getElementById('step1-latlon-display');
@@ -801,6 +807,245 @@ function selectCityLocation(cityKey) {
   document.querySelectorAll('.region-dropdown-item').forEach((item) => {
     item.classList.toggle('active-item', item.dataset.city === cityKey);
   });
+}
+
+// Update how many field dropdowns are shown in the sidebar
+function setFieldCount(count) {
+  const allIds = Object.keys(FIELDS_DATA);
+  const n = clip(count, 1, 8);
+  appState.fieldCount = n;
+
+  while (appState.selectedFields.length < n) {
+    const nextDefault = allIds[appState.selectedFields.length % allIds.length];
+    appState.selectedFields.push(nextDefault);
+  }
+  if (appState.selectedFields.length > n) {
+    appState.selectedFields = appState.selectedFields.slice(0, n);
+  }
+  if (appState.activeFieldSlot >= n) {
+    appState.activeFieldSlot = n - 1;
+  }
+  appState.selectedFieldId = appState.selectedFields[appState.activeFieldSlot] || 'F001';
+}
+
+// Render N dynamic field dropdowns inside #dynamic-fields-container
+function renderDynamicFieldDropdowns() {
+  const container = document.getElementById('dynamic-fields-container');
+  if (!container) return;
+
+  container.innerHTML = '';
+  const allFieldKeys = Object.keys(FIELDS_DATA);
+
+  for (let i = 0; i < appState.fieldCount; i++) {
+    const slotFieldId = appState.selectedFields[i] || 'F001';
+    const slotField = FIELDS_DATA[slotFieldId] || FIELDS_DATA.F001;
+    const isSlotActive = i === appState.activeFieldSlot;
+
+    const group = document.createElement('div');
+    group.className = 'dynamic-field-group';
+
+    const label = document.createElement('label');
+    label.className = 'sidebar-label';
+    label.textContent = appState.fieldCount === 1 ? 'Field 1' : `Field ${i + 1}${isSlotActive ? ' (viewing)' : ''}`;
+
+    const triggerId = `dynamic-field-trigger-${i}`;
+    const menuId = `dynamic-field-menu-${i}`;
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.id = triggerId;
+    trigger.className = `custom-select-trigger dynamic-field-trigger ${isSlotActive ? 'active-slot-trigger' : ''}`;
+    trigger.innerHTML = `
+      <span>${slotField.name}</span>
+      <span class="custom-select-chevron">&#8964;</span>
+    `;
+
+    const menu = document.createElement('div');
+    menu.id = menuId;
+    menu.className = 'field-dropdown-menu';
+
+    allFieldKeys.forEach((fid) => {
+      const fObj = FIELDS_DATA[fid];
+      const optBtn = document.createElement('button');
+      optBtn.type = 'button';
+      optBtn.className = `field-option-btn ${fid === slotFieldId ? 'selected-field' : ''}`;
+      optBtn.textContent = fObj.name;
+      optBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        appState.selectedFields[i] = fid;
+        appState.activeFieldSlot = i;
+        appState.selectedFieldId = fid;
+        appState.selectedRankIndex = 0;
+        closeAllDropdowns();
+        renderDashboard();
+      });
+      menu.appendChild(optBtn);
+    });
+
+    const customBtn = document.createElement('button');
+    customBtn.type = 'button';
+    customBtn.className = 'field-custom-map-btn';
+    customBtn.innerHTML = 'Choose custom map location<br />&rarr;';
+    customBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      appState.activeFieldSlot = i;
+      closeAllDropdowns();
+      navigateToView('location-view');
+    });
+    menu.appendChild(customBtn);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'field-close-btn';
+    closeBtn.textContent = 'Close';
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeAllDropdowns();
+    });
+    menu.appendChild(closeBtn);
+
+    trigger.addEventListener('click', (e) => {
+      appState.activeFieldSlot = i;
+      appState.selectedFieldId = appState.selectedFields[i] || 'F001';
+      toggleDropdown(menuId, triggerId, e);
+    });
+
+    group.appendChild(label);
+    group.appendChild(trigger);
+    group.appendChild(menu);
+    container.appendChild(group);
+  }
+}
+
+// Build 5-year temperature and rainfall series (2020 to 2024) for a field and render the dual-Y-axis SVG line chart
+function renderClimateLineChart(field) {
+  const svg = document.getElementById('climate-line-chart-svg');
+  if (!svg) return;
+
+  const years = [2020, 2021, 2022, 2023, 2024];
+  const rain2023 = Math.round(field.spring2023Precip + field.summer2023Precip);
+  const rain2024 = Math.round(field.spring2024Precip + field.summer2024Precip);
+  const rainStep = Math.round((rain2024 - rain2023) * 0.45);
+
+  const rainSeries = [
+    clip(rain2023 - rainStep * 2 + 18, 360, 780),
+    clip(rain2023 - rainStep - 12, 360, 780),
+    clip(rain2023 + 14, 360, 780),
+    rain2023,
+    rain2024
+  ];
+
+  const t2024 = field.tempSummer;
+  const tempDrift = rain2024 < rain2023 ? 0.35 : -0.20;
+  const tempSeriesC = [
+    Number((t2024 - tempDrift * 3.6).toFixed(1)),
+    Number((t2024 - tempDrift * 2.5).toFixed(1)),
+    Number((t2024 - tempDrift * 1.8).toFixed(1)),
+    Number((t2024 - tempDrift * 0.9).toFixed(1)),
+    Number(t2024.toFixed(1))
+  ];
+
+  const toF = (c) => Math.round((c * 9) / 5 + 32);
+
+  // Chart coordinate space inside 820x300 viewBox
+  const padLeft = 108;
+  const padRight = 98;
+  const padTop = 28;
+  const padBottom = 50;
+  const plotW = 820 - padLeft - padRight;
+  const plotH = 300 - padTop - padBottom;
+
+  const tempMin = 20;
+  const tempMax = 28;
+  const rainMin = 350;
+  const rainMax = 800;
+
+  const xAt = (i) => padLeft + (i / (years.length - 1)) * plotW;
+  const yTemp = (c) => padTop + (1 - clip((c - tempMin) / (tempMax - tempMin), 0, 1)) * plotH;
+  const yRain = (mm) => padTop + (1 - clip((mm - rainMin) / (rainMax - rainMin), 0, 1)) * plotH;
+
+  let gridHtml = '';
+  const ticks = 4;
+  for (let t = 0; t <= ticks; t++) {
+    const frac = t / ticks;
+    const y = padTop + (1 - frac) * plotH;
+    const cVal = (tempMin + frac * (tempMax - tempMin)).toFixed(0);
+    const fVal = toF(Number(cVal));
+    const rVal = Math.round(rainMin + frac * (rainMax - rainMin));
+
+    gridHtml += `
+      <line x1="${padLeft}" y1="${y}" x2="${padLeft + plotW}" y2="${y}" stroke="#e5dfd3" stroke-dasharray="4 4" stroke-width="1" />
+      <text x="${padLeft - 10}" y="${y + 4}" text-anchor="end" fill="#b8501c" font-size="11" font-weight="600">${cVal}°C / ${fVal}°F</text>
+      <text x="${padLeft + plotW + 10}" y="${y + 4}" text-anchor="start" fill="#183925" font-size="11" font-weight="600">${rVal} mm</text>
+    `;
+  }
+
+  // Axis titles
+  const leftAxisY = padTop + plotH / 2;
+  const rightAxisY = padTop + plotH / 2;
+  gridHtml += `
+    <text x="20" y="${leftAxisY}" text-anchor="middle" fill="#b8501c" font-size="11.5" font-weight="700" transform="rotate(-90 20 ${leftAxisY})">Temperature (°C / °F)</text>
+    <text x="802" y="${rightAxisY}" text-anchor="middle" fill="#183925" font-size="11.5" font-weight="700" transform="rotate(90 802 ${rightAxisY})">Rainfall (mm)</text>
+    <text x="${padLeft + plotW / 2}" y="292" text-anchor="middle" fill="#4f5d53" font-size="12" font-weight="700">Years (5-Year Historical Window)</text>
+  `;
+
+  // X-axis year labels and vertical guides
+  years.forEach((yr, idx) => {
+    const x = xAt(idx);
+    gridHtml += `
+      <line x1="${x}" y1="${padTop}" x2="${x}" y2="${padTop + plotH}" stroke="#ece7dc" stroke-width="1" />
+      <text x="${x}" y="${padTop + plotH + 22}" text-anchor="middle" fill="#2c3e31" font-size="12" font-weight="600">${yr}</text>
+    `;
+  });
+
+  // Polyline paths
+  const tempPoints = tempSeriesC.map((c, i) => `${xAt(i)},${yTemp(c)}`).join(' ');
+  const rainPoints = rainSeries.map((mm, i) => `${xAt(i)},${yRain(mm)}`).join(' ');
+
+  let markersHtml = `
+    <polyline fill="none" stroke="#b8501c" stroke-width="3" points="${tempPoints}" />
+    <polyline fill="none" stroke="#183925" stroke-width="3" points="${rainPoints}" />
+  `;
+
+  tempSeriesC.forEach((c, i) => {
+    const x = xAt(i);
+    const y = yTemp(c);
+    const f = toF(c);
+    markersHtml += `
+      <circle cx="${x}" cy="${y}" r="5" fill="#b8501c" stroke="#ffffff" stroke-width="1.5" />
+      <text x="${x}" y="${y - 10}" text-anchor="middle" fill="#b8501c" font-size="10.5" font-weight="700">${c}°C (${f}°F)</text>
+    `;
+  });
+
+  rainSeries.forEach((mm, i) => {
+    const x = xAt(i);
+    const y = yRain(mm);
+    markersHtml += `
+      <circle cx="${x}" cy="${y}" r="5" fill="#183925" stroke="#ffffff" stroke-width="1.5" />
+      <text x="${x}" y="${y + 18}" text-anchor="middle" fill="#183925" font-size="10.5" font-weight="700">${mm} mm</text>
+    `;
+  });
+
+  svg.innerHTML = gridHtml + markersHtml;
+
+  // Update the description below the chart explaining how temp/rainfall increases & decreases work
+  const tempDiffC = Number((tempSeriesC[4] - tempSeriesC[0]).toFixed(1));
+  const tempDiffF = Number(((tempDiffC * 9) / 5).toFixed(1));
+  const rainDiff = rainSeries[4] - rainSeries[0];
+
+  const tempExplEl = document.getElementById('climate-temp-explanation');
+  const rainExplEl = document.getElementById('climate-rain-explanation');
+
+  if (tempExplEl) {
+    const signC = tempDiffC >= 0 ? `+${tempDiffC}°C` : `${tempDiffC}°C`;
+    const signF = tempDiffF >= 0 ? `+${tempDiffF}°F` : `${tempDiffF}°F`;
+    tempExplEl.textContent = `From 2020 to 2024 on ${field.name}, summer temperature shifted by ${signC} (${signF}). An increase in temperature (+°C / +°F) raises evapotranspiration and soil heat stress, which penalizes shallow-rooted crops and increases water demand. A decrease in temperature (-°C / -°F) slows soil moisture loss and favors cool-season New York crops like Cabbage, Potatoes, Onions, and Green Peas.`;
+  }
+
+  if (rainExplEl) {
+    const signRain = rainDiff >= 0 ? `+${rainDiff} mm` : `${rainDiff} mm`;
+    rainExplEl.textContent = `From 2020 to 2024 on ${field.name}, annual growing-season rainfall changed by ${signRain} (${rainSeries[0]} mm to ${rainSeries[4]} mm). An increase in rainfall (+mm) recharges root-zone soil moisture and supports higher-transpiration crops like Hay & Alfalfa and Field Corn. A decrease in rainfall (-mm) elevates drought risk and shifts our rotation score toward water-safe legumes like Soybeans & Small Grains.`;
+  }
 }
 
 // Close all custom dropdowns and popovers
@@ -836,11 +1081,19 @@ function renderDashboard() {
   const topPick = ranked[appState.selectedRankIndex] || ranked[0];
   const selectedIds = appState.selectedCrops || [];
 
-  // Sidebar trigger labels
-  const fieldTrigLabel = document.getElementById('sidebar-field-label');
+  // Render dynamic field dropdowns in the sidebar based on appState.fieldCount
+  const fieldCountLabel = document.getElementById('sidebar-field-count-label');
+  if (fieldCountLabel) {
+    fieldCountLabel.textContent = appState.fieldCount === 1 ? '1 field' : `${appState.fieldCount} fields`;
+  }
+  document.querySelectorAll('[data-field-count]').forEach((btn) => {
+    btn.classList.toggle('active-option', parseInt(btn.dataset.fieldCount, 10) === appState.fieldCount);
+  });
+  renderDynamicFieldDropdowns();
+
+  // Sidebar trigger labels for Priority Profile and Crops
   const profileTrigLabel = document.getElementById('sidebar-profile-label');
   const equipTrigLabel = document.getElementById('sidebar-equip-label');
-  if (fieldTrigLabel) fieldTrigLabel.textContent = field.name;
   if (profileTrigLabel) profileTrigLabel.textContent = appState.selectedProfile;
   if (equipTrigLabel) {
     if (selectedIds.length === 0) {
@@ -853,9 +1106,6 @@ function renderDashboard() {
   }
 
   // Highlight active items inside sidebar dropdowns
-  document.querySelectorAll('.field-option-btn').forEach((btn) => {
-    btn.classList.toggle('selected-field', btn.dataset.field === field.id);
-  });
   document.querySelectorAll('[data-profile-option]').forEach((btn) => {
     btn.classList.toggle('active-option', btn.dataset.profileOption === appState.selectedProfile);
   });
@@ -889,9 +1139,20 @@ function renderDashboard() {
   const dashMainTitle = document.getElementById('dash-main-title');
   const dashSubLeft = document.getElementById('dash-subtitle-left');
   const dashSubRight = document.getElementById('dash-subtitle-right');
-  if (dashEyebrow) dashEyebrow.textContent = `FIELD ${field.id} / DEMO DATA`;
+  if (dashEyebrow) {
+    dashEyebrow.textContent =
+      appState.fieldCount > 1
+        ? `FIELD ${field.id} (SLOT ${appState.activeFieldSlot + 1} OF ${appState.fieldCount}) / DEMO DATA`
+        : `FIELD ${field.id} / DEMO DATA`;
+  }
   if (dashMainTitle) dashMainTitle.textContent = field.name;
-  if (dashSubLeft) dashSubLeft.textContent = `Demo data • ${appState.selectedProfile} priority profile`;
+  if (dashSubLeft) {
+    const allChosenFields = appState.selectedFields.map((fid) => FIELDS_DATA[fid]?.name || fid).join(', ');
+    dashSubLeft.textContent =
+      appState.fieldCount > 1
+        ? `Active fields (${appState.fieldCount}): ${allChosenFields} • ${appState.selectedProfile} profile`
+        : `Demo data • ${appState.selectedProfile} priority profile`;
+  }
   if (dashSubRight) {
     const pickedNames = selectedIds.map((id) => CROPS_DATA[id]?.name).filter(Boolean);
     if (pickedNames.length === 0) {
@@ -942,17 +1203,45 @@ function renderDashboard() {
   if (whyLine1) whyLine1.textContent = evalResult.line1;
   if (whyLine2) whyLine2.textContent = evalResult.line2;
 
-  // Rotation score breakdown bars
+  // Rotation score breakdown bars (5 metrics from 0 to 1, averaged into a score out of 100)
   const barSoil = document.getElementById('bar-soil-health');
   const barWater = document.getElementById('bar-water-safety');
   const barRes = document.getElementById('bar-resilience');
   const barYield = document.getElementById('bar-yield-potential');
-  if (barSoil && topPick) barSoil.style.width = `${Math.round(topPick.soilHealth * 100)}%`;
-  if (barWater && topPick) barWater.style.width = `${Math.round(topPick.waterSafety * 100)}%`;
-  if (barRes && topPick) barRes.style.width = `${Math.round(topPick.resilience * 100)}%`;
-  if (barYield && topPick) barYield.style.width = `${Math.round(topPick.yieldPotential * 100)}%`;
+  const barNFix = document.getElementById('bar-nitrogen-fix');
 
-  // Ranked alternatives table
+  const valSoil = document.getElementById('val-soil-health');
+  const valWater = document.getElementById('val-water-safety');
+  const valRes = document.getElementById('val-resilience');
+  const valYield = document.getElementById('val-yield-potential');
+  const valNFix = document.getElementById('val-nitrogen-fix');
+  const avgScoreBadge = document.getElementById('breakdown-avg-score');
+
+  if (topPick) {
+    if (barSoil) barSoil.style.width = `${Math.round(topPick.soilHealth * 100)}%`;
+    if (barWater) barWater.style.width = `${Math.round(topPick.waterSafety * 100)}%`;
+    if (barRes) barRes.style.width = `${Math.round(topPick.resilience * 100)}%`;
+    if (barYield) barYield.style.width = `${Math.round(topPick.yieldPotential * 100)}%`;
+    if (barNFix) barNFix.style.width = `${Math.round(topPick.nFixAvg * 100)}%`;
+
+    if (valSoil) valSoil.textContent = topPick.soilHealth.toFixed(2);
+    if (valWater) valWater.textContent = topPick.waterSafety.toFixed(2);
+    if (valRes) valRes.textContent = topPick.resilience.toFixed(2);
+    if (valYield) valYield.textContent = topPick.yieldPotential.toFixed(2);
+    if (valNFix) valNFix.textContent = topPick.nFixAvg.toFixed(2);
+
+    const avgFive =
+      (topPick.soilHealth +
+        topPick.waterSafety +
+        topPick.resilience +
+        topPick.yieldPotential +
+        topPick.nFixAvg) /
+      5.0;
+    const scoreOutOf100 = Math.round(avgFive * 100);
+    if (avgScoreBadge) avgScoreBadge.textContent = `${scoreOutOf100} / 100`;
+  }
+
+  // Ranked alternatives table (only RANK, ROTATION, TOTAL SCORE)
   const tbody = document.getElementById('ranked-alternatives-tbody');
   if (tbody) {
     tbody.innerHTML = '';
@@ -961,10 +1250,9 @@ function renderDashboard() {
       tr.className = `ranked-row ${idx === appState.selectedRankIndex ? 'selected-rank-row' : ''}`;
       const rankNum = String(idx + 1).padStart(2, '0');
       tr.innerHTML = `
-        <td>${rankNum}</td>
-        <td>${item.label}</td>
-        <td>${item.totalScore.toFixed(2)}</td>
-        <td>${item.waterSafety.toFixed(2)}</td>
+        <td class="col-rank">${rankNum}</td>
+        <td class="col-rotation">${item.label}</td>
+        <td class="col-score">${item.totalScore.toFixed(2)}</td>
       `;
       tr.addEventListener('click', () => {
         appState.selectedRankIndex = idx;
@@ -1005,26 +1293,10 @@ function renderDashboard() {
     }
   });
 
-  // Tab 2: Seasonal shifts 2023 vs 2024 bars
-  const barsData = [
-    { id: 'season-bar-0', h: Math.round((field.spring2023Precip / 420) * 120), tip: `2023 Spring Precip: ${field.spring2023Precip} mm` },
-    { id: 'season-bar-1', h: Math.round((field.spring2024Precip / 420) * 135), tip: `2024 Spring Precip: ${field.spring2024Precip} mm` },
-    { id: 'season-bar-2', h: Math.round((field.summer2023Precip / 420) * 125), tip: `2023 Summer Precip: ${field.summer2023Precip} mm` },
-    { id: 'season-bar-3', h: Math.round((field.summer2024Precip / 420) * 100), tip: `2024 Summer Precip: ${field.summer2024Precip} mm` },
-    { id: 'season-bar-4', h: Math.round(field.ndvi2023 * 120), tip: `2023 Spring NDVI: ${field.ndvi2023.toFixed(2)}` },
-    { id: 'season-bar-5', h: Math.round(field.ndvi2024 * 100), tip: `2024 Spring NDVI: ${field.ndvi2024.toFixed(2)}` },
-    { id: 'season-bar-6', h: Math.round((1 - field.drought2023) * 108), tip: `2023 Moisture Index: ${(1 - field.drought2023).toFixed(2)}` },
-    { id: 'season-bar-7', h: Math.round((1 - field.drought2024) * 86), tip: `2024 Moisture Index: ${(1 - field.drought2024).toFixed(2)}` }
-  ];
-  barsData.forEach((b) => {
-    const el = document.getElementById(b.id);
-    if (el) {
-      el.style.height = `${clip(b.h, 36, 138)}px`;
-      el.title = b.tip;
-    }
-  });
+  // Tab 2: 5-year dual-axis temperature & rainfall line chart
+  renderClimateLineChart(field);
 
-  // Tab 3: Live sensor readings
+  // Tab 3: Live sensor readings & Moisture Probe decision (Wet or Dry)
   const nasaRzm = document.getElementById('sensor-nasa-rzm');
   const nasaTemp = document.getElementById('sensor-nasa-temp');
   const nasaPrecip = document.getElementById('sensor-nasa-precip');
@@ -1033,17 +1305,11 @@ function renderDashboard() {
   const devAh = document.getElementById('sensor-dev-ah');
   const alertTitle = document.getElementById('sensor-alert-title');
   const alertSub = document.getElementById('sensor-alert-sub');
+  const backendHeading = document.getElementById('moisture-backend-heading');
+  const backendLine1 = document.getElementById('moisture-backend-line-1');
+  const backendLine2 = document.getElementById('moisture-backend-line-2');
 
-  if (appState.probeMode === 'template') {
-    if (nasaRzm) nasaRzm.textContent = 'NASA_RZM';
-    if (nasaTemp) nasaTemp.textContent = 'NASA_TEMP';
-    if (nasaPrecip) nasaPrecip.textContent = 'NASA_PRECIP';
-    if (devRzm) devRzm.textContent = 'DEV_RZM';
-    if (devSt) devSt.textContent = 'DEV_ST';
-    if (devAh) devAh.textContent = 'DEV_AH';
-    if (alertTitle) alertTitle.textContent = 'Dry soil detected — rotation adjusted';
-    if (alertSub) alertSub.textContent = 'Demo: consider Soybeans & Small Grains → Beets, Carrots, Squash & Pumpkins for water resilience.';
-  } else if (appState.probeMode === 'dry') {
+  if (appState.probeMode === 'dry') {
     const localMoist = Math.max(0.14, field.moistureAvg - 0.13);
     if (nasaRzm) nasaRzm.textContent = `${field.moistureAvg.toFixed(2)} m³/m³`;
     if (nasaTemp) nasaTemp.textContent = `${field.tempSummer.toFixed(1)} °C`;
@@ -1051,18 +1317,37 @@ function renderDashboard() {
     if (devRzm) devRzm.textContent = `${localMoist.toFixed(2)} m³/m³ (Dry)`;
     if (devSt) devSt.textContent = `${(field.soilTempC + 2.3).toFixed(1)} °C`;
     if (devAh) devAh.textContent = '38 % RH';
-    if (alertTitle) alertTitle.textContent = 'Dry soil detected — rotation adjusted';
-    if (alertSub) alertSub.textContent = 'Demo: consider Soybeans & Small Grains → Beets, Carrots, Squash & Pumpkins for water resilience.';
+    if (alertTitle) alertTitle.textContent = 'Moisture probe: Dry soil selected — rotation adjusted';
+    if (alertSub) {
+      alertSub.textContent =
+        'Backend response: Root-zone moisture is below the NASA satellite baseline. Prioritizing drought-tolerant legumes and lower water demand.';
+    }
+    if (backendHeading) backendHeading.textContent = `Backend report for ${field.name} · Moisture Probe: DRY`;
+    if (backendLine1) {
+      backendLine1.textContent = `Your moisture probe indicates dry topsoil (${localMoist.toFixed(2)} m³/m³ vs NASA ${field.moistureAvg.toFixed(2)} m³/m³). Backend advises reducing tillage, scheduling supplemental irrigation if available, and leading with nitrogen-fixing legumes that tolerate dry spells.`;
+    }
+    if (backendLine2) {
+      backendLine2.textContent = `Backend recommended rotation for Dry soil: ${topPick ? topPick.label : 'Soybeans & Small Grains → Beets, Carrots, Squash & Pumpkins → Hay & Alfalfa (Haylage)'}.`;
+    }
   } else {
     const localMoist = Math.min(0.49, field.moistureAvg + 0.06);
     if (nasaRzm) nasaRzm.textContent = `${field.moistureAvg.toFixed(2)} m³/m³`;
     if (nasaTemp) nasaTemp.textContent = `${field.tempSummer.toFixed(1)} °C`;
     if (nasaPrecip) nasaPrecip.textContent = `${field.summer2024Precip} mm`;
-    if (devRzm) devRzm.textContent = `${localMoist.toFixed(2)} m³/m³ (Optimal)`;
+    if (devRzm) devRzm.textContent = `${localMoist.toFixed(2)} m³/m³ (Wet)`;
     if (devSt) devSt.textContent = `${field.soilTempC.toFixed(1)} °C`;
-    if (devAh) devAh.textContent = '64 % RH';
-    if (alertTitle) alertTitle.textContent = 'Soil moisture optimal — satellite estimate confirmed';
-    if (alertSub) alertSub.textContent = `Recommended rotation for ${field.id}: ${topPick ? topPick.label : 'Soybeans & Small Grains → Field Corn (Silage & Grain) → Hay & Alfalfa (Haylage)'}.`;
+    if (devAh) devAh.textContent = '68 % RH';
+    if (alertTitle) alertTitle.textContent = 'Moisture probe: Wet soil selected — full water budget available';
+    if (alertSub) {
+      alertSub.textContent = `Backend response: Root-zone moisture is well-supplied (${localMoist.toFixed(2)} m³/m³). High-yield crops and deep-rooted forages are supported.`;
+    }
+    if (backendHeading) backendHeading.textContent = `Backend report for ${field.name} · Moisture Probe: WET`;
+    if (backendLine1) {
+      backendLine1.textContent = `Your moisture probe confirms wet root-zone conditions (${localMoist.toFixed(2)} m³/m³ vs NASA ${field.moistureAvg.toFixed(2)} m³/m³). Backend advises monitoring field drainage to prevent root compaction and taking advantage of strong moisture reserves for high-biomass crops.`;
+    }
+    if (backendLine2) {
+      backendLine2.textContent = `Backend recommended rotation for Wet soil: ${topPick ? topPick.label : 'Soybeans & Small Grains → Field Corn (Silage & Grain) → Hay & Alfalfa (Haylage)'}.`;
+    }
   }
 
   document.querySelectorAll('.probe-mode-btn').forEach((btn) => {
@@ -1163,6 +1448,7 @@ document.addEventListener('DOMContentLoaded', () => {
         selectCityLocation(cityKey);
       } else if (fieldKey && FIELDS_DATA[fieldKey]) {
         appState.selectedFieldId = fieldKey;
+        appState.selectedFields[appState.activeFieldSlot] = fieldKey;
         const f = FIELDS_DATA[fieldKey];
         const regionBox = document.getElementById('step1-region-selected');
         const latLonBox = document.getElementById('step1-latlon-display');
@@ -1196,40 +1482,24 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Dashboard sidebar dropdown 1: Field
-  const fieldTrigger = document.getElementById('sidebar-field-trigger');
-  if (fieldTrigger) {
-    fieldTrigger.addEventListener('click', (e) => {
-      toggleDropdown('sidebar-field-menu', 'sidebar-field-trigger', e);
+  // Dashboard sidebar dropdown 1A: How many fields?
+  const fieldCountTrigger = document.getElementById('sidebar-field-count-trigger');
+  if (fieldCountTrigger) {
+    fieldCountTrigger.addEventListener('click', (e) => {
+      toggleDropdown('sidebar-field-count-menu', 'sidebar-field-count-trigger', e);
     });
   }
 
-  document.querySelectorAll('.field-option-btn').forEach((btn) => {
+  document.querySelectorAll('[data-field-count]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      appState.selectedFieldId = btn.dataset.field;
+      const count = parseInt(btn.dataset.fieldCount, 10) || 1;
+      setFieldCount(count);
       appState.selectedRankIndex = 0;
       closeAllDropdowns();
       renderDashboard();
     });
   });
-
-  const customMapBtn = document.getElementById('field-custom-map-btn');
-  if (customMapBtn) {
-    customMapBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      closeAllDropdowns();
-      navigateToView('location-view');
-    });
-  }
-
-  const fieldCloseBtn = document.getElementById('field-menu-close-btn');
-  if (fieldCloseBtn) {
-    fieldCloseBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      closeAllDropdowns();
-    });
-  }
 
   // Dashboard sidebar dropdown 2: Priority profile
   const profileTrigger = document.getElementById('sidebar-profile-trigger');
@@ -1326,12 +1596,13 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.field-hotspot').forEach((spot) => {
     spot.addEventListener('click', () => {
       appState.selectedFieldId = spot.dataset.field;
+      appState.selectedFields[appState.activeFieldSlot] = spot.dataset.field;
       appState.selectedRankIndex = 0;
       renderDashboard();
     });
   });
 
-  // Tab 3 capacitive probe simulator mode buttons
+  // Tab 3 moisture probe Wet / Dry decision buttons
   document.querySelectorAll('.probe-mode-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       appState.probeMode = btn.dataset.probe;

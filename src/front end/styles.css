@@ -1437,18 +1437,71 @@ body {
   line-height: 1.45;
 }
 
-/* Score breakdown progress bars */
+/* Score breakdown progress bars (0 to 1 scale + average out of 100) */
+.breakdown-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.breakdown-scale-note {
+  font-size: 12px;
+  color: #bd6533;
+}
+
+.breakdown-avg-badge {
+  background-color: #fdf5eb;
+  border: 1px solid #e6b88a;
+  border-radius: 10px;
+  padding: 6px 12px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.breakdown-avg-label {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #b56130;
+}
+
+.breakdown-avg-val {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  color: #8f4419;
+}
+
+.breakdown-scale-axis {
+  display: grid;
+  grid-template-columns: 126px 1fr 42px;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #c27649;
+  margin-bottom: 6px;
+}
+
+.breakdown-axis-ticks {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+
 .breakdown-rows {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .breakdown-row {
   display: grid;
-  grid-template-columns: 110px 1fr;
+  grid-template-columns: 126px 1fr 42px;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 .breakdown-label {
@@ -1472,10 +1525,36 @@ body {
   transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Ranked alternatives table */
+.breakdown-score-num {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #8f4419;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Dynamic Field dropdowns list in sidebar */
+.dynamic-fields-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.dynamic-field-group {
+  position: relative;
+}
+
+.dynamic-field-trigger.active-slot-trigger {
+  border: 2px solid #8f4419;
+  background-color: #fffaf3;
+}
+
+/* Ranked alternatives table (3 columns properly aligned) */
 .ranked-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .ranked-table th {
@@ -1485,14 +1564,35 @@ body {
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: #b56130;
-  padding: 6px 8px 14px 0;
+  padding: 6px 12px 14px 0;
+  border-bottom: 1.5px solid #eadfd3;
 }
 
 .ranked-table td {
-  padding: 13px 8px 13px 0;
+  padding: 13px 12px 13px 0;
   border-bottom: 1px solid #f0ece6;
   font-size: 13.5px;
   color: #8f4419;
+  vertical-align: middle;
+}
+
+.ranked-table .col-rank {
+  width: 76px;
+  padding-left: 8px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.ranked-table .col-rotation {
+  width: auto;
+}
+
+.ranked-table .col-score {
+  width: 150px;
+  text-align: right;
+  padding-right: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .ranked-row {
@@ -1609,52 +1709,86 @@ body {
   background-color: var(--ochre-bar);
 }
 
-/* Seasonal shifts 2023 vs 2024 chart */
+/* 5-Year Temperature & Rainfall Dual-Axis Line Chart */
 .seasonal-sub {
   font-size: 13px;
   color: #5f6f64;
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 }
 
-.seasonal-bars-stage {
+.climate-chart-header {
   display: flex;
-  align-items: flex-end;
-  justify-content: flex-start;
-  gap: 28px;
-  height: 155px;
-  padding: 10px 18px 0 32px;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 16px;
 }
 
-.seasonal-bar-col {
+.climate-chart-legend {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 18px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #183925;
 }
 
-.seasonal-bar-rect {
-  width: 56px;
-  border-radius: 5px;
-  transition: height 0.45s ease, transform 0.15s ease;
-  cursor: pointer;
-  position: relative;
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
 }
 
-.seasonal-bar-rect:hover {
-  transform: translateY(-3px);
+.legend-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  display: inline-block;
 }
 
-.seasonal-bar-rect.bar-2023 {
+.legend-dot.temp-dot {
+  background-color: #b8501c;
+}
+
+.legend-dot.rain-dot {
   background-color: #183925;
 }
 
-.seasonal-bar-rect.bar-2024 {
-  background-color: #c2a875;
+.climate-line-chart-wrap {
+  width: 100%;
+  background-color: #faf8f4;
+  border: 1px solid #e7e1d6;
+  border-radius: 10px;
+  padding: 12px 10px 6px;
+  margin-bottom: 16px;
 }
 
-.seasonal-bar-label {
-  font-size: 12px;
-  color: #5a6b5f;
+.climate-line-chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.climate-trend-description {
+  background-color: #f4f7f4;
+  border-left: 4px solid #183925;
+  border-radius: 8px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.climate-desc-item {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #243b2c;
+}
+
+.climate-desc-item strong {
+  color: #183925;
+  margin-right: 4px;
 }
 
 /* Tab 3: Live sensor readings */
@@ -1732,7 +1866,7 @@ body {
   color: #b55a24;
 }
 
-/* Interactive probe simulator control inside Tab 3 */
+/* Interactive moisture probe control inside Tab 3 */
 .probe-sim-bar {
   margin-top: 22px;
   padding-top: 18px;
@@ -1752,17 +1886,17 @@ body {
 
 .probe-sim-buttons {
   display: flex;
-  gap: 8px;
+  gap: 10px;
 }
 
 .probe-mode-btn {
-  border: 1px solid #bd6533;
+  border: 1.5px solid #bd6533;
   background-color: #ffffff;
   color: #8f4419;
-  border-radius: 6px;
-  padding: 7px 14px;
+  border-radius: 8px;
+  padding: 9px 18px;
   font-family: var(--font-sans);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -1772,6 +1906,34 @@ body {
 .probe-mode-btn:hover {
   background-color: #8f4419;
   color: #ffffff;
+}
+
+.moisture-backend-response-box {
+  margin-top: 18px;
+  background-color: #fdf6ee;
+  border: 1px solid #e6b88a;
+  border-left: 4px solid #8f4419;
+  border-radius: 10px;
+  padding: 16px 20px;
+}
+
+.moisture-backend-heading {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  color: #8f4419;
+  margin-bottom: 8px;
+}
+
+.moisture-backend-text {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #7c3b16;
+  margin-bottom: 6px;
+}
+
+.moisture-backend-text:last-child {
+  margin-bottom: 0;
+  font-weight: 600;
 }
 
 /* Data sources modal for top nav link */
