@@ -1977,6 +1977,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize first view
   renderAll();
 
+  // Allow direct view navigation via URL parameter or hash
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialView = urlParams.get('view') || (window.location.hash ? window.location.hash.replace('#', '') : null);
+  if (initialView && document.getElementById(initialView)) {
+    navigateToView(initialView);
+  }
+
   // Start polling Mobile Measurement Station (MMS) telemetry
   pollMms();
   setInterval(pollMms, 2000);
