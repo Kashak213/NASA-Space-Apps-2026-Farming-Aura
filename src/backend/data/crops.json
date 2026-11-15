@@ -1,0 +1,329 @@
+{
+  "crops": {
+    "C01": {
+      "id": "C01",
+      "name": "Hay & Alfalfa (Haylage)",
+      "type": "legume",
+      "isPerennial": false,
+      "roleTag": "Forage legume • nitrogen fixation",
+      "water": 580,
+      "nFix": 0.85,
+      "droughtTol": 0.55,
+      "phMin": 6.2,
+      "phMax": 7.5,
+      "clayMin": 18,
+      "clayMax": 40,
+      "yieldT": 9.5,
+      "rootM": 2.8,
+      "build": 0.95
+    },
+    "C02": {
+      "id": "C02",
+      "name": "Field Corn (Silage & Grain)",
+      "type": "grain",
+      "isPerennial": false,
+      "roleTag": "Grain • high silage & grain yield",
+      "water": 550,
+      "nFix": 0,
+      "droughtTol": 0.35,
+      "phMin": 5.8,
+      "phMax": 7,
+      "clayMin": 20,
+      "clayMax": 40,
+      "yieldT": 11,
+      "rootM": 1.2,
+      "build": 0.25
+    },
+    "C03": {
+      "id": "C03",
+      "name": "Soybeans & Small Grains",
+      "type": "legume",
+      "isPerennial": false,
+      "roleTag": "Legume • nitrogen fixation & cover",
+      "water": 420,
+      "nFix": 0.75,
+      "droughtTol": 0.6,
+      "phMin": 6,
+      "phMax": 7.2,
+      "clayMin": 18,
+      "clayMax": 45,
+      "yieldT": 4.2,
+      "rootM": 1.3,
+      "build": 0.85
+    },
+    "C04": {
+      "id": "C04",
+      "name": "Apples",
+      "type": "orchard",
+      "isPerennial": true,
+      "roleTag": "Orchard • perennial tree fruit",
+      "water": 500,
+      "nFix": 0,
+      "droughtTol": 0.55,
+      "phMin": 6,
+      "phMax": 7,
+      "clayMin": 15,
+      "clayMax": 35,
+      "yieldT": 10,
+      "rootM": 2,
+      "build": 0.6
+    },
+    "C05": {
+      "id": "C05",
+      "name": "Grapes (Juice & Wine)",
+      "type": "vineyard",
+      "isPerennial": true,
+      "roleTag": "Vineyard • deep roots & low water",
+      "water": 380,
+      "nFix": 0,
+      "droughtTol": 0.75,
+      "phMin": 5.5,
+      "phMax": 7,
+      "clayMin": 15,
+      "clayMax": 35,
+      "yieldT": 8,
+      "rootM": 2.2,
+      "build": 0.55
+    },
+    "C06": {
+      "id": "C06",
+      "name": "Cherries, Peaches, Pears & Plums",
+      "type": "orchard",
+      "isPerennial": true,
+      "roleTag": "Stone & pome fruit • orchard block",
+      "water": 480,
+      "nFix": 0,
+      "droughtTol": 0.5,
+      "phMin": 6,
+      "phMax": 7,
+      "clayMin": 15,
+      "clayMax": 32,
+      "yieldT": 8.5,
+      "rootM": 1.8,
+      "build": 0.55
+    },
+    "C07": {
+      "id": "C07",
+      "name": "Berries",
+      "type": "berry",
+      "isPerennial": true,
+      "roleTag": "Small fruit • acidic soil specialist",
+      "water": 430,
+      "nFix": 0,
+      "droughtTol": 0.45,
+      "phMin": 4.8,
+      "phMax": 6.5,
+      "clayMin": 12,
+      "clayMax": 30,
+      "yieldT": 6.5,
+      "rootM": 0.6,
+      "build": 0.5
+    },
+    "C08": {
+      "id": "C08",
+      "name": "Sugar Maple (Maple Syrup)",
+      "type": "agroforestry",
+      "isPerennial": true,
+      "roleTag": "Agroforestry • deep canopy & carbon",
+      "water": 450,
+      "nFix": 0,
+      "droughtTol": 0.7,
+      "phMin": 5.5,
+      "phMax": 7.2,
+      "clayMin": 15,
+      "clayMax": 38,
+      "yieldT": 4.5,
+      "rootM": 2.5,
+      "build": 0.9
+    },
+    "C09": {
+      "id": "C09",
+      "name": "Cabbage",
+      "type": "vegetable",
+      "isPerennial": false,
+      "roleTag": "Brassica • high-value cool crop",
+      "water": 440,
+      "nFix": 0,
+      "droughtTol": 0.4,
+      "phMin": 6,
+      "phMax": 7.2,
+      "clayMin": 18,
+      "clayMax": 38,
+      "yieldT": 11.5,
+      "rootM": 0.6,
+      "build": 0.3
+    },
+    "C10": {
+      "id": "C10",
+      "name": "Onions",
+      "type": "root_veg",
+      "isPerennial": false,
+      "roleTag": "Allium • shallow root cash crop",
+      "water": 410,
+      "nFix": 0,
+      "droughtTol": 0.35,
+      "phMin": 6,
+      "phMax": 7,
+      "clayMin": 12,
+      "clayMax": 30,
+      "yieldT": 10.5,
+      "rootM": 0.4,
+      "build": 0.25
+    },
+    "C11": {
+      "id": "C11",
+      "name": "Potatoes",
+      "type": "root_veg",
+      "isPerennial": false,
+      "roleTag": "Tuber • high yield & loose soil",
+      "water": 480,
+      "nFix": 0,
+      "droughtTol": 0.4,
+      "phMin": 5.2,
+      "phMax": 6.5,
+      "clayMin": 12,
+      "clayMax": 32,
+      "yieldT": 11.8,
+      "rootM": 0.7,
+      "build": 0.2
+    },
+    "C12": {
+      "id": "C12",
+      "name": "Sweet Corn, Snap Beans & Green Peas",
+      "type": "legume",
+      "isPerennial": false,
+      "roleTag": "Vegetable legume • nitrogen builder",
+      "water": 430,
+      "nFix": 0.65,
+      "droughtTol": 0.5,
+      "phMin": 5.8,
+      "phMax": 7,
+      "clayMin": 15,
+      "clayMax": 38,
+      "yieldT": 7.5,
+      "rootM": 0.9,
+      "build": 0.75
+    },
+    "C13": {
+      "id": "C13",
+      "name": "Beets, Carrots, Squash & Pumpkins",
+      "type": "vegetable",
+      "isPerennial": false,
+      "roleTag": "Root & vine veg • broad ground cover",
+      "water": 400,
+      "nFix": 0,
+      "droughtTol": 0.55,
+      "phMin": 5.8,
+      "phMax": 7,
+      "clayMin": 12,
+      "clayMax": 35,
+      "yieldT": 9.2,
+      "rootM": 0.9,
+      "build": 0.45
+    }
+  },
+  "candidate_sequences": [
+    [
+      "C03",
+      "C02",
+      "C01"
+    ],
+    [
+      "C01",
+      "C02",
+      "C03"
+    ],
+    [
+      "C03",
+      "C02",
+      "C11"
+    ],
+    [
+      "C12",
+      "C09",
+      "C10"
+    ],
+    [
+      "C03",
+      "C11",
+      "C13"
+    ],
+    [
+      "C12",
+      "C11",
+      "C09"
+    ],
+    [
+      "C03",
+      "C09",
+      "C13"
+    ],
+    [
+      "C12",
+      "C10",
+      "C13"
+    ],
+    [
+      "C02",
+      "C12",
+      "C13"
+    ],
+    [
+      "C04",
+      "C07",
+      "C05"
+    ],
+    [
+      "C06",
+      "C04",
+      "C08"
+    ]
+  ],
+  "priority_profiles": {
+    "Balanced": {
+      "soil_health": 0.2,
+      "water_stress": 0.2,
+      "climate_res": 0.15,
+      "nitrogen_fix": 0.15,
+      "yield": 0.15,
+      "drought_tol": 0.1,
+      "soil_compat": 0.05
+    },
+    "Max Yield": {
+      "soil_health": 0.1,
+      "water_stress": 0.15,
+      "climate_res": 0.1,
+      "nitrogen_fix": 0.1,
+      "yield": 0.4,
+      "drought_tol": 0.1,
+      "soil_compat": 0.05
+    },
+    "Water Conservation": {
+      "soil_health": 0.1,
+      "water_stress": 0.35,
+      "climate_res": 0.15,
+      "nitrogen_fix": 0.1,
+      "yield": 0.1,
+      "drought_tol": 0.15,
+      "soil_compat": 0.05
+    },
+    "Soil Health First": {
+      "soil_health": 0.3,
+      "water_stress": 0.1,
+      "climate_res": 0.1,
+      "nitrogen_fix": 0.25,
+      "yield": 0.1,
+      "drought_tol": 0.1,
+      "soil_compat": 0.05
+    },
+    "Climate Resilient": {
+      "soil_health": 0.15,
+      "water_stress": 0.2,
+      "climate_res": 0.25,
+      "nitrogen_fix": 0.1,
+      "yield": 0.1,
+      "drought_tol": 0.15,
+      "soil_compat": 0.05
+    }
+  }
+}
