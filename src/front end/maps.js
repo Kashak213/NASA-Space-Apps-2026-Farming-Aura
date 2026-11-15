@@ -7,6 +7,7 @@
   // Paste the Google Maps key here. Restrict it to our site in Google Cloud first
   // (HTTP referrers + Maps JavaScript API only), because anyone can read it in the page source.
   const GOOGLE_MAPS_API_KEY = '';
+  
 
   if (!GOOGLE_MAPS_API_KEY) return;
 

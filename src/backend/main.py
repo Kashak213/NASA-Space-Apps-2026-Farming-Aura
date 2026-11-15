@@ -6,7 +6,7 @@ Then open http://localhost:8000 to get the dashboard with the backend plugged in
 
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,8 +20,9 @@ FRONTEND_DIR = BACKEND_DIR.parent / "front end"
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
+from gemini_client import explain_dashboard, gemini_is_configured  # noqa: E402
 from nasa_client import fetch_nasa_power  # noqa: E402
-from scoring import CITIES, CROPS, FIELDS, rank_rotations  # noqa: E402
+from scoring import CITIES, CROPS, FIELDS, PRIORITY_PROFILES, rank_rotations  # noqa: E402
 
 app = FastAPI(title="Farming Aura API")
 
@@ -103,7 +104,7 @@ class AnalyzeRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "crops": len(CROPS), "fields": len(FIELDS)}
+    return {"ok": True, "crops": len(CROPS), "fields": len(FIELDS), "gemini": gemini_is_configured()}
 
 
 @app.post("/analyze")
@@ -142,6 +143,62 @@ def analyze(req: AnalyzeRequest):
         "field_update": nasa["field_update"],
         "ranked": ranked,
     }
+
+
+class ExplainRequest(BaseModel):
+    """What is on the dashboard right now, sent as ids and numbers so Gemini only sees clean data."""
+
+    field_number: int = 1
+    city: str = "Albany"
+    profile: str = "Balanced"
+    previous_crop: Optional[str] = None
+    max_water: int = 550
+    probe: str = "off"
+    rotation: List[str] = []
+    scores: Dict[str, float] = {}
+    total_score: float = 0.0
+    years: List[int] = []
+    summer_temp_c: List[float] = []
+    season_rain_mm: List[float] = []
+
+
+@app.post("/explain")
+def explain(req: ExplainRequest):
+    """Ask Gemini to put the top rotation and the climate chart into plain English."""
+    if not gemini_is_configured():
+        return {"enabled": False, "text": None}
+
+    rotation_crops = [CROPS[cid] for cid in req.rotation if cid in CROPS][:3]
+    if len(rotation_crops) < 3:
+        return {"enabled": True, "text": None}
+
+    city = CITIES.get(req.city)
+    previous = CROPS.get(req.previous_crop) if req.previous_crop else None
+    score_names = ("soil_health", "water_safety", "resilience", "yield_potential", "nitrogen_fixation")
+    points = min(len(req.years), len(req.summer_temp_c), len(req.season_rain_mm), 10)
+
+    facts = {
+        "field": f"Field F{max(1, req.field_number):03d} near {city['label'] if city else 'a custom location in New York'}",
+        "farmer_priority": req.profile if req.profile in PRIORITY_PROFILES else "Balanced",
+        "previous_crop": previous["name"] if previous else "not given",
+        "max_water_demand_mm_per_year": req.max_water,
+        "moisture_probe": req.probe if req.probe in ("wet", "dry") else "not used",
+        "recommended_rotation": [
+            {
+                "year": i + 1,
+                "crop": c["name"],
+                "role": c["roleTag"],
+                "water_need_mm": c["water"],
+                "fixes_nitrogen": c["nFix"] >= 0.5,
+            }
+            for i, c in enumerate(rotation_crops)
+        ],
+        "rotation_total_score_0_to_1": round(req.total_score, 2),
+        "scores_0_to_1": {k: round(float(req.scores[k]), 2) for k in score_names if k in req.scores},
+        "summer_temperature_c_by_year": {str(req.years[i]): req.summer_temp_c[i] for i in range(points)},
+        "growing_season_rain_mm_by_year": {str(req.years[i]): round(req.season_rain_mm[i]) for i in range(points)},
+    }
+    return {"enabled": True, "text": explain_dashboard(facts)}
 
 
 # serve the dashboard itself so one command runs the whole app, this has to stay below the routes
