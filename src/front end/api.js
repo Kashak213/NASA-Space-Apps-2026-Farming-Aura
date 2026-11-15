@@ -8,9 +8,15 @@
   // Opened from a file or Live Server it looks for a backend on this computer.
   // On a public site like GitHub Pages it stays off unless window.FARMING_AURA_API
   // is set to the deployed backend URL before this script loads.
-  const onThisComputer = location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname);
-  const sameServer = onThisComputer && location.port === '8000';
-  const API_BASE = window.FARMING_AURA_API || (sameServer ? '' : onThisComputer ? 'http://localhost:8000' : null);
+  const isLocalDevPort = ['localhost', '127.0.0.1'].includes(location.hostname) && location.port !== '' && location.port !== '8000' && location.port !== '7860';
+  const isStaticGhPages = location.hostname.endsWith('.github.io');
+  const API_BASE = window.FARMING_AURA_API !== undefined
+    ? window.FARMING_AURA_API
+    : (location.protocol === 'file:' || isLocalDevPort)
+      ? 'http://localhost:8000'
+      : isStaticGhPages
+        ? null
+        : '';
   if (API_BASE === null) return;
 
   const RETRY_AFTER_MS = 15000;
