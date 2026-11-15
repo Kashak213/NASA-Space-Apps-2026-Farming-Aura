@@ -497,21 +497,48 @@ def analyze_location_and_crops(
     }
 
 
-def analyze_farm_request(payload: dict[str, Any]) -> dict[str, Any]:
-    """
-    Accept a raw JSON dictionary from the frontend, extract the coordinates and
-    crop selections even if the frontend uses slightly different key names, and
-    run analyze_location_and_crops().
-    """
-    # Check if the frontend nested coordinates inside {"coordinates": {"lat": ..., "lon": ...}}
-    # or passed them at the top level as {"lat": ..., "lon": ...} or {"latitude": ..., "longitude": ...}
+def _resolve_request_coords_and_boundary(
+    payload: dict[str, Any],
+) -> tuple[float, float, Optional[dict[str, Any]], list[Any]]:
+    """Extract farm coordinates, optional farm outline polygon, and sector list from payload."""
     coords = payload.get("coordinates") if isinstance(payload.get("coordinates"), dict) else {}
     lat = payload.get("lat", payload.get("latitude", coords.get("lat", coords.get("latitude"))))
     lon = payload.get("lon", payload.get("longitude", coords.get("lon", coords.get("longitude"))))
 
-    # Raise a clear error if either latitude or longitude is missing from the frontend request
+    raw_boundary = payload.get("farm_boundary", payload.get("boundary"))
+    boundary_summary: Optional[dict[str, Any]] = None
+    if isinstance(raw_boundary, list) and len(raw_boundary) > 0:
+        b_stats = compute_polygon_centroid_and_acres(raw_boundary)
+        boundary_summary = {
+            "polygon": raw_boundary,
+            "centroid": {"lat": b_stats["lat"], "lon": b_stats["lon"]},
+            "area_acres": b_stats["area_acres"],
+            "area_hectares": b_stats["area_hectares"],
+        }
+        if lat is None or lon is None:
+            lat, lon = b_stats["lat"], b_stats["lon"]
+
+    raw_sectors = payload.get("sectors") if isinstance(payload.get("sectors"), list) else []
+    if (lat is None or lon is None) and raw_sectors:
+        first_sec = raw_sectors[0] if isinstance(raw_sectors[0], dict) else {}
+        first_poly = first_sec.get("polygon", first_sec.get("path", []))
+        if isinstance(first_poly, list) and first_poly:
+            s_stats = compute_polygon_centroid_and_acres(first_poly)
+            lat, lon = s_stats["lat"], s_stats["lon"]
+
     if lat is None or lon is None:
-        raise ValueError("Frontend request must include 'lat' and 'lon' coordinates.")
+        raise ValueError("Frontend request must include 'lat' and 'lon' coordinates or a farm polygon.")
+
+    return float(lat), float(lon), boundary_summary, raw_sectors
+
+
+def analyze_farm_request(payload: dict[str, Any]) -> dict[str, Any]:
+    """
+    Accept a raw JSON dictionary from the frontend, extract the coordinates,
+    optional farm boundary polygon, and optional field sector polygons, and
+    run analyze_location_and_crops() for the farm and each sector.
+    """
+    lat, lon, boundary_summary, raw_sectors = _resolve_request_coords_and_boundary(payload)
 
     # Read the farmer's chosen crops from either "selected_crops" or "crops".
     # If the frontend sent a comma-separated string like "Field Corn, Soybeans", split it into a list.
@@ -532,24 +559,82 @@ def analyze_farm_request(payload: dict[str, Any]) -> dict[str, Any]:
     else:
         crop_types = None
 
-    # Pass all cleaned frontend inputs into our main analysis pipeline
-    return analyze_location_and_crops(
-        lat=float(lat),
-        lon=float(lon),
+    default_profile = str(payload.get("profile_name", payload.get("profile", "Balanced")))
+    default_weights = payload.get("custom_weights")
+    default_length = int(payload.get("rotation_length", payload.get("years", 3)))
+    default_row_only = bool(payload.get("row_crop_only", False))
+    default_max_water = (
+        float(payload["max_water_demand_mm"])
+        if payload.get("max_water_demand_mm") is not None
+        else None
+    )
+    default_top_n = int(payload.get("top_n", 5))
+    use_cache = bool(payload.get("use_cache", True))
+
+    farm_result = analyze_location_and_crops(
+        lat=lat,
+        lon=lon,
         selected_crops=selected_crops,
         crop_types=crop_types,
-        profile_name=str(payload.get("profile_name", payload.get("profile", "Balanced"))),
-        custom_weights=payload.get("custom_weights"),
-        rotation_length=int(payload.get("rotation_length", payload.get("years", 3))),
-        row_crop_only=bool(payload.get("row_crop_only", False)),
-        max_water_demand_mm=(
-            float(payload["max_water_demand_mm"])
-            if payload.get("max_water_demand_mm") is not None
-            else None
-        ),
-        top_n=int(payload.get("top_n", 5)),
-        use_cache=bool(payload.get("use_cache", True)),
+        profile_name=default_profile,
+        custom_weights=default_weights,
+        rotation_length=default_length,
+        row_crop_only=default_row_only,
+        max_water_demand_mm=default_max_water,
+        top_n=default_top_n,
+        use_cache=use_cache,
     )
+
+    if boundary_summary is not None:
+        farm_result["farm_boundary"] = boundary_summary
+
+    sectors_analysis: list[dict[str, Any]] = []
+    for idx, sec in enumerate(raw_sectors, 1):
+        if not isinstance(sec, dict):
+            continue
+        sec_poly = sec.get("polygon", sec.get("path", []))
+        poly_stats = (
+            compute_polygon_centroid_and_acres(sec_poly)
+            if isinstance(sec_poly, list) and sec_poly
+            else {"lat": lat, "lon": lon, "area_acres": 0.0, "area_hectares": 0.0}
+        )
+        sec_lat = float(sec.get("lat", sec.get("latitude", poly_stats["lat"])))
+        sec_lon = float(sec.get("lon", sec.get("lng", sec.get("longitude", poly_stats["lon"]))))
+        sec_acres = float(sec.get("area_acres", poly_stats["area_acres"]))
+        sec_hectares = float(sec.get("area_hectares", poly_stats["area_hectares"]))
+        sec_profile = str(sec.get("profile_name", sec.get("profile", default_profile)))
+        sec_analysis = analyze_location_and_crops(
+            lat=sec_lat,
+            lon=sec_lon,
+            selected_crops=sec.get("selected_crops") or selected_crops,
+            crop_types=crop_types,
+            profile_name=sec_profile,
+            custom_weights=sec.get("custom_weights", default_weights),
+            rotation_length=int(sec.get("rotation_length", default_length)),
+            row_crop_only=bool(sec.get("row_crop_only", default_row_only)),
+            max_water_demand_mm=default_max_water,
+            top_n=default_top_n,
+            use_cache=use_cache,
+        )
+        sectors_analysis.append(
+            {
+                "sector_id": str(sec.get("sector_id", sec.get("id", f"S{idx}"))),
+                "name": str(sec.get("name", f"Sector {idx}")),
+                "color": str(sec.get("color", "#22c55e")),
+                "area_acres": round(sec_acres, 2),
+                "area_hectares": round(sec_hectares, 2),
+                "centroid": {"lat": round(sec_lat, 6), "lon": round(sec_lon, 6)},
+                "polygon": sec_poly if isinstance(sec_poly, list) else [],
+                "profile_used": sec_analysis["profile_used"],
+                "soil": sec_analysis["soil"],
+                "climate": sec_analysis["climate"],
+                "recommended_rotations": sec_analysis["recommended_rotations"],
+                "individual_crop_suitability": sec_analysis["individual_crop_suitability"],
+            }
+        )
+
+    farm_result["sectors_analysis"] = sectors_analysis
+    return farm_result
 
 
 def get_frontend_config_payload() -> dict[str, Any]:
@@ -692,23 +777,105 @@ else:
     app = None
 
 
-if __name__ == "__main__":
-    # Run this file directly (python src/backend/main.py) to test a sample frontend request
-    # for a Finger Lakes, NY farm growing Field Corn, Soybeans, Potatoes, and Cabbage
-    sample_frontend_payload = {
-        "lat": 42.70,
-        "lon": -76.80,
-        "selected_crops": ["Field Corn", "Soybeans", "Potatoes", "Cabbage"],
-        "profile_name": "Balanced",
-        "rotation_length": 3,
-        "top_n": 3,
-    }
+def run_stdlib_web_server(host: str = "127.0.0.1", port: int = 8000) -> None:
+    """
+    Run a lightweight zero-dependency HTTP server using Python's standard library
+    so teammates can test the Google Maps UI and /analyze API even if FastAPI or
+    uvicorn is not installed in their local Python environment.
+    """
+    start_mms_reader()
 
-    # Run the full pipeline and print the results to the terminal
-    result = analyze_farm_request(sample_frontend_payload)
-    print("Coordinates:", result["coordinates"])
-    print("Data Sources:", result["data_sources"])
-    print("Matched Crops:", [c["crop_name"] for c in result["selected_crops_matched"]])
-    print("Soil Map Unit:", result["soil"]["map_unit_name"])
-    print("Top Recommended Rotations:")
-    print(json.dumps(result["recommended_rotations"], indent=2))
+    class FieldShiftHTTPHandler(BaseHTTPRequestHandler):
+        def log_message(self, format_str: str, *args: Any) -> None:
+            pass
+
+        def _send_json(self, data: dict[str, Any], status_code: int = 200) -> None:
+            raw = json.dumps(data).encode("utf-8")
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def do_OPTIONS(self) -> None:
+            self.send_response(204)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.end_headers()
+
+        def do_GET(self) -> None:
+            route = self.path.split("?", 1)[0]
+            if route in ("/", "/index.html"):
+                html_bytes = load_ui_html().encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(html_bytes)))
+                self.end_headers()
+                self.wfile.write(html_bytes)
+            elif route == "/config":
+                self._send_json(get_frontend_config_payload())
+            elif route == "/health":
+                self._send_json({"status": "ok"})
+            elif route == "/crops":
+                crops = load_crops()
+                self._send_json({"count": len(crops), "crops": crops})
+            elif route == "/profiles":
+                self._send_json({"profiles": PROFILES})
+            elif route in ("/mms/latest", "/sensor/latest"):
+                self._send_json(get_mms_telemetry())
+            else:
+                self._send_json({"error": "Not found"}, status_code=404)
+
+        def do_POST(self) -> None:
+            route = self.path.split("?", 1)[0]
+            if route == "/analyze":
+                try:
+                    length = int(self.headers.get("Content-Length", "0"))
+                    raw_body = self.rfile.read(length).decode("utf-8") if length > 0 else "{}"
+                    payload = json.loads(raw_body)
+                    result = analyze_farm_request(payload)
+                    self._send_json(result, status_code=200)
+                except Exception as exc:
+                    self._send_json({"detail": str(exc)}, status_code=400)
+            else:
+                self._send_json({"error": "Not found"}, status_code=404)
+
+    server = ThreadingHTTPServer((host, port), FieldShiftHTTPHandler)
+    gmaps_status = "configured from .env / env" if get_google_maps_api_key() else "not set yet (using satellite fallback until added to .env)"
+    print(f"Field Shift web server running at http://{host}:{port}")
+    print(f"Google Maps API key status: {gmaps_status}")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nShutting down server.")
+        server.server_close()
+
+
+if __name__ == "__main__":
+    if "--serve" in sys.argv:
+        port_num = 7860 if "--hf" in sys.argv else 8000
+        run_stdlib_web_server(host="0.0.0.0", port=port_num)
+    else:
+        # Run this file directly (python src/backend/main.py) to test a sample frontend request
+        # for a Finger Lakes, NY farm growing Field Corn, Soybeans, Potatoes, and Cabbage
+        sample_frontend_payload = {
+            "lat": 42.70,
+            "lon": -76.80,
+            "selected_crops": ["Field Corn", "Soybeans", "Potatoes", "Cabbage"],
+            "profile_name": "Balanced",
+            "rotation_length": 3,
+            "top_n": 3,
+        }
+
+        # Run the full pipeline and print the results to the terminal
+        result = analyze_farm_request(sample_frontend_payload)
+        print("Coordinates:", result["coordinates"])
+        print("Data Sources:", result["data_sources"])
+        print("Matched Crops:", [c["crop_name"] for c in result["selected_crops_matched"]])
+        print("Soil Map Unit:", result["soil"]["map_unit_name"])
+        print("Top Recommended Rotations:")
+        print(json.dumps(result["recommended_rotations"], indent=2))
