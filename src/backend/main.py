@@ -10,7 +10,7 @@ recommendations.
 
 from __future__ import annotations
 
-# Standard library imports for building crop combinations and printing JSON test output
+# Standard library imports for building crop combinations, path setup, and JSON output
 import itertools
 import json
 import math
@@ -32,6 +32,7 @@ from config import get_google_maps_api_key
 # Import crop lookup helpers and rotation generators from crops.py
 from crops import (
     PRESET_ROTATIONS,
+    WOODY_PERENNIAL_IDS,
     generate_candidate_rotations,
     get_crop_by_id,
     get_crop_by_name,
@@ -42,7 +43,7 @@ from crops import (
 # Import the USDA NRCS Soil Data Access client to get field soil lab metrics
 from fetch_soil import fetch_usda_soil
 
-# Import the NASA POWER client to get sunlight, wind speed, rainfall, and temperature
+# Import the NASA POWER client to get sunlight, wind speed, rainfall, temperature, and root wetness
 from nasa_client import fetch_nasa_power
 
 # Import the Mobile Measurement Station (MMS) serial telemetry reader
@@ -54,8 +55,41 @@ from scoring import (
     compare_profiles_for_rotation,
     field_soil_baseline_score,
     score_rotation,
+    soil_drainage_score,
     sort_rotations,
 )
+
+NY_REGIONS_PATH = BACKEND_DIR / "data" / "ny_regions.json"
+
+
+def load_ny_regions() -> list[dict[str, Any]]:
+    """Load New York agricultural region baselines from data/ny_regions.json."""
+    if NY_REGIONS_PATH.exists() and NY_REGIONS_PATH.stat().st_size > 0:
+        try:
+            data = json.loads(NY_REGIONS_PATH.read_text(encoding="utf-8"))
+            if isinstance(data, list):
+                return data
+        except Exception:
+            pass
+    return []
+
+
+def find_nearest_ny_region(lat: float, lon: float) -> Optional[dict[str, Any]]:
+    """Find the closest New York agricultural region to the given coordinates."""
+    regions = load_ny_regions()
+    if not regions:
+        return None
+    best_region: Optional[dict[str, Any]] = None
+    best_dist = float("inf")
+    for reg in regions:
+        rlat = float(reg.get("center_lat", 42.7))
+        rlon = float(reg.get("center_lon", -76.8))
+        dist = math.hypot(lat - rlat, (lon - rlon) * math.cos(math.radians(lat)))
+        if dist < best_dist:
+            best_dist = dist
+            best_region = reg
+    # Return the matched NY region if the farm is within ~3.5 degrees of a NY region center
+    return best_region if best_dist <= 3.5 else None
 
 # Try importing FastAPI and Pydantic so main.py can run as an HTTP web server,
 # while still working as a normal Python module for Streamlit or terminal tests
@@ -201,25 +235,38 @@ def resolve_farmer_crops(
 def build_climate_for_scoring(
     nasa_response: dict[str, Any],
     soil_data: dict[str, Any],
+    lat: float = 42.70,
+    lon: float = -76.80,
     mms_telemetry: Optional[dict[str, Any]] = None,
+    sensor_overrides: Optional[dict[str, float]] = None,
 ) -> dict[str, Any]:
     """
-    Combine the NASA POWER summary dictionary with estimated soil moisture and
-    drought index values so scoring.py has every climate key it needs. If the
-    Mobile Measurement Station (MMS) is connected, blend its live ground-truth
-    readings into soil moisture, temperature, and drought index.
+    Combine the NASA POWER summary dictionary with NASA GWETROOT root-zone soil
+    moisture, regional precipitation baselines, 2023-2024 climate trends, live
+    Mobile Measurement Station (MMS) ground-truth readings, and optional sensor
+    overrides for scoring.py.
     """
-    # Pull the averaged summary metrics and raw monthly time series from the NASA POWER response
     summary = dict(nasa_response.get("summary", {}))
     raw_params = nasa_response.get("data", {})
 
-    # Read estimated yearly rainfall (mm/year), defaulting to 900 mm (normal NY rain) if missing
+    nearest_region = find_nearest_ny_region(lat, lon)
+    if nearest_region is not None:
+        normal_annual_mm = float(nearest_region.get("normal_annual_precip_mm", 950.0))
+        normal_growing_mm = float(nearest_region.get("normal_growing_precip_mm", 450.0))
+        region_name = str(nearest_region.get("region_name", "New York"))
+    else:
+        normal_annual_mm = 900.0
+        normal_growing_mm = 430.0
+        region_name = "General Temperate"
+
     annual_precip = summary.get("estimated_annual_precip_mm")
     if annual_precip is None:
-        annual_precip = 900.0
+        annual_precip = normal_annual_mm
 
-    # Calculate summer average temperature (Celsius) from June ("06"), July ("07"), and August ("08")
-    # because scoring.py checks summer heat stress in climate_resilience_score()
+    growing_precip = summary.get("growing_season_precip_mm")
+    if growing_precip is None:
+        growing_precip = round(float(annual_precip) * 0.48, 1)
+
     t2m_series = raw_params.get("T2M", {})
     summer_temps = [
         float(val)
@@ -229,18 +276,63 @@ def build_climate_for_scoring(
     summer_temp_c = (
         round(sum(summer_temps) / len(summer_temps), 2)
         if summer_temps
-        else float(summary.get("t2m_avg_c") or 22.0)
+        else float(summary.get("summer_temp_c") or summary.get("t2m_avg_c") or 21.0)
+    )
+    growing_temp_c = float(summary.get("growing_season_temp_c") or (summer_temp_c - 2.0))
+
+    annual_ratio = float(annual_precip) / max(normal_annual_mm, 1.0)
+    growing_ratio = float(growing_precip) / max(normal_growing_mm, 1.0)
+    blended_precip_ratio = 0.45 * annual_ratio + 0.55 * growing_ratio
+
+    awc = float(soil_data.get("awc", 0.18))
+    gwetroot = summary.get("growing_season_gwetroot") or summary.get("gwetroot_avg")
+    if gwetroot is not None:
+        nasa_volumetric_moisture = float(gwetroot) * 0.46
+        soil_moisture_avg = round(
+            max(0.10, min(0.48, 0.70 * nasa_volumetric_moisture + 0.30 * (awc * 1.5))),
+            3,
+        )
+        drought_index = round(
+            max(
+                0.05,
+                min(0.85, 1.0 - (0.45 * blended_precip_ratio + 0.55 * float(gwetroot))),
+            ),
+            3,
+        )
+    else:
+        soil_moisture_avg = round(
+            max(0.12, min(0.48, (awc * 1.4) + 0.08 * blended_precip_ratio)), 3
+        )
+        drought_index = round(
+            max(0.05, min(0.85, 1.0 - 0.65 * blended_precip_ratio)), 3
+        )
+
+    anomaly_precip_pct = round(
+        ((float(annual_precip) - normal_annual_mm) / max(normal_annual_mm, 1.0)) * 100.0,
+        1,
+    )
+    growing_solar = float(
+        summary.get("growing_season_solar_mj_m2_day")
+        or summary.get("allsky_sfc_sw_dwn_avg")
+        or 17.5
+    )
+    growing_wind = float(
+        summary.get("growing_season_wind_m_s") or summary.get("ws2m_avg_m_s") or 3.0
     )
 
-    # Compare the field's annual rainfall against a 950 mm New York baseline to estimate a
-    # 0.0 to 1.0 drought index (where lower numbers mean wetter, safer conditions)
-    precip_ratio = float(annual_precip) / 950.0
-    drought_index = round(max(0.05, min(0.85, 1.0 - 0.65 * precip_ratio)), 3)
-
-    # Estimate average topsoil moisture (m3/m3) by combining USDA available water capacity (awc)
-    # with the rainfall ratio so wetter soils with higher water-holding capacity score higher
-    awc = float(soil_data.get("awc", 0.18))
-    soil_moisture_avg = round(max(0.12, min(0.48, (awc * 1.4) + 0.08 * precip_ratio)), 3)
+    moisture_factor = min(1.0, soil_moisture_avg / 0.34)
+    solar_factor = min(1.0, growing_solar / 18.5)
+    thermal_factor = max(0.4, min(1.0, (growing_temp_c - 8.0) / 11.0))
+    estimated_ndvi = round(
+        max(
+            0.35,
+            min(
+                0.88,
+                0.25 + 0.58 * (0.45 * moisture_factor + 0.30 * solar_factor + 0.25 * thermal_factor),
+            ),
+        ),
+        3,
+    )
 
     # If the Mobile Measurement Station (MMS) is connected, incorporate its live readings
     soil_temp_c: Optional[float] = None
@@ -264,28 +356,52 @@ def build_climate_for_scoring(
         if latest.get("is_raining") is not None:
             is_raining = bool(latest["is_raining"])
 
-    # Calculate how far above or below normal (950 mm) the yearly rainfall is as a percentage
-    anomaly_precip_pct = round(((float(annual_precip) - 950.0) / 950.0) * 100.0, 1)
-
-    # Return the complete dictionary formatted for scoring.py
-    return {
-        "allsky_sfc_sw_dwn_avg": summary.get("allsky_sfc_sw_dwn_avg") or 14.0,
+    climate_dict: dict[str, Any] = {
+        "region_matched": region_name,
+        "normal_annual_precip_mm": normal_annual_mm,
+        "normal_growing_precip_mm": normal_growing_mm,
+        "allsky_sfc_sw_dwn_avg": summary.get("allsky_sfc_sw_dwn_avg") or 13.0,
+        "growing_season_solar_mj_m2_day": round(growing_solar, 2),
         "ws2m_avg_m_s": summary.get("ws2m_avg_m_s") or 3.0,
+        "growing_season_wind_m_s": round(growing_wind, 2),
         "prectotcorr_avg_mm_day": summary.get("prectotcorr_avg_mm_day") or 2.6,
         "annual_precip_mm": float(annual_precip),
         "estimated_annual_precip_mm": float(annual_precip),
+        "growing_season_precip_mm": float(growing_precip),
         "t2m_avg_c": summary.get("t2m_avg_c") or 10.0,
+        "growing_season_temp_c": round(growing_temp_c, 2),
         "summer_temp_c": summer_temp_c,
+        "gwetroot_avg": summary.get("gwetroot_avg"),
+        "growing_season_gwetroot": summary.get("growing_season_gwetroot"),
         "soil_temp_c": soil_temp_c,
         "air_humidity_pct": air_humidity_pct,
         "is_raining": is_raining,
         "drought_index": drought_index,
         "soil_moisture_avg": soil_moisture_avg,
         "anomaly_precip_pct": anomaly_precip_pct,
-        "ndvi_avg": 0.72,
-        "drought_trend": 0.0,
-        "precip_anom_trend": 0.0,
+        "ndvi_avg": estimated_ndvi,
+        "drought_trend": float(summary.get("drought_trend") or 0.0),
+        "precip_anom_trend": float(summary.get("precip_anom_trend") or 0.0),
     }
+
+    if sensor_overrides and isinstance(sensor_overrides, dict):
+        if sensor_overrides.get("soil_moisture") is not None:
+            sm_val = float(sensor_overrides["soil_moisture"])
+            if sm_val > 1.0:
+                sm_val = sm_val / 100.0
+            climate_dict["soil_moisture_avg"] = round(max(0.05, min(0.60, sm_val)), 3)
+            climate_dict["drought_index"] = round(
+                max(0.05, min(0.90, 1.0 - (climate_dict["soil_moisture_avg"] / 0.42))),
+                3,
+            )
+        if sensor_overrides.get("air_temp_c") is not None:
+            climate_dict["growing_season_temp_c"] = round(float(sensor_overrides["air_temp_c"]), 2)
+        if sensor_overrides.get("ndvi_avg") is not None:
+            climate_dict["ndvi_avg"] = round(float(sensor_overrides["ndvi_avg"]), 3)
+        if sensor_overrides.get("soil_ph") is not None:
+            soil_data["ph"] = round(float(sensor_overrides["soil_ph"]), 2)
+
+    return climate_dict
 
 
 def build_rotations_for_farmer(
@@ -333,13 +449,13 @@ def build_rotations_for_farmer(
         wanted_set = set(farmer_ids)
         candidates = [seq for seq in all_generated if any(cid in wanted_set for cid in seq)]
 
-    # Attempt 3: If the farmer picked perennial crops (like Apples, Grapes, and Berries) that
-    # do not include a legume, build non-repeating permutations from their selected crop IDs
-    if not candidates and len(farmer_ids) >= 2:
-        perm_len = min(length, len(farmer_ids))
-        candidates = [list(p) for p in itertools.permutations(farmer_ids, perm_len)]
+    # Attempt 3: Build non-repeating permutations from the farmer's annual/forage crops
+    annual_farmer_ids = [cid for cid in farmer_ids if cid not in WOODY_PERENNIAL_IDS]
+    if not candidates and len(annual_farmer_ids) >= 2:
+        perm_len = min(length, len(annual_farmer_ids))
+        candidates = [list(p) for p in itertools.permutations(annual_farmer_ids, perm_len)]
 
-    # Attempt 4: If the farmer only picked 1 crop and nothing else matched, use preset NY rotations
+    # Attempt 4: Fall back to preset New York annual rotations
     if not candidates:
         candidates = list(PRESET_ROTATIONS)
 
@@ -354,37 +470,51 @@ def analyze_location_and_crops(
     profile_name: str = "Balanced",
     custom_weights: Optional[dict[str, float]] = None,
     rotation_length: int = 3,
-    row_crop_only: bool = False,
+    row_crop_only: bool = True,
     max_water_demand_mm: Optional[float] = None,
     top_n: int = 5,
     start_year: int = 2023,
     end_year: int = 2024,
     use_cache: bool = True,
+    sensor_overrides: Optional[dict[str, float]] = None,
 ) -> dict[str, Any]:
     """
     Main backend pipeline function. Takes the farmer's GPS coordinates and crop
     choices from the frontend, fetches NASA POWER weather and USDA SSURGO soil
     data for that location, scores the farmer's chosen crops, and returns the
-    top-ranked crop rotation sequences.
+    top-ranked annual crop rotation sequences plus perennial site suitability.
     """
-    # Load the full 13-crop New York catalog from data/crops.json
+    lat_f = float(lat)
+    lon_f = float(lon)
+    if not (-90.0 <= lat_f <= 90.0) or not (-180.0 <= lon_f <= 180.0):
+        raise ValueError(
+            f"Invalid GPS coordinates (lat={lat_f}, lon={lon_f}). Latitude must be in [-90, 90] and longitude in [-180, 180]."
+        )
+
     catalog = load_crops()
 
     # Step 1: Fetch NASA POWER climate data and USDA SSURGO soil data for the farm's coordinates
     nasa_result = fetch_nasa_power(
-        lat=lat,
-        lon=lon,
+        lat=lat_f,
+        lon=lon_f,
         start=start_year,
         end=end_year,
         temporal="monthly",
         use_cache=use_cache,
     )
-    usda_result = fetch_usda_soil(lat=lat, lon=lon, use_cache=use_cache)
+    usda_result = fetch_usda_soil(lat=lat_f, lon=lon_f, use_cache=use_cache)
 
     # Extract the normalized soil dictionary and check if the Mobile Measurement Station (MMS) is connected
-    soil_data = usda_result["soil"]
+    soil_data = dict(usda_result["soil"])
     mms_telemetry = get_mms_telemetry()
-    climate_data = build_climate_for_scoring(nasa_result, soil_data, mms_telemetry=mms_telemetry)
+    climate_data = build_climate_for_scoring(
+        nasa_result,
+        soil_data,
+        lat=lat_f,
+        lon=lon_f,
+        mms_telemetry=mms_telemetry,
+        sensor_overrides=sensor_overrides,
+    )
 
     # Step 2: Convert the crop names, IDs, or crop types from the frontend into crop dictionaries
     farmer_crops = resolve_farmer_crops(
@@ -393,9 +523,9 @@ def analyze_location_and_crops(
         catalog=catalog,
     )
 
-    # Step 3: Score each chosen crop on its own so the frontend can show how well each
-    # individual crop fits this farm's soil pH, clay percentage, rainfall, and sunlight
+    # Step 3: Score each chosen crop on its own and separate woody perennials into site suitability
     individual_crop_scores: list[dict[str, Any]] = []
+    perennial_site_suitability: list[dict[str, Any]] = []
     for crop_obj in farmer_crops:
         single_score = score_rotation(
             crop_rows=[crop_obj],
@@ -404,24 +534,27 @@ def analyze_location_and_crops(
             profile_name=profile_name,
             custom_weights=custom_weights,
         )
-        individual_crop_scores.append(
-            {
-                "crop_id": crop_obj["crop_id"],
-                "crop_name": crop_obj["crop_name"],
-                "crop_type": crop_obj["crop_type"],
-                "soil_compatibility": single_score["soil_compatibility"],
-                "water_stress": single_score["water_stress"],
-                "yield_potential": single_score["yield_potential"],
-                "drought_tolerance": single_score["drought_tolerance"],
-            }
-        )
+        entry = {
+            "crop_id": crop_obj["crop_id"],
+            "crop_name": crop_obj["crop_name"],
+            "crop_type": crop_obj["crop_type"],
+            "is_woody_perennial": bool(crop_obj.get("is_woody_perennial", False)),
+            "soil_compatibility": single_score["soil_compatibility"],
+            "drainage_suitability": single_score["drainage_suitability"],
+            "water_stress": single_score["water_stress"],
+            "yield_potential": single_score["yield_potential"],
+            "drought_tolerance": single_score["drought_tolerance"],
+        }
+        individual_crop_scores.append(entry)
+        if bool(crop_obj.get("is_woody_perennial", False)):
+            perennial_site_suitability.append(entry)
 
-    # Step 4: If the farmer selected 2 or more specific crops, score them in the exact order
-    # they entered so they can compare their own sequence against our optimized recommendations
+    # Step 4: If the farmer entered a specific 2 to 5 crop annual sequence, score their sequence order
+    annual_selected = [c for c in farmer_crops if not bool(c.get("is_woody_perennial", False))]
     user_sequence_score: Optional[dict[str, Any]] = None
-    if selected_crops and len(farmer_crops) >= 2:
+    if selected_crops and 2 <= len(annual_selected) <= 5 and len(selected_crops) <= 5:
         user_sequence_score = score_rotation(
-            crop_rows=farmer_crops,
+            crop_rows=annual_selected,
             soil=soil_data,
             climate=climate_data,
             profile_name=profile_name,
@@ -479,6 +612,7 @@ def analyze_location_and_crops(
         "soil": {
             **soil_data,
             "baseline_soil_score": round(field_soil_baseline_score(soil_data), 3),
+            "drainage_score": round(soil_drainage_score(soil_data), 3),
         },
         "climate": climate_data,
         "selected_crops_matched": [
@@ -490,6 +624,7 @@ def analyze_location_and_crops(
             for c in farmer_crops
         ],
         "individual_crop_suitability": individual_crop_scores,
+        "perennial_site_suitability": perennial_site_suitability,
         "user_sequence_score": user_sequence_score,
         "recommended_rotations": top_rotations,
         "top_rotation_profile_comparison": top_profile_comparison,
@@ -540,8 +675,6 @@ def analyze_farm_request(payload: dict[str, Any]) -> dict[str, Any]:
     """
     lat, lon, boundary_summary, raw_sectors = _resolve_request_coords_and_boundary(payload)
 
-    # Read the farmer's chosen crops from either "selected_crops" or "crops".
-    # If the frontend sent a comma-separated string like "Field Corn, Soybeans", split it into a list.
     raw_crops = payload.get("selected_crops", payload.get("crops"))
     if isinstance(raw_crops, str):
         selected_crops = [c.strip() for c in raw_crops.split(",") if c.strip()]
@@ -550,7 +683,6 @@ def analyze_farm_request(payload: dict[str, Any]) -> dict[str, Any]:
     else:
         selected_crops = None
 
-    # Read optional crop family types from "crop_types" or "crop_type" (like ["grain", "legume"])
     raw_types = payload.get("crop_types", payload.get("crop_type"))
     if isinstance(raw_types, str):
         crop_types = [t.strip() for t in raw_types.split(",") if t.strip()]
@@ -562,7 +694,7 @@ def analyze_farm_request(payload: dict[str, Any]) -> dict[str, Any]:
     default_profile = str(payload.get("profile_name", payload.get("profile", "Balanced")))
     default_weights = payload.get("custom_weights")
     default_length = int(payload.get("rotation_length", payload.get("years", 3)))
-    default_row_only = bool(payload.get("row_crop_only", False))
+    default_row_only = bool(payload.get("row_crop_only", True))
     default_max_water = (
         float(payload["max_water_demand_mm"])
         if payload.get("max_water_demand_mm") is not None
@@ -570,6 +702,7 @@ def analyze_farm_request(payload: dict[str, Any]) -> dict[str, Any]:
     )
     default_top_n = int(payload.get("top_n", 5))
     use_cache = bool(payload.get("use_cache", True))
+    sensor_overrides = payload.get("sensor_overrides")
 
     farm_result = analyze_location_and_crops(
         lat=lat,
@@ -583,6 +716,7 @@ def analyze_farm_request(payload: dict[str, Any]) -> dict[str, Any]:
         max_water_demand_mm=default_max_water,
         top_n=default_top_n,
         use_cache=use_cache,
+        sensor_overrides=sensor_overrides,
     )
 
     if boundary_summary is not None:
@@ -658,28 +792,24 @@ def load_ui_html() -> str:
     return "<html><body><h2>Field Shift UI not found at src/ui/index.html</h2></body></html>"
 
 
-# If FastAPI is installed in the environment, set up the HTTP web server and routes
 if FastAPI is not None:
-    # Create the FastAPI application instance
     app = FastAPI(
         title="Field Shift Crop Rotation API",
         description="Fetches NASA POWER weather and USDA SSURGO soil data for a farm location and ranks crop rotations.",
         version="1.0.0",
     )
 
-    # Enable CORS so a browser or Streamlit frontend running on another port can call this API
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
-    # Define the expected JSON request body for POST /analyze using Pydantic
     class AnalyzeRequestModel(BaseModel):  # type: ignore[misc]
-        lat: Optional[float] = Field(default=None, description="Farm latitude in decimal degrees")
-        lon: Optional[float] = Field(default=None, description="Farm longitude in decimal degrees")
+        lat: Optional[float] = Field(default=None, ge=-90.0, le=90.0, description="Farm latitude in decimal degrees")
+        lon: Optional[float] = Field(default=None, ge=-180.0, le=180.0, description="Farm longitude in decimal degrees")
         farm_boundary: Optional[list[dict[str, float]]] = Field(
             default=None,
             description="Optional list of {lat, lng} vertices for the farm outline polygon drawn on Google Maps",
@@ -690,7 +820,7 @@ if FastAPI is not None:
         )
         selected_crops: Optional[list[str]] = Field(
             default=None,
-            description="List of crop IDs or crop names the farmer wants to grow (e.g. ['C02', 'C03'] or ['Field Corn', 'Soybeans'])",
+            description="List of crop IDs or crop names the farmer wants to grow (e.g. ['C02', 'C03'])",
         )
         crop_types: Optional[list[str]] = Field(
             default=None,
@@ -705,11 +835,15 @@ if FastAPI is not None:
             description="Optional custom 7-weight dictionary overriding profile_name",
         )
         rotation_length: int = Field(default=3, ge=2, le=5)
-        row_crop_only: bool = Field(default=False)
+        row_crop_only: bool = Field(default=True)
         max_water_demand_mm: Optional[float] = Field(default=None)
         top_n: int = Field(default=5, ge=1, le=20)
+        sensor_overrides: Optional[dict[str, float]] = Field(
+            default=None,
+            description="Optional local sensor overrides (soil_moisture, soil_ph, air_temp_c, ndvi_avg)",
+        )
 
-    @app.get("/", response_class=HTMLResponse)
+    @app.get("/map-ui", response_class=HTMLResponse)
     def serve_frontend_ui() -> Any:
         """Serve the interactive Google Maps farm outline and sector selector web app."""
         return HTMLResponse(content=load_ui_html())
@@ -726,9 +860,15 @@ if FastAPI is not None:
 
     @app.get("/crops")
     def list_available_crops() -> dict[str, Any]:
-        """Return all 13 New York crops so the frontend can build its crop selection checkboxes."""
+        """Return all 17 New York crop groups so the frontend can build its selection checkboxes."""
         crops = load_crops()
         return {"count": len(crops), "crops": crops}
+
+    @app.get("/regions")
+    def list_ny_regions() -> dict[str, Any]:
+        """Return New York agricultural region baselines and coordinates."""
+        regions = load_ny_regions()
+        return {"count": len(regions), "regions": regions}
 
     @app.get("/profiles")
     def list_priority_profiles() -> dict[str, Any]:

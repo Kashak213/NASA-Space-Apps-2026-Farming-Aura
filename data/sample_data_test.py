@@ -19,6 +19,8 @@ the end of the cycle loops back into Year 1.
 Ties on total_score break on water_stress first, then nitrogen_fixation.
 """
 
+from __future__ import annotations
+
 import csv
 import itertools
 import math

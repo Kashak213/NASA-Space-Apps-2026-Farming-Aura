@@ -35,6 +35,7 @@ DEFAULT_SOIL_DATA: dict[str, Any] = {
     "organic_matter_pct": 4.3,
     "ph": 6.5,
     "bulk_density": 1.35,
+    "subsoil_bulk_density": 1.45,
     "cec": 20.0,
     "sand_pct": 40.0,
     "silt_pct": 35.0,
@@ -149,47 +150,65 @@ def parse_sda_response(raw_payload: dict[str, Any]) -> list[dict[str, Any]]:
 
 def normalize_soil_for_scoring(horizon_rows: list[dict[str, Any]]) -> dict[str, Any]:
     """
-    Aggregate one or more topsoil horizon rows from USDA SSURGO into the exact
-    soil dictionary keys expected by scoring.py:
-      - organic_carbon_pct (float)
-      - ph (float)
-      - bulk_density (float)
-      - cec (float)
-      - sand_pct (float)
-      - clay_pct (float)
-    Falls back to DEFAULT_SOIL_DATA for any individual metric missing in SSURGO.
+    Aggregate one or more root-zone horizon rows from USDA SSURGO using
+    horizon-thickness depth weighting into the soil dictionary keys expected by
+    scoring.py, including topsoil organic carbon, root-zone pH, bulk density,
+    subsoil bulk density (hardpan check), CEC, texture, and drainage class.
     """
     if not horizon_rows:
         return dict(DEFAULT_SOIL_DATA)
 
-    # Pick the primary (shallowest / highest component %) row for labels, and
-    # use subsequent topsoil horizons to fill in any null lab values
     primary = horizon_rows[0]
 
-    def _first_valid_float(key: str) -> Optional[float]:
+    def _depth_weighted_float(key: str, max_zone_cm: float = 60.0) -> Optional[float]:
+        weighted_sum = 0.0
+        total_thickness = 0.0
+        fallback_val: Optional[float] = None
         for row in horizon_rows:
             val = _safe_float(row.get(key))
-            if val is not None:
-                return val
-        return None
+            if val is None:
+                continue
+            if fallback_val is None:
+                fallback_val = val
+            top = _safe_float(row.get("depth_top_cm"))
+            bot = _safe_float(row.get("depth_bottom_cm"))
+            if top is not None and bot is not None and bot > top:
+                eff_top = max(0.0, min(max_zone_cm, top))
+                eff_bot = max(0.0, min(max_zone_cm, bot))
+                thickness = max(0.0, eff_bot - eff_top)
+                if thickness > 0.0:
+                    weighted_sum += val * thickness
+                    total_thickness += thickness
+        if total_thickness > 0.0:
+            return weighted_sum / total_thickness
+        return fallback_val
 
-    om_pct = _first_valid_float("organic_matter_pct")
+    # Organic matter is concentrated in the upper 0 to 30 cm plough layer
+    om_pct = _depth_weighted_float("organic_matter_pct", max_zone_cm=30.0)
     if om_pct is not None:
-        # Convert USDA Organic Matter (%) to Organic Carbon (%) for scoring.py,
-        # clamping extravagant peat/muck values (> 15% OM) to a realistic mineral topsoil range
         oc_pct = round(min(om_pct * OM_TO_OC_FACTOR, 8.0), 2)
         om_pct = round(om_pct, 2)
     else:
         oc_pct = DEFAULT_SOIL_DATA["organic_carbon_pct"]
         om_pct = DEFAULT_SOIL_DATA["organic_matter_pct"]
 
-    ph = _first_valid_float("ph")
-    bulk_density = _first_valid_float("bulk_density")
-    cec = _first_valid_float("cec")
-    sand_pct = _first_valid_float("sand_pct")
-    silt_pct = _first_valid_float("silt_pct")
-    clay_pct = _first_valid_float("clay_pct")
-    awc = _first_valid_float("awc")
+    ph = _depth_weighted_float("ph", max_zone_cm=60.0)
+    bulk_density = _depth_weighted_float("bulk_density", max_zone_cm=45.0)
+    cec = _depth_weighted_float("cec", max_zone_cm=60.0)
+    sand_pct = _depth_weighted_float("sand_pct", max_zone_cm=60.0)
+    silt_pct = _depth_weighted_float("silt_pct", max_zone_cm=60.0)
+    clay_pct = _depth_weighted_float("clay_pct", max_zone_cm=60.0)
+    awc = _depth_weighted_float("awc", max_zone_cm=60.0)
+
+    # Track the highest bulk density in the profile to detect compacted subsoil hardpans
+    bd_values = [
+        v for v in (_safe_float(r.get("bulk_density")) for r in horizon_rows) if v is not None
+    ]
+    subsoil_bd = (
+        max(bd_values)
+        if bd_values
+        else (bulk_density or DEFAULT_SOIL_DATA["subsoil_bulk_density"])
+    )
 
     # If sand and clay are present but silt is missing, derive silt as 100 - (sand + clay)
     if silt_pct is None and sand_pct is not None and clay_pct is not None:
@@ -204,6 +223,7 @@ def normalize_soil_for_scoring(horizon_rows: list[dict[str, Any]]) -> dict[str, 
             if bulk_density is not None
             else DEFAULT_SOIL_DATA["bulk_density"]
         ),
+        "subsoil_bulk_density": round(float(subsoil_bd), 2),
         "cec": round(cec, 2) if cec is not None else DEFAULT_SOIL_DATA["cec"],
         "sand_pct": round(sand_pct, 1) if sand_pct is not None else DEFAULT_SOIL_DATA["sand_pct"],
         "silt_pct": round(silt_pct, 1) if silt_pct is not None else DEFAULT_SOIL_DATA["silt_pct"],
@@ -239,28 +259,42 @@ def fetch_usda_soil(
     raw_payload: Optional[dict[str, Any]] = None
     source = "live"
 
-    try:
-        sql_query = _build_sda_sql(lat_r, lon_r, max_depth_cm=max_depth_cm)
-        raw_payload = _http_post_sda(sql_query, timeout=timeout)
-        if use_cache:
-            CACHE_DIR.mkdir(parents=True, exist_ok=True)
-            cache_path.write_text(json.dumps(raw_payload, indent=2), encoding="utf-8")
-    except Exception as exc:
-        if use_cache and cache_path.exists():
+    if use_cache and cache_path.exists():
+        try:
             raw_payload = json.loads(cache_path.read_text(encoding="utf-8"))
             source = "cache"
-        elif fallback_on_error:
-            return {
-                "source": "fallback",
-                "error": str(exc),
-                "coordinates": {"lat": lat_r, "lon": lon_r},
-                "soil": dict(DEFAULT_SOIL_DATA),
-                "horizons": [],
-            }
-        else:
+        except Exception:
+            raw_payload = None
+
+    if raw_payload is None:
+        try:
+            sql_query = _build_sda_sql(lat_r, lon_r, max_depth_cm=max_depth_cm)
+            raw_payload = _http_post_sda(sql_query, timeout=timeout)
+            source = "live"
+            if use_cache:
+                CACHE_DIR.mkdir(parents=True, exist_ok=True)
+                cache_path.write_text(json.dumps(raw_payload, indent=2), encoding="utf-8")
+        except Exception as exc:
+            if fallback_on_error:
+                return {
+                    "source": "fallback",
+                    "error": str(exc),
+                    "coordinates": {"lat": lat_r, "lon": lon_r},
+                    "soil": dict(DEFAULT_SOIL_DATA),
+                    "horizons": [],
+                }
             raise
 
     horizon_rows = parse_sda_response(raw_payload or {})
+    if not horizon_rows:
+        return {
+            "source": "fallback",
+            "warning": "No USDA SSURGO soil map unit found at these coordinates (open water, impervious land, or outside US coverage). Using default loam topsoil.",
+            "coordinates": {"lat": lat_r, "lon": lon_r},
+            "soil": dict(DEFAULT_SOIL_DATA),
+            "horizons": [],
+        }
+
     soil_dict = normalize_soil_for_scoring(horizon_rows)
 
     return {
