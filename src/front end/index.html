@@ -249,38 +249,6 @@
                       <span>Hudson, New York</span>
                       <span>42.25, -73.79</span>
                     </button>
-                    <button type="button" class="region-dropdown-item" data-field="F001">
-                      <span>Field F001</span>
-                      <span>41.50, -93.60</span>
-                    </button>
-                    <button type="button" class="region-dropdown-item" data-field="F002">
-                      <span>Field F002</span>
-                      <span>41.70, -93.40</span>
-                    </button>
-                    <button type="button" class="region-dropdown-item" data-field="F003">
-                      <span>Field F003</span>
-                      <span>40.80, -95.20</span>
-                    </button>
-                    <button type="button" class="region-dropdown-item" data-field="F004">
-                      <span>Field F004</span>
-                      <span>42.10, -92.80</span>
-                    </button>
-                    <button type="button" class="region-dropdown-item" data-field="F005">
-                      <span>Field F005</span>
-                      <span>41.30, -94.10</span>
-                    </button>
-                    <button type="button" class="region-dropdown-item" data-field="F006">
-                      <span>Field F006</span>
-                      <span>40.50, -96.00</span>
-                    </button>
-                    <button type="button" class="region-dropdown-item" data-field="F007">
-                      <span>Field F007</span>
-                      <span>42.50, -91.50</span>
-                    </button>
-                    <button type="button" class="region-dropdown-item" data-field="F008">
-                      <span>Field F008</span>
-                      <span>41.00, -94.80</span>
-                    </button>
                   </div>
                 </div>
 
@@ -540,17 +508,17 @@
         <div class="sidebar-footer">
           <div class="sidebar-section-label" style="margin-bottom: 10px;">DATA SOURCES</div>
           <div class="sidebar-sources-list">
-            NASA POWER / SMAP<br />
-            MODIS / GPM<br />
-            SoilGrids / SSURGO
+            NASA POWER  <br />
+            USDA <br />
+           
           </div>
         </div>
       </aside>
 
       <!-- Main Dashboard Content -->
       <main class="dashboard-main">
-        <div id="dash-eyebrow-text" class="dash-eyebrow">FIELD F001 / DEMO DATA</div>
-        <h1 id="dash-main-title" class="dash-title">Field F001</h1>
+        <div id="dash-eyebrow-text" class="dash-eyebrow">FIELD / DEMO DATA</div>
+        <h1 id="dash-main-title" class="dash-title">Field</h1>
         <div class="dash-subtitle-row">
           <div id="dash-subtitle-left" class="dash-subtitle-left">Demo data • Balanced priority profile</div>
           <div id="dash-subtitle-right" class="dash-subtitle-right">Crops selected (3): Hay &amp; Alfalfa (Haylage), Field Corn (Silage &amp; Grain), Soybeans &amp; Small Grains</div>
@@ -963,12 +931,11 @@
   <!-- DATA SOURCES MODAL -->
   <div id="data-sources-modal" class="modal-backdrop">
     <div class="modal-card">
-      <h2 class="modal-title">NASA &amp; Soil Data Sources</h2>
+      <h2 class="modal-title">Data Sources</h2>
       <p class="modal-body">
-        <strong>NASA POWER &amp; GPM:</strong> Seasonal temperature, solar radiation, and precipitation anomalies.<br /><br />
-        <strong>NASA SMAP &amp; MODIS:</strong> Root-zone soil moisture estimates and NDVI vegetation health trends.<br /><br />
-        <strong>SoilGrids &amp; USDA SSURGO:</strong> Organic carbon percentage, soil pH, clay/sand texture, bulk density, and cation exchange capacity (CEC).<br /><br />
-        <strong>Mobile Measurement Station (MMS):</strong> Local capacitive soil moisture, temperature, and humidity ground-truth sensor readings.
+        <strong>NASA (National Aeronautics and Space Administration):</strong> Provides satellite Earth observations, meteorological models, and remote sensing datasets. This includes NASA POWER and GPM for solar irradiance, surface temperatures, and historical precipitation patterns, alongside SMAP and MODIS for root-zone soil moisture monitoring and vegetation health dynamics.<br /><br />
+        <strong>USDA (United States Department of Agriculture):</strong> Delivers comprehensive agronomic and soil intelligence across national agricultural regions. This includes USDA SSURGO and NRCS soil taxonomy databases for soil composition (organic matter, bulk density, pH levels, sand/clay percentages, cation exchange capacity) and regional crop rotation guidelines for sustainable field management.<br /><br />
+        <strong>Mobile Measurement Station (MMS):</strong> Local capacitive soil moisture, soil temperature, air humidity, and rain ground-truth sensor readings.
       </p>
       <button type="button" id="close-sources-modal-btn" class="modal-close-btn">Close</button>
     </div>

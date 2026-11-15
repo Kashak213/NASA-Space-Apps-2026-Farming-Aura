@@ -362,7 +362,7 @@ const appState = {
   activeTab: 'rotations',
   selectedCity: 'Albany',
   previousCropId: 'C02',
-  fieldCount: 8,
+  fieldCount: 1,
   selectedFieldNumber: 1,
   selectedFieldId: 'F001',
   customFieldBorders: {},
@@ -1265,7 +1265,8 @@ function renderDashboard() {
     dashMainTitle.textContent = activeFieldName;
   }
   if (dashSubLeft) {
-    dashSubLeft.textContent = `Previous crop(s): ${prevSummaryText} • ${appState.fieldCount} fields (F001–${formatFieldCode(appState.fieldCount)}) • ${appState.selectedProfile} (${intensityVal}/100)`;
+    const fieldCountText = appState.fieldCount === 1 ? '1 field' : `${appState.fieldCount} fields`;
+    dashSubLeft.textContent = `Previous crop(s): ${prevSummaryText} • ${fieldCountText} • ${appState.selectedProfile} (${intensityVal}/100)`;
   }
   if (dashSubRight) {
     const pickedNames = selectedIds.map((id) => CROPS_DATA[id]?.name).filter(Boolean);
