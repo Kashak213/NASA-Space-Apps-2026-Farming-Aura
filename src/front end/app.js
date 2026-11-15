@@ -361,9 +361,8 @@ const appState = {
   currentView: 'landing-view',
   activeTab: 'rotations',
   selectedCity: 'Albany',
-  fieldCount: 1,
-  selectedFields: ['F001'],
-  activeFieldSlot: 0,
+  fieldCount: 8,
+  selectedFieldNumber: 1,
   selectedFieldId: 'F001',
   selectedProfile: 'Balanced',
   selectedCrops: ['C01', 'C02', 'C03'],
@@ -784,9 +783,8 @@ function selectCityLocation(cityKey) {
 
   appState.selectedCity = cityKey;
   appState.selectedFieldId = city.defaultField;
-  if (appState.selectedFields.length > 0) {
-    appState.selectedFields[appState.activeFieldSlot] = city.defaultField;
-  }
+  const numFromId = parseInt(city.defaultField.replace(/\D/g, ''), 10) || 1;
+  appState.selectedFieldNumber = Math.min(numFromId, appState.fieldCount);
 
   const regionBox = document.getElementById('step1-region-selected');
   const latLonBox = document.getElementById('step1-latlon-display');
@@ -809,111 +807,63 @@ function selectCityLocation(cityKey) {
   });
 }
 
-// Update how many field dropdowns are shown in the sidebar
-function setFieldCount(count) {
+// Map any 1-based field number (1..N) to one of our 8 base field profiles (F001..F008)
+function getFieldIdForNumber(fieldNum) {
   const allIds = Object.keys(FIELDS_DATA);
-  const n = clip(count, 1, 8);
-  appState.fieldCount = n;
-
-  while (appState.selectedFields.length < n) {
-    const nextDefault = allIds[appState.selectedFields.length % allIds.length];
-    appState.selectedFields.push(nextDefault);
-  }
-  if (appState.selectedFields.length > n) {
-    appState.selectedFields = appState.selectedFields.slice(0, n);
-  }
-  if (appState.activeFieldSlot >= n) {
-    appState.activeFieldSlot = n - 1;
-  }
-  appState.selectedFieldId = appState.selectedFields[appState.activeFieldSlot] || 'F001';
+  const idx = (Math.max(1, fieldNum) - 1) % allIds.length;
+  return allIds[idx];
 }
 
-// Render N dynamic field dropdowns inside #dynamic-fields-container
-function renderDynamicFieldDropdowns() {
-  const container = document.getElementById('dynamic-fields-container');
-  if (!container) return;
+// Get display label for a 1-based field number
+function getFieldDisplayName(fieldNum) {
+  const fid = getFieldIdForNumber(fieldNum);
+  const fObj = FIELDS_DATA[fid] || FIELDS_DATA.F001;
+  if (fieldNum <= 8) {
+    return `${fObj.name} (Field ${fieldNum})`;
+  }
+  return `Field ${fieldNum} (${fid} profile)`;
+}
 
-  container.innerHTML = '';
-  const allFieldKeys = Object.keys(FIELDS_DATA);
+// Update total number of fields from the typed input
+function setFieldCount(count) {
+  const n = clip(count, 1, 50);
+  appState.fieldCount = n;
+  if (appState.selectedFieldNumber > n) {
+    appState.selectedFieldNumber = n;
+    appState.selectedFieldId = getFieldIdForNumber(n);
+  }
+}
 
-  for (let i = 0; i < appState.fieldCount; i++) {
-    const slotFieldId = appState.selectedFields[i] || 'F001';
-    const slotField = FIELDS_DATA[slotFieldId] || FIELDS_DATA.F001;
-    const isSlotActive = i === appState.activeFieldSlot;
+// Populate the single field picker dropdown menu with options 1..fieldCount
+function renderFieldPickerOptions() {
+  const listContainer = document.getElementById('sidebar-field-options-list');
+  const triggerLabel = document.getElementById('sidebar-field-label');
+  const countInput = document.getElementById('sidebar-field-count-input');
 
-    const group = document.createElement('div');
-    group.className = 'dynamic-field-group';
+  if (countInput && document.activeElement !== countInput) {
+    countInput.value = String(appState.fieldCount);
+  }
+  if (triggerLabel) {
+    triggerLabel.textContent = getFieldDisplayName(appState.selectedFieldNumber);
+  }
+  if (!listContainer) return;
 
-    const label = document.createElement('label');
-    label.className = 'sidebar-label';
-    label.textContent = appState.fieldCount === 1 ? 'Field 1' : `Field ${i + 1}${isSlotActive ? ' (viewing)' : ''}`;
-
-    const triggerId = `dynamic-field-trigger-${i}`;
-    const menuId = `dynamic-field-menu-${i}`;
-
-    const trigger = document.createElement('button');
-    trigger.type = 'button';
-    trigger.id = triggerId;
-    trigger.className = `custom-select-trigger dynamic-field-trigger ${isSlotActive ? 'active-slot-trigger' : ''}`;
-    trigger.innerHTML = `
-      <span>${slotField.name}</span>
-      <span class="custom-select-chevron">&#8964;</span>
-    `;
-
-    const menu = document.createElement('div');
-    menu.id = menuId;
-    menu.className = 'field-dropdown-menu';
-
-    allFieldKeys.forEach((fid) => {
-      const fObj = FIELDS_DATA[fid];
-      const optBtn = document.createElement('button');
-      optBtn.type = 'button';
-      optBtn.className = `field-option-btn ${fid === slotFieldId ? 'selected-field' : ''}`;
-      optBtn.textContent = fObj.name;
-      optBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        appState.selectedFields[i] = fid;
-        appState.activeFieldSlot = i;
-        appState.selectedFieldId = fid;
-        appState.selectedRankIndex = 0;
-        closeAllDropdowns();
-        renderDashboard();
-      });
-      menu.appendChild(optBtn);
-    });
-
-    const customBtn = document.createElement('button');
-    customBtn.type = 'button';
-    customBtn.className = 'field-custom-map-btn';
-    customBtn.innerHTML = 'Choose custom map location<br />&rarr;';
-    customBtn.addEventListener('click', (e) => {
+  listContainer.innerHTML = '';
+  for (let num = 1; num <= appState.fieldCount; num++) {
+    const fid = getFieldIdForNumber(num);
+    const optBtn = document.createElement('button');
+    optBtn.type = 'button';
+    optBtn.className = `field-option-btn ${num === appState.selectedFieldNumber ? 'selected-field' : ''}`;
+    optBtn.textContent = getFieldDisplayName(num);
+    optBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      appState.activeFieldSlot = i;
+      appState.selectedFieldNumber = num;
+      appState.selectedFieldId = fid;
+      appState.selectedRankIndex = 0;
       closeAllDropdowns();
-      navigateToView('location-view');
+      renderDashboard();
     });
-    menu.appendChild(customBtn);
-
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'field-close-btn';
-    closeBtn.textContent = 'Close';
-    closeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      closeAllDropdowns();
-    });
-    menu.appendChild(closeBtn);
-
-    trigger.addEventListener('click', (e) => {
-      appState.activeFieldSlot = i;
-      appState.selectedFieldId = appState.selectedFields[i] || 'F001';
-      toggleDropdown(menuId, triggerId, e);
-    });
-
-    group.appendChild(label);
-    group.appendChild(trigger);
-    group.appendChild(menu);
-    container.appendChild(group);
+    listContainer.appendChild(optBtn);
   }
 }
 
@@ -1081,15 +1031,8 @@ function renderDashboard() {
   const topPick = ranked[appState.selectedRankIndex] || ranked[0];
   const selectedIds = appState.selectedCrops || [];
 
-  // Render dynamic field dropdowns in the sidebar based on appState.fieldCount
-  const fieldCountLabel = document.getElementById('sidebar-field-count-label');
-  if (fieldCountLabel) {
-    fieldCountLabel.textContent = appState.fieldCount === 1 ? '1 field' : `${appState.fieldCount} fields`;
-  }
-  document.querySelectorAll('[data-field-count]').forEach((btn) => {
-    btn.classList.toggle('active-option', parseInt(btn.dataset.fieldCount, 10) === appState.fieldCount);
-  });
-  renderDynamicFieldDropdowns();
+  // Render field picker options based on the typed number of fields
+  renderFieldPickerOptions();
 
   // Sidebar trigger labels for Priority Profile and Crops
   const profileTrigLabel = document.getElementById('sidebar-profile-label');
@@ -1140,18 +1083,13 @@ function renderDashboard() {
   const dashSubLeft = document.getElementById('dash-subtitle-left');
   const dashSubRight = document.getElementById('dash-subtitle-right');
   if (dashEyebrow) {
-    dashEyebrow.textContent =
-      appState.fieldCount > 1
-        ? `FIELD ${field.id} (SLOT ${appState.activeFieldSlot + 1} OF ${appState.fieldCount}) / DEMO DATA`
-        : `FIELD ${field.id} / DEMO DATA`;
+    dashEyebrow.textContent = `FIELD ${appState.selectedFieldNumber} OF ${appState.fieldCount} (${field.id}) / DEMO DATA`;
   }
-  if (dashMainTitle) dashMainTitle.textContent = field.name;
+  if (dashMainTitle) {
+    dashMainTitle.textContent = appState.selectedFieldNumber <= 8 ? field.name : `Field ${appState.selectedFieldNumber} (${field.id})`;
+  }
   if (dashSubLeft) {
-    const allChosenFields = appState.selectedFields.map((fid) => FIELDS_DATA[fid]?.name || fid).join(', ');
-    dashSubLeft.textContent =
-      appState.fieldCount > 1
-        ? `Active fields (${appState.fieldCount}): ${allChosenFields} • ${appState.selectedProfile} profile`
-        : `Demo data • ${appState.selectedProfile} priority profile`;
+    dashSubLeft.textContent = `${appState.fieldCount} total fields configured • ${appState.selectedProfile} priority profile`;
   }
   if (dashSubRight) {
     const pickedNames = selectedIds.map((id) => CROPS_DATA[id]?.name).filter(Boolean);
@@ -1387,11 +1325,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Login form submission -> transitions to Screen 2: Select your location
-  const loginForm = document.getElementById('login-form');
-  if (loginForm) {
-    loginForm.addEventListener('submit', (e) => {
-      e.preventDefault();
+  // Continue button on lower landing credits section -> transitions to Screen 2: Select your location
+  const loginContinueBtn = document.getElementById('login-continue-btn');
+  if (loginContinueBtn) {
+    loginContinueBtn.addEventListener('click', () => {
       navigateToView('location-view');
     });
   }
@@ -1448,7 +1385,11 @@ document.addEventListener('DOMContentLoaded', () => {
         selectCityLocation(cityKey);
       } else if (fieldKey && FIELDS_DATA[fieldKey]) {
         appState.selectedFieldId = fieldKey;
-        appState.selectedFields[appState.activeFieldSlot] = fieldKey;
+        const numFromId = parseInt(fieldKey.replace(/\D/g, ''), 10) || 1;
+        if (numFromId > appState.fieldCount) {
+          appState.fieldCount = numFromId;
+        }
+        appState.selectedFieldNumber = numFromId;
         const f = FIELDS_DATA[fieldKey];
         const regionBox = document.getElementById('step1-region-selected');
         const latLonBox = document.getElementById('step1-latlon-display');
@@ -1482,24 +1423,51 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Dashboard sidebar dropdown 1A: How many fields?
-  const fieldCountTrigger = document.getElementById('sidebar-field-count-trigger');
-  if (fieldCountTrigger) {
-    fieldCountTrigger.addEventListener('click', (e) => {
-      toggleDropdown('sidebar-field-count-menu', 'sidebar-field-count-trigger', e);
+  // Dashboard sidebar 1A: Typed number of fields input
+  const fieldCountInput = document.getElementById('sidebar-field-count-input');
+  if (fieldCountInput) {
+    const handleFieldCountInput = (e) => {
+      const parsed = parseInt(e.target.value, 10);
+      if (!Number.isNaN(parsed) && parsed >= 1) {
+        setFieldCount(parsed);
+        appState.selectedRankIndex = 0;
+        renderDashboard();
+      }
+    };
+    fieldCountInput.addEventListener('input', handleFieldCountInput);
+    fieldCountInput.addEventListener('change', (e) => {
+      const parsed = parseInt(e.target.value, 10) || 1;
+      setFieldCount(parsed);
+      fieldCountInput.value = String(appState.fieldCount);
+      appState.selectedRankIndex = 0;
+      renderDashboard();
     });
   }
 
-  document.querySelectorAll('[data-field-count]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const count = parseInt(btn.dataset.fieldCount, 10) || 1;
-      setFieldCount(count);
-      appState.selectedRankIndex = 0;
-      closeAllDropdowns();
-      renderDashboard();
+  // Dashboard sidebar 1B: Single dropdown menu to pick between the fields
+  const fieldTrigger = document.getElementById('sidebar-field-trigger');
+  if (fieldTrigger) {
+    fieldTrigger.addEventListener('click', (e) => {
+      toggleDropdown('sidebar-field-menu', 'sidebar-field-trigger', e);
     });
-  });
+  }
+
+  const customMapBtn = document.getElementById('field-custom-map-btn');
+  if (customMapBtn) {
+    customMapBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeAllDropdowns();
+      navigateToView('location-view');
+    });
+  }
+
+  const fieldMenuCloseBtn = document.getElementById('field-menu-close-btn');
+  if (fieldMenuCloseBtn) {
+    fieldMenuCloseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeAllDropdowns();
+    });
+  }
 
   // Dashboard sidebar dropdown 2: Priority profile
   const profileTrigger = document.getElementById('sidebar-profile-trigger');
@@ -1595,8 +1563,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Tab 2 clickable field hotspots on the satellite map
   document.querySelectorAll('.field-hotspot').forEach((spot) => {
     spot.addEventListener('click', () => {
-      appState.selectedFieldId = spot.dataset.field;
-      appState.selectedFields[appState.activeFieldSlot] = spot.dataset.field;
+      const fid = spot.dataset.field;
+      const numFromId = parseInt(fid.replace(/\D/g, ''), 10) || 1;
+      if (numFromId > appState.fieldCount) {
+        appState.fieldCount = numFromId;
+      }
+      appState.selectedFieldNumber = numFromId;
+      appState.selectedFieldId = fid;
       appState.selectedRankIndex = 0;
       renderDashboard();
     });

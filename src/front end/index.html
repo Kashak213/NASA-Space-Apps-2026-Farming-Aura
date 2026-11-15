@@ -32,7 +32,7 @@
             </h1>
 
             <button type="button" id="hero-login-scroll-btn" class="hero-login-btn">
-              Login/Sign-up
+              Continue
             </button>
 
             <div class="hero-mission-box">
@@ -61,42 +61,21 @@
           </div>
 
           <div class="login-right-panel">
-            <h2 class="login-welcome-title">Welcome back.</h2>
-            <p class="login-welcome-sub">Sign in to access your field recommendations.</p>
+            <h2 class="login-welcome-title">Made by</h2>
+            <p class="login-welcome-sub">NASA Space Apps Challenge 2026 — Field Shift Team</p>
 
-            <form id="login-form">
-              <div class="login-form-group">
-                <label class="login-label" for="login-email">Email address</label>
-                <input
-                  id="login-email"
-                  type="email"
-                  class="login-input"
-                  value="farmer@example.com"
-                  placeholder="farmer@example.com"
-                  required
-                />
-              </div>
+            <ul class="team-credits-list">
+              <li class="team-credit-item">Michael Vert</li>
+              <li class="team-credit-item">Aniket Dixit</li>
+              <li class="team-credit-item">Aiden Weng</li>
+              <li class="team-credit-item">Rishabh Nagarkar</li>
+              <li class="team-credit-item">Gautham Reddy</li>
+              <li class="team-credit-item">Charles Wang</li>
+            </ul>
 
-              <div class="login-form-group">
-                <label class="login-label" for="login-password">Password</label>
-                <input
-                  id="login-password"
-                  type="password"
-                  class="login-input"
-                  value="password1234"
-                  placeholder="••••••••••"
-                  required
-                />
-              </div>
-
-              <button type="submit" class="login-submit-btn">
-                <span>Continue to region setup &rarr;</span>
-              </button>
-            </form>
-
-            <a href="#login-section" class="login-forgot-link" data-nav-target="location-view">
-              Forgot password?
-            </a>
+            <button type="button" id="login-continue-btn" class="login-submit-btn">
+              <span>Continue &rarr;</span>
+            </button>
           </div>
         </div>
       </section>
@@ -318,7 +297,7 @@
               </div>
 
               <button type="button" id="confirm-region-btn" class="confirm-region-btn">
-                <span>Confirm region and continue &rarr;</span>
+                <span>Continue &rarr;</span>
               </button>
             </div>
           </div>
@@ -379,30 +358,35 @@
 
           <div class="sidebar-section-label">FIELD SETTINGS</div>
 
-          <!-- Dropdown 1A: How many fields? -->
+          <!-- Input 1A: Type how many fields there are -->
           <div class="sidebar-control-group">
-            <label class="sidebar-label">How many fields?</label>
-            <button type="button" id="sidebar-field-count-trigger" class="custom-select-trigger">
-              <span id="sidebar-field-count-label">1 field</span>
-              <span class="custom-select-chevron">&#8964;</span>
-            </button>
-            <div id="sidebar-field-count-menu" class="cream-popover-menu">
-              <div class="cream-popover-title">Select number of fields</div>
-              <div class="cream-popover-list">
-                <button type="button" class="cream-option-btn active-option" data-field-count="1">1 field</button>
-                <button type="button" class="cream-option-btn" data-field-count="2">2 fields</button>
-                <button type="button" class="cream-option-btn" data-field-count="3">3 fields</button>
-                <button type="button" class="cream-option-btn" data-field-count="4">4 fields</button>
-                <button type="button" class="cream-option-btn" data-field-count="5">5 fields</button>
-                <button type="button" class="cream-option-btn" data-field-count="6">6 fields</button>
-                <button type="button" class="cream-option-btn" data-field-count="7">7 fields</button>
-                <button type="button" class="cream-option-btn" data-field-count="8">8 fields</button>
-              </div>
-            </div>
+            <label class="sidebar-label" for="sidebar-field-count-input">How many fields?</label>
+            <input
+              id="sidebar-field-count-input"
+              type="number"
+              min="1"
+              max="50"
+              value="8"
+              class="field-count-input"
+              placeholder="Type number of fields..."
+            />
           </div>
 
-          <!-- Dynamic Field Dropdowns Container (creates N field dropdowns) -->
-          <div id="dynamic-fields-container" class="dynamic-fields-list"></div>
+          <!-- Dropdown 1B: Pick between the fields -->
+          <div class="sidebar-control-group">
+            <label class="sidebar-label">Pick field</label>
+            <button type="button" id="sidebar-field-trigger" class="custom-select-trigger">
+              <span id="sidebar-field-label">Field 1 (F001)</span>
+              <span class="custom-select-chevron">&#8964;</span>
+            </button>
+            <div id="sidebar-field-menu" class="field-dropdown-menu">
+              <div id="sidebar-field-options-list" class="field-options-scroll"></div>
+              <button type="button" id="field-custom-map-btn" class="field-custom-map-btn">
+                Choose custom map location<br />&rarr;
+              </button>
+              <button type="button" id="field-menu-close-btn" class="field-close-btn">Close</button>
+            </div>
+          </div>
 
           <!-- Dropdown 2: Priority profile -->
           <div class="sidebar-control-group">
