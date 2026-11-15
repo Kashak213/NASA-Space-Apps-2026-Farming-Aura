@@ -816,9 +816,13 @@ if FastAPI is not None:
     def public_config() -> dict[str, Any]:
         """
         Browser-safe settings. Only the Google Maps key goes out (it is locked to our sites
-        in Google Cloud). GEMINI_API_KEY must never be added here; it stays backend-only.
+        in Google Cloud). GEMINI_API_KEY must never be added here, it stays backend-only.
         """
-        return {"google_maps_api_key": get_google_maps_api_key()}
+        maps_key = get_google_maps_api_key()
+        return {
+            "google_maps_api_key": maps_key if maps_key else None,
+            "gemini_configured": gemini_is_configured(),
+        }
 
     @app.get("/crops")
     def list_available_crops() -> dict[str, Any]:
@@ -836,16 +840,6 @@ if FastAPI is not None:
     def list_priority_profiles() -> dict[str, Any]:
         """Return the 5 preset farmer priority profiles and their 7 weights for UI sliders."""
         return {"profiles": PROFILES}
-
-    @app.get("/config")
-    def get_public_config() -> dict[str, Any]:
-        """Return public frontend configuration such as Google Maps API key.
-        Never returns GEMINI_API_KEY, which is strictly backend-only."""
-        maps_key = get_google_maps_api_key()
-        return {
-            "google_maps_api_key": maps_key if maps_key else None,
-            "gemini_configured": gemini_is_configured(),
-        }
 
     @app.post("/analyze")
     def analyze_endpoint(request: AnalyzeRequestModel) -> dict[str, Any]:
