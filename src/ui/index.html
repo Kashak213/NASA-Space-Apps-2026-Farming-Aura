@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Field Shift - Farm Outline & Sector Rotation Planner</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --bg-panel: #1e293b;
+      --bg-card: #263349;
+      --border: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-green: #22c55e;
+      --accent-blue: #38bdf8;
+      --accent-amber: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .brand-title { font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+    .badge {
+      font-size: 0.74rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 600;
+      background: #1e3a2f;
+      color: #4ade80;
+      border: 1px solid #22c55e55;
+    }
+    .badge.warn { background: #3b2a1a; color: #fbbf24; border-color: #f59e0b55; }
+    .step-bar { display: flex; gap: 8px; flex-wrap: wrap; }
+    .step-pill {
+      background: var(--bg-card);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 7px 13px;
+      border-radius: 8px;
+      font-size: 0.83rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .step-pill.active { background: var(--accent-green); color: #052e16; border-color: var(--accent-green); }
+    .header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 7px;
+      padding: 8px 13px;
+      font-size: 0.83rem;
+      font-weight: 600;
+    }
+    button:hover { opacity: 0.92; }
+    .btn-primary { background: var(--accent-green); color: #052e16; }
+    .btn-secondary { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border); }
+    .btn-amber { background: var(--accent-amber); color: #1e1302; }
+    .btn-danger { background: #7f1d1d; color: #fecaca; border: 1px solid #ef444466; }
+    .workspace { display: grid; grid-template-columns: 420px 1fr; flex: 1; min-height: calc(100vh - 60px); }
+    @media (max-width: 960px) { .workspace { grid-template-columns: 1fr; } }
+    .sidebar {
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      padding: 15px;
+      overflow-y: auto;
+      max-height: calc(100vh - 60px);
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+    }
+    .panel-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+    .panel-box h2 { font-size: 0.98rem; color: var(--text-main); }
+    .panel-box p { font-size: 0.82rem; color: var(--text-muted); line-height: 1.42; }
+    .input-row { display: flex; gap: 6px; }
+    input[type="text"], input[type="number"], select {
+      width: 100%;
+      background: var(--bg-dark);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-size: 0.83rem;
+    }
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-box { background: var(--bg-dark); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; }
+    .stat-label { font-size: 0.72rem; color: var(--text-muted); }
+    .stat-val { font-size: 0.94rem; font-weight: 700; margin-top: 2px; }
+    .sector-list { display: flex; flex-direction: column; gap: 8px; }
+    .sector-item {
+      background: var(--bg-dark);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      cursor: pointer;
+    }
+    .sector-item.selected { border-color: var(--accent-blue); box-shadow: 0 0 0 1px var(--accent-blue); }
+    .sector-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .color-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .map-stage { position: relative; display: flex; flex-direction: column; background: #090d16; }
+    #map-canvas { width: 100%; flex: 1; min-height: 540px; }
+    .map-overlay-bar {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 900;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .map-banner {
+      pointer-events: auto;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid var(--border);
+      padding: 9px 14px;
+      border-radius: 9px;
+      font-size: 0.83rem;
+      color: var(--text-main);
+    }
+    .crop-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px;
+      max-height: 150px;
+      overflow-y: auto;
+      padding: 6px;
+      background: var(--bg-dark);
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+    .crop-check { font-size: 0.77rem; display: flex; align-items: center; gap: 5px; }
+    .rotation-card { background: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-top: 6px; }
+    .rotation-seq { font-weight: 700; color: #4ade80; font-size: 0.88rem; margin-bottom: 4px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand-title">
+      <span>Field Shift: NASA Farm &amp; Sector Planner</span>
+      <span id="api-status-badge" class="badge warn">Checking Google Maps Key...</span>
+    </div>
+    <div class="step-bar">
+      <button id="step-btn-1" class="step-pill active" onclick="setStep(1)">1. Outline Farm Location</button>
+      <button id="step-btn-2" class="step-pill" onclick="setStep(2)">2. Highlight Field Sectors</button>
+      <button id="step-btn-3" class="step-pill" onclick="setStep(3)">3. Sector Rotation Plans</button>
+    </div>
+    <div class="header-actions">
+      <button class="btn-amber" onclick="loadSampleFarm()">Skip / Load Sample Farm</button>
+      <button class="btn-secondary" onclick="promptManualGoogleKey()">Set Maps Key</button>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <aside class="sidebar">
+      <!-- Step 1 panel for picking and outlining the farm -->
+      <div id="panel-step-1" class="panel-box">
+        <h2>Step 1: Select &amp; Outline Your Farm</h2>
+        <p>
+          Search for your town or coordinates below, then click around the edges of your property on the satellite map to highlight your outer farm boundary.
+        </p>
+        <div class="input-row">
+          <input id="location-search-input" type="text" placeholder="Search town, address, or lat, lon (e.g. Geneva, NY)" onkeydown="if(event.key==='Enter') searchLocation()" />
+          <button class="btn-secondary" onclick="searchLocation()">Fly To</button>
+        </div>
+        <div class="input-row">
+          <select id="preset-region-select" onchange="jumpToPresetRegion(this.value)">
+            <option value="">Jump to a New York Farming Region...</option>
+            <option value="42.70,-76.80,16">Finger Lakes (Seneca / Cayuga)</option>
+            <option value="42.85,-77.80,16">Genesee Valley (Livingston County)</option>
+            <option value="41.75,-74.08,16">Hudson Valley (Ulster County)</option>
+            <option value="42.95,-76.15,16">Central New York (Onondaga)</option>
+            <option value="44.68,-73.48,16">North Country (Champlain Valley)</option>
+            <option value="40.96,-72.62,16">Long Island (Riverhead Ag District)</option>
+          </select>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-box">
+            <div class="stat-label">Farm Corners Placed</div>
+            <div class="stat-val" id="farm-corner-count">0 pts</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Highlighted Farm Area</div>
+            <div class="stat-val" id="farm-area-display">0.00 acres</div>
+          </div>
+        </div>
+
+        <div class="input-row">
+          <button class="btn-secondary" style="flex:1" onclick="undoLastFarmPoint()">Undo Last Point</button>
+          <button class="btn-danger" style="flex:1" onclick="clearFarmBoundary()">Clear Outline</button>
+        </div>
+
+        <button class="btn-primary" onclick="setStep(2)">Confirm Farm Outline &amp; Draw Sectors &rarr;</button>
+      </div>
+
+      <!-- Step 2 panel for dividing the farm into field sectors -->
+      <div id="panel-step-2" class="panel-box hidden">
+        <h2>Step 2: Segregate Land into Field Sectors</h2>
+        <p>
+          Highlight separate sectors inside your farm boundary so you can manage different fields, soil zones, and crop schedules independently.
+        </p>
+
+        <div class="input-row">
+          <button id="btn-start-sector" class="btn-primary" style="flex:1" onclick="startNewSector()">+ Draw New Sector</button>
+          <button id="btn-finish-sector" class="btn-amber hidden" style="flex:1" onclick="finishActiveSector()">Finish Sector Polygon</button>
+        </div>
+
+        <div id="active-sector-hint" class="stat-box hidden">
+          <div class="stat-label">Drawing Active Sector on Map</div>
+          <div class="stat-val" id="active-sector-pts">Click corners on the satellite map (0 pts)</div>
+          <div class="input-row" style="margin-top:6px">
+            <button class="btn-secondary" style="flex:1" onclick="undoActiveSectorPoint()">Undo Corner</button>
+            <button class="btn-danger" style="flex:1" onclick="cancelActiveSector()">Cancel</button>
+          </div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-box">
+            <div class="stat-label">Total Sectors</div>
+            <div class="stat-val" id="sector-total-count">0 fields</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Segregated Area</div>
+            <div class="stat-val" id="sector-total-acres">0.00 acres</div>
+          </div>
+        </div>
+
+        <div id="sector-list-container" class="sector-list"></div>
+
+        <div class="panel-box" style="background: var(--bg-dark)">
+          <h2>Farm-Wide Goal &amp; Crop Filter</h2>
+          <label class="stat-label">Default Farmer Priority Profile</label>
+          <select id="global-profile-select">
+            <option value="Balanced">Balanced (Soil + Water + Yield)</option>
+            <option value="Max Yield">Max Yield</option>
+            <option value="Water Conservation">Water Conservation</option>
+            <option value="Soil Health First">Soil Health First</option>
+            <option value="Climate Resilient">Climate Resilient</option>
+          </select>
+          <label class="stat-label" style="margin-top:4px">Rotation Cycle Length</label>
+          <select id="global-rotation-years">
+            <option value="3" selected>3-Year Crop Rotation</option>
+            <option value="4">4-Year Crop Rotation</option>
+          </select>
+          <label class="stat-label" style="margin-top:4px">Select Candidate Crops (leave unchecked for all 13)</label>
+          <div id="crop-checkbox-grid" class="crop-grid"></div>
+        </div>
+
+        <div class="input-row">
+          <button class="btn-secondary" onclick="setStep(1)">&larr; Edit Farm Outline</button>
+          <button class="btn-primary" style="flex:1" onclick="runSectorAnalysis()">Analyze Farm &amp; Sectors &rarr;</button>
+        </div>
+      </div>
+
+      <!-- Step 3 panel for viewing crop rotation plans per sector -->
+      <div id="panel-step-3" class="panel-box hidden">
+        <h2>Step 3: NASA &amp; Soil Rotation Plans</h2>
+        <p>
+          Click any highlighted sector on the satellite map or choose from the tabs below to inspect its soil lab metrics, NASA climate trends, and top multi-year crop rotations.
+        </p>
+        <div class="input-row">
+          <button class="btn-secondary" onclick="setStep(2)">&larr; Edit Sectors</button>
+          <button class="btn-primary" style="flex:1" onclick="runSectorAnalysis()">Refresh NASA Analysis</button>
+        </div>
+        <div id="analysis-status-box" class="stat-box">
+          <div class="stat-label">Analysis Status</div>
+          <div class="stat-val" id="analysis-status-text">Ready to run</div>
+        </div>
+        <div id="sector-results-tabs" class="step-bar"></div>
+        <div id="sector-results-content"></div>
+      </div>
+    </aside>
+
+    <main class="map-stage">
+      <div class="map-overlay-bar">
+        <div class="map-banner" id="map-instruction-banner">
+          Step 1: Click around your farm perimeter on the satellite map to outline your property, or click "Skip / Load Sample Farm".
+        </div>
+        <div class="map-banner" id="map-coords-readout">
+          Center: 42.7000, -76.8000
+        </div>
+      </div>
+      <div id="map-canvas"></div>
+    </main>
+  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Global state for the map engine, outer farm boundary, and individual field sectors
+    const SECTOR_COLORS = ["#22c55e", "#38bdf8", "#f59e0b", "#a855f7", "#ec4899", "#eab308"];
+    let currentStep = 1;
+    let mapMode = "none"; // "google" or "leaflet"
+    let gMap = null;
+    let lMap = null;
+
+    // Outer farm outline state
+    let farmBoundaryCoords = [];
+    let gFarmPolygon = null;
+    let lFarmPolygon = null;
+
+    // Segregated field sectors state
+    let sectors = [];
+    let selectedSectorId = null;
+    let isDrawingSector = false;
+    let activeSectorCoords = [];
+    let gActiveSectorPoly = null;
+    let lActiveSectorPoly = null;
+
+    // Last analysis result from POST /analyze
+    let latestAnalysis = null;
+    let activeResultTab = "FARM";
+
+    // Default Finger Lakes NY coordinates
+    const DEFAULT_CENTER = { lat: 42.7012, lng: -76.8015 };
+
+    // Calculate polygon centroid and acreage using spherical earth geometry
+    function computePolygonStats(pts) {
+      if (!pts || pts.length === 0) {
+        return { lat: DEFAULT_CENTER.lat, lng: DEFAULT_CENTER.lng, acres: 0, hectares: 0 };
+      }
+      let sumLat = 0;
+      let sumLng = 0;
+      for (const p of pts) {
+        sumLat += p.lat;
+        sumLng += p.lng;
+      }
+      const avgLat = sumLat / pts.length;
+      const avgLng = sumLng / pts.length;
+
+      if (pts.length < 3) {
+        return { lat: avgLat, lng: avgLng, acres: 0, hectares: 0 };
+      }
+
+      // Use Google Maps geometry library if loaded, otherwise local planar meter projection
+      let sqMeters = 0;
+      if (
+        window.google &&
+        window.google.maps &&
+        window.google.maps.geometry &&
+        window.google.maps.geometry.spherical
+      ) {
+        const gPath = pts.map((p) => new google.maps.LatLng(p.lat, p.lng));
+        sqMeters = google.maps.geometry.spherical.computeArea(gPath);
+      } else {
+        const mLat = 111132.92;
+        const mLng = 111412.84 * Math.cos((avgLat * Math.PI) / 180);
+        let shoelace = 0;
+        for (let i = 0; i < pts.length; i++) {
+          const p1 = pts[i];
+          const p2 = pts[(i + 1) % pts.length];
+          const x1 = (p1.lng - avgLng) * mLng;
+          const y1 = (p1.lat - avgLat) * mLat;
+          const x2 = (p2.lng - avgLng) * mLng;
+          const y2 = (p2.lat - avgLat) * mLat;
+          shoelace += x1 * y2 - x2 * y1;
+        }
+        sqMeters = Math.abs(shoelace) * 0.5;
+      }
+
+      return {
+        lat: Number(avgLat.toFixed(6)),
+        lng: Number(avgLng.toFixed(6)),
+        acres: Number((sqMeters / 4046.8564224).toFixed(2)),
+        hectares: Number((sqMeters / 10000).toFixed(2)),
+      };
+    }
+
+    // Boot application on page load, fetch crop catalog and Google Maps API key from /config
+    window.addEventListener("DOMContentLoaded", async () => {
+      await loadCropCheckboxes();
+      await initMapEngine();
+    });
+
+    async function loadCropCheckboxes() {
+      const grid = document.getElementById("crop-checkbox-grid");
+      let crops = [
+        { crop_id: "C01", crop_name: "Hay & Alfalfa" },
+        { crop_id: "C02", crop_name: "Field Corn" },
+        { crop_id: "C03", crop_name: "Soybeans & Small Grains" },
+        { crop_id: "C04", crop_name: "Apples" },
+        { crop_id: "C05", crop_name: "Grapes" },
+        { crop_id: "C09", crop_name: "Cabbage" },
+        { crop_id: "C10", crop_name: "Onions" },
+        { crop_id: "C11", crop_name: "Potatoes" },
+        { crop_id: "C12", crop_name: "Sweet Corn, Beans & Peas" },
+        { crop_id: "C13", crop_name: "Beets, Carrots & Squash" },
+      ];
+      try {
+        const res = await fetch("/crops");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.crops) && data.crops.length > 0) {
+            crops = data.crops;
+          }
+        }
+      } catch (err) {
+        // Keep built-in New York crop list if backend server is not running yet
+      }
+
+      grid.innerHTML = crops
+        .map(
+          (c) => `
+        <label class="crop-check">
+          <input type="checkbox" class="crop-filter-cb" value="${c.crop_id}" />
+          <span>${c.crop_name}</span>
+        </label>`
+        )
+        .join("");
+    }
+    async function resolveGoogleMapsKey() {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("gmaps_key")) {
+        return urlParams.get("gmaps_key").trim();
+      }
+      try {
+        const res = await fetch("/config");
+        if (res.ok) {
+          const cfg = await res.json();
+          if (cfg.google_maps_api_key && cfg.google_maps_api_key !== "your_google_maps_api_key_here") {
+            return cfg.google_maps_api_key.trim();
+          }
+        }
+      } catch (err) {
+        // Ignore fetch errors when opened directly as a static file
+      }
+      const saved = localStorage.getItem("FIELD_SHIFT_GMAPS_KEY");
+      if (saved && saved !== "your_google_maps_api_key_here") {
+        return saved.trim();
+      }
+      return null;
+    }
+
+    function promptManualGoogleKey() {
+      const current = localStorage.getItem("FIELD_SHIFT_GMAPS_KEY") || "";
+      const entered = window.prompt(
+        "Paste your Google Maps API key (or put GOOGLE_MAPS_API_KEY=... in your .env file):",
+        current
+      );
+      if (entered !== null) {
+        if (entered.trim()) {
+          localStorage.setItem("FIELD_SHIFT_GMAPS_KEY", entered.trim());
+        } else {
+          localStorage.removeItem("FIELD_SHIFT_GMAPS_KEY");
+        }
+        window.location.reload();
+      }
+    }
+
+    async function initMapEngine() {
+      const badge = document.getElementById("api-status-badge");
+      const gKey = await resolveGoogleMapsKey();
+
+      if (!gKey) {
+        badge.textContent = "Satellite Fallback (Add Key to .env for Google Maps)";
+        badge.className = "badge warn";
+        initLeafletFallback();
+        return;
+      }
+
+      // Catch Google Maps authentication or referrer errors so the map still works
+      window.gm_authFailure = function () {
+        badge.textContent = "Google Key Restricted or Pending - Using Satellite Fallback";
+        badge.className = "badge warn";
+        initLeafletFallback();
+      };
+
+      window.onGoogleMapsLoaded = function () {
+        try {
+          mapMode = "google";
+          badge.textContent = "Google Maps Satellite Active";
+          badge.className = "badge";
+
+          const canvas = document.getElementById("map-canvas");
+          canvas.innerHTML = "";
+          gMap = new google.maps.Map(canvas, {
+            center: DEFAULT_CENTER,
+            zoom: 16,
+            mapTypeId: "hybrid",
+            tilt: 0,
+            streetViewControl: false,
+            fullscreenControl: true,
+            mapTypeControl: true,
+          });
+
+          gMap.addListener("mousemove", (ev) => {
+            if (ev.latLng) {
+              document.getElementById("map-coords-readout").textContent =
+                `Cursor: ${ev.latLng.lat().toFixed(4)}, ${ev.latLng.lng().toFixed(4)}`;
+            }
+          });
+
+          gMap.addListener("click", (ev) => {
+            if (ev.latLng) {
+              handleMapClick(ev.latLng.lat(), ev.latLng.lng());
+            }
+          });
+
+          renderAllMapShapes();
+        } catch (err) {
+          initLeafletFallback();
+        }
+      };
+
+      const script = document.createElement("script");
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(gKey)}&libraries=geometry&callback=onGoogleMapsLoaded`;
+      script.async = true;
+      script.defer = true;
+      script.onerror = function () {
+        badge.textContent = "Could Not Reach Google Maps - Using Satellite Fallback";
+        badge.className = "badge warn";
+        initLeafletFallback();
+      };
+      document.head.appendChild(script);
+    }
+
+    function initLeafletFallback() {
+      if (mapMode === "leaflet" && lMap) return;
+      mapMode = "leaflet";
+      const canvas = document.getElementById("map-canvas");
+      canvas.innerHTML = "";
+
+      lMap = L.map(canvas).setView([DEFAULT_CENTER.lat, DEFAULT_CENTER.lng], 16);
+      L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        {
+          maxZoom: 19,
+          attribution: "Tiles &copy; Esri World Imagery",
+        }
+      ).addTo(lMap);
+
+      lMap.on("mousemove", (ev) => {
+        document.getElementById("map-coords-readout").textContent =
+          `Cursor: ${ev.latlng.lat.toFixed(4)}, ${ev.latlng.lng.toFixed(4)}`;
+      });
+
+      lMap.on("click", (ev) => {
+        handleMapClick(ev.latlng.lat, ev.latlng.lng);
+      });
+
+      renderAllMapShapes();
+    }
+    function handleMapClick(lat, lng) {
+      const pt = { lat: Number(lat.toFixed(6)), lng: Number(lng.toFixed(6)) };
+      if (currentStep === 1) {
+        farmBoundaryCoords.push(pt);
+        renderAllMapShapes();
+        updateStep1Stats();
+      } else if (currentStep === 2 && isDrawingSector) {
+        activeSectorCoords.push(pt);
+        renderAllMapShapes();
+        document.getElementById("active-sector-pts").textContent =
+          `Click corners on the satellite map (${activeSectorCoords.length} pts)`;
+      }
+    }
+
+    function updateStep1Stats() {
+      const stats = computePolygonStats(farmBoundaryCoords);
+      document.getElementById("farm-corner-count").textContent = `${farmBoundaryCoords.length} pts`;
+      document.getElementById("farm-area-display").textContent =
+        `${stats.acres.toFixed(2)} acres (${stats.hectares.toFixed(2)} ha)`;
+    }
+
+    function undoLastFarmPoint() {
+      if (farmBoundaryCoords.length > 0) {
+        farmBoundaryCoords.pop();
+        renderAllMapShapes();
+        updateStep1Stats();
+      }
+    }
+
+    function clearFarmBoundary() {
+      farmBoundaryCoords = [];
+      renderAllMapShapes();
+      updateStep1Stats();
+    }
+
+    function panMapTo(lat, lng, zoomLevel = 16) {
+      if (mapMode === "google" && gMap) {
+        gMap.setCenter({ lat, lng });
+        gMap.setZoom(zoomLevel);
+      } else if (mapMode === "leaflet" && lMap) {
+        lMap.setView([lat, lng], zoomLevel);
+      }
+      document.getElementById("map-coords-readout").textContent =
+        `Center: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    }
+
+    function fitMapToPolygon(pts) {
+      if (!pts || pts.length === 0) return;
+      if (mapMode === "google" && gMap && window.google) {
+        const bounds = new google.maps.LatLngBounds();
+        pts.forEach((p) => bounds.extend(new google.maps.LatLng(p.lat, p.lng)));
+        gMap.fitBounds(bounds, 45);
+      } else if (mapMode === "leaflet" && lMap && window.L) {
+        const bounds = L.latLngBounds(pts.map((p) => [p.lat, p.lng]));
+        lMap.fitBounds(bounds, { padding: [40, 40] });
+      }
+    }
+
+    function jumpToPresetRegion(val) {
+      if (!val) return;
+      const parts = val.split(",").map(Number);
+      if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        panMapTo(parts[0], parts[1], parts[2] || 16);
+      }
+    }
+
+    async function searchLocation() {
+      const query = document.getElementById("location-search-input").value.trim();
+      if (!query) return;
+
+      // Check if the user entered raw "lat, lon" coordinates directly
+      const coordMatch = query.match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+      if (coordMatch) {
+        panMapTo(parseFloat(coordMatch[1]), parseFloat(coordMatch[2]), 16);
+        return;
+      }
+
+      // If Google Maps Geocoder is available, try it first
+      if (mapMode === "google" && window.google && window.google.maps && google.maps.Geocoder) {
+        const geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ address: query }, (results, status) => {
+          if (status === "OK" && results && results[0]) {
+            const loc = results[0].geometry.location;
+            panMapTo(loc.lat(), loc.lng(), 16);
+          } else {
+            fallbackNominatimSearch(query);
+          }
+        });
+        return;
+      }
+      await fallbackNominatimSearch(query);
+    }
+
+    async function fallbackNominatimSearch(query) {
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
+        const res = await fetch(url);
+        const items = await res.json();
+        if (items && items.length > 0) {
+          panMapTo(parseFloat(items[0].lat), parseFloat(items[0].lon), 16);
+        }
+      } catch (err) {
+        // Ignore network errors during address lookup
+      }
+    }
+
+    function setStep(stepNum) {
+      currentStep = stepNum;
+      [1, 2, 3].forEach((n) => {
+        document.getElementById(`step-btn-${n}`).classList.toggle("active", n === stepNum);
+        document.getElementById(`panel-step-${n}`).classList.toggle("hidden", n !== stepNum);
+      });
+
+      const banner = document.getElementById("map-instruction-banner");
+      if (stepNum === 1) {
+        isDrawingSector = false;
+        banner.textContent =
+          "Step 1: Click around your farm perimeter on the satellite map to outline your property, or drag corners to adjust.";
+      } else if (stepNum === 2) {
+        if (farmBoundaryCoords.length >= 3) {
+          fitMapToPolygon(farmBoundaryCoords);
+        }
+        banner.textContent =
+          "Step 2: Click '+ Draw New Sector' in the sidebar, then click corners on the map to segregate your land into separate fields.";
+        renderSectorSidebarList();
+      } else if (stepNum === 3) {
+        isDrawingSector = false;
+        banner.textContent =
+          "Step 3: Click any highlighted sector on the map or select a sector tab in the sidebar to inspect its crop rotation plan.";
+        if (!latestAnalysis) {
+          runSectorAnalysis();
+        }
+      }
+      renderAllMapShapes();
+    }
+    function startNewSector() {
+      isDrawingSector = true;
+      activeSectorCoords = [];
+      document.getElementById("btn-start-sector").classList.add("hidden");
+      document.getElementById("btn-finish-sector").classList.remove("hidden");
+      document.getElementById("active-sector-hint").classList.remove("hidden");
+      document.getElementById("active-sector-pts").textContent =
+        "Click corners on the satellite map (0 pts)";
+      document.getElementById("map-instruction-banner").textContent =
+        "Drawing Sector: Click at least 3 corners on the satellite map, then click 'Finish Sector Polygon'.";
+      renderAllMapShapes();
+    }
+
+    function undoActiveSectorPoint() {
+      if (activeSectorCoords.length > 0) {
+        activeSectorCoords.pop();
+        document.getElementById("active-sector-pts").textContent =
+          `Click corners on the satellite map (${activeSectorCoords.length} pts)`;
+        renderAllMapShapes();
+      }
+    }
+
+    function cancelActiveSector() {
+      isDrawingSector = false;
+      activeSectorCoords = [];
+      document.getElementById("btn-start-sector").classList.remove("hidden");
+      document.getElementById("btn-finish-sector").classList.add("hidden");
+      document.getElementById("active-sector-hint").classList.add("hidden");
+      renderAllMapShapes();
+    }
+
+    function finishActiveSector() {
+      if (activeSectorCoords.length < 3) {
+        window.alert("Please click at least 3 corners on the satellite map to close a field sector polygon.");
+        return;
+      }
+      const nextNum = sectors.length + 1;
+      const color = SECTOR_COLORS[(nextNum - 1) % SECTOR_COLORS.length];
+      const stats = computePolygonStats(activeSectorCoords);
+      const newSec = {
+        sector_id: `S${nextNum}`,
+        name: `Sector ${nextNum} - Field ${String.fromCharCode(64 + nextNum)}`,
+        color: color,
+        polygon: activeSectorCoords.map((p) => ({ lat: p.lat, lng: p.lng })),
+        area_acres: stats.acres,
+        area_hectares: stats.hectares,
+        lat: stats.lat,
+        lng: stats.lng,
+        profile_name: document.getElementById("global-profile-select").value || "Balanced",
+      };
+      sectors.push(newSec);
+      selectedSectorId = newSec.sector_id;
+      cancelActiveSector();
+      renderSectorSidebarList();
+      renderAllMapShapes();
+    }
+
+    function selectSector(secId) {
+      selectedSectorId = secId;
+      renderSectorSidebarList();
+      renderAllMapShapes();
+      if (currentStep === 3 && latestAnalysis) {
+        activeResultTab = secId;
+        renderAnalysisResults();
+      }
+    }
+
+    function updateSectorName(secId, newName) {
+      const sec = sectors.find((s) => s.sector_id === secId);
+      if (sec) {
+        sec.name = newName;
+      }
+    }
+
+    function updateSectorProfile(secId, newProfile) {
+      const sec = sectors.find((s) => s.sector_id === secId);
+      if (sec) {
+        sec.profile_name = newProfile;
+      }
+    }
+
+    function deleteSector(secId) {
+      sectors = sectors.filter((s) => s.sector_id !== secId);
+      if (selectedSectorId === secId) {
+        selectedSectorId = sectors.length > 0 ? sectors[0].sector_id : null;
+      }
+      renderSectorSidebarList();
+      renderAllMapShapes();
+    }
+
+    function renderSectorSidebarList() {
+      const container = document.getElementById("sector-list-container");
+      let totalAcres = 0;
+      for (const s of sectors) {
+        const stats = computePolygonStats(s.polygon);
+        s.area_acres = stats.acres;
+        s.area_hectares = stats.hectares;
+        s.lat = stats.lat;
+        s.lng = stats.lng;
+        totalAcres += stats.acres;
+      }
+      document.getElementById("sector-total-count").textContent = `${sectors.length} fields`;
+      document.getElementById("sector-total-acres").textContent = `${totalAcres.toFixed(2)} acres`;
+
+      if (sectors.length === 0) {
+        container.innerHTML = `
+          <div class="stat-box">
+            <div class="stat-label">No Sectors Drawn Yet</div>
+            <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px">
+              Click <b>+ Draw New Sector</b> above to highlight individual fields inside your farm outline.
+            </div>
+          </div>`;
+        return;
+      }
+
+      const profiles = ["Balanced", "Max Yield", "Water Conservation", "Soil Health First", "Climate Resilient"];
+      container.innerHTML = sectors
+        .map((s) => {
+          const isSel = s.sector_id === selectedSectorId ? "selected" : "";
+          const opts = profiles
+            .map((p) => `<option value="${p}" ${s.profile_name === p ? "selected" : ""}>${p}</option>`)
+            .join("");
+          return `
+          <div class="sector-item ${isSel}" onclick="selectSector('${s.sector_id}')">
+            <div class="sector-head">
+              <div style="display:flex;align-items:center;gap:8px;flex:1">
+                <span class="color-dot" style="background:${s.color}"></span>
+                <input type="text" value="${s.name}" onclick="event.stopPropagation()" oninput="updateSectorName('${s.sector_id}', this.value)" />
+              </div>
+              <button class="btn-danger" style="padding:4px 8px;font-size:0.74rem" onclick="event.stopPropagation(); deleteSector('${s.sector_id}')">Delete</button>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:0.78rem;color:var(--text-muted)">
+              <span><b>${s.area_acres.toFixed(2)} ac</b> (${s.area_hectares.toFixed(2)} ha)</span>
+              <select style="width:auto;padding:4px 8px;font-size:0.76rem" onclick="event.stopPropagation()" onchange="updateSectorProfile('${s.sector_id}', this.value)">
+                ${opts}
+              </select>
+            </div>
+          </div>`;
+        })
+        .join("");
+    }
+    let gSectorPolygons = [];
+    let lSectorPolygons = [];
+
+    function clearRenderedPolygons() {
+      if (gFarmPolygon) {
+        gFarmPolygon.setMap(null);
+        gFarmPolygon = null;
+      }
+      if (gActiveSectorPoly) {
+        gActiveSectorPoly.setMap(null);
+        gActiveSectorPoly = null;
+      }
+      gSectorPolygons.forEach((p) => p.setMap(null));
+      gSectorPolygons = [];
+
+      if (lMap) {
+        if (lFarmPolygon) {
+          lMap.removeLayer(lFarmPolygon);
+          lFarmPolygon = null;
+        }
+        if (lActiveSectorPoly) {
+          lMap.removeLayer(lActiveSectorPoly);
+          lActiveSectorPoly = null;
+        }
+        lSectorPolygons.forEach((p) => lMap.removeLayer(p));
+        lSectorPolygons = [];
+      }
+    }
+
+    function renderAllMapShapes() {
+      clearRenderedPolygons();
+
+      if (mapMode === "google" && gMap && window.google) {
+        // Draw the outer farm boundary polygon on the Google satellite map
+        if (farmBoundaryCoords.length > 0) {
+          gFarmPolygon = new google.maps.Polygon({
+            paths: farmBoundaryCoords,
+            strokeColor: "#f59e0b",
+            strokeOpacity: 0.95,
+            strokeWeight: 3,
+            fillColor: "#f59e0b",
+            fillOpacity: currentStep === 1 ? 0.22 : 0.06,
+            editable: currentStep === 1,
+            clickable: currentStep === 1,
+            map: gMap,
+          });
+          if (currentStep === 1) {
+            const pathObj = gFarmPolygon.getPath();
+            const syncFarmPath = () => {
+              const updated = [];
+              for (let i = 0; i < pathObj.getLength(); i++) {
+                const pt = pathObj.getAt(i);
+                updated.push({ lat: Number(pt.lat().toFixed(6)), lng: Number(pt.lng().toFixed(6)) });
+              }
+              farmBoundaryCoords = updated;
+              updateStep1Stats();
+            };
+            google.maps.event.addListener(pathObj, "set_at", syncFarmPath);
+            google.maps.event.addListener(pathObj, "insert_at", syncFarmPath);
+            google.maps.event.addListener(pathObj, "remove_at", syncFarmPath);
+          }
+        }
+
+        // Draw each saved field sector polygon with its own color and drag handles
+        sectors.forEach((sec) => {
+          const isSelected = sec.sector_id === selectedSectorId;
+          const poly = new google.maps.Polygon({
+            paths: sec.polygon,
+            strokeColor: sec.color,
+            strokeOpacity: 1.0,
+            strokeWeight: isSelected ? 3.5 : 2.2,
+            fillColor: sec.color,
+            fillOpacity: isSelected ? 0.42 : 0.26,
+            editable: currentStep === 2 && isSelected && !isDrawingSector,
+            clickable: !isDrawingSector,
+            map: gMap,
+          });
+          poly.addListener("click", (ev) => {
+            if (isDrawingSector && ev.latLng) {
+              handleMapClick(ev.latLng.lat(), ev.latLng.lng());
+              return;
+            }
+            selectSector(sec.sector_id);
+          });
+          if (currentStep === 2 && isSelected && !isDrawingSector) {
+            const sPath = poly.getPath();
+            const syncSecPath = () => {
+              const updated = [];
+              for (let i = 0; i < sPath.getLength(); i++) {
+                const pt = sPath.getAt(i);
+                updated.push({ lat: Number(pt.lat().toFixed(6)), lng: Number(pt.lng().toFixed(6)) });
+              }
+              sec.polygon = updated;
+              renderSectorSidebarList();
+            };
+            google.maps.event.addListener(sPath, "set_at", syncSecPath);
+            google.maps.event.addListener(sPath, "insert_at", syncSecPath);
+            google.maps.event.addListener(sPath, "remove_at", syncSecPath);
+          }
+          gSectorPolygons.push(poly);
+        });
+
+        // Draw the sector polygon that the farmer is currently clicking out on the map
+        if (isDrawingSector && activeSectorCoords.length > 0) {
+          gActiveSectorPoly = new google.maps.Polygon({
+            paths: activeSectorCoords,
+            strokeColor: "#38bdf8",
+            strokeOpacity: 0.95,
+            strokeWeight: 2.5,
+            fillColor: "#38bdf8",
+            fillOpacity: 0.32,
+            clickable: false,
+            map: gMap,
+          });
+        }
+      } else if (mapMode === "leaflet" && lMap && window.L) {
+        if (farmBoundaryCoords.length > 0) {
+          lFarmPolygon = L.polygon(
+            farmBoundaryCoords.map((p) => [p.lat, p.lng]),
+            {
+              color: "#f59e0b",
+              weight: 3,
+              fillColor: "#f59e0b",
+              fillOpacity: currentStep === 1 ? 0.22 : 0.06,
+            }
+          ).addTo(lMap);
+        }
+        sectors.forEach((sec) => {
+          const isSelected = sec.sector_id === selectedSectorId;
+          const lp = L.polygon(
+            sec.polygon.map((p) => [p.lat, p.lng]),
+            {
+              color: sec.color,
+              weight: isSelected ? 3.5 : 2.2,
+              fillColor: sec.color,
+              fillOpacity: isSelected ? 0.42 : 0.26,
+            }
+          ).addTo(lMap);
+          lp.on("click", (ev) => {
+            if (isDrawingSector) {
+              handleMapClick(ev.latlng.lat, ev.latlng.lng);
+              return;
+            }
+            selectSector(sec.sector_id);
+          });
+          lSectorPolygons.push(lp);
+        });
+        if (isDrawingSector && activeSectorCoords.length > 0) {
+          lActiveSectorPoly = L.polygon(
+            activeSectorCoords.map((p) => [p.lat, p.lng]),
+            {
+              color: "#38bdf8",
+              weight: 2.5,
+              fillColor: "#38bdf8",
+              fillOpacity: 0.32,
+            }
+          ).addTo(lMap);
+        }
+      }
+    }
+    function loadSampleFarm() {
+      // Load a sample Finger Lakes, NY farm boundary with 3 segregated field sectors
+      farmBoundaryCoords = [
+        { lat: 42.7052, lng: -76.8075 },
+        { lat: 42.7052, lng: -76.7955 },
+        { lat: 42.6972, lng: -76.7955 },
+        { lat: 42.6972, lng: -76.8075 },
+      ];
+
+      const sampleSectors = [
+        {
+          sector_id: "S1",
+          name: "Sector 1 - North Ridge Field",
+          color: "#22c55e",
+          profile_name: "Soil Health First",
+          polygon: [
+            { lat: 42.7048, lng: -76.8070 },
+            { lat: 42.7048, lng: -76.8012 },
+            { lat: 42.7014, lng: -76.8012 },
+            { lat: 42.7014, lng: -76.8070 },
+          ],
+        },
+        {
+          sector_id: "S2",
+          name: "Sector 2 - East Creek Plot",
+          color: "#38bdf8",
+          profile_name: "Balanced",
+          polygon: [
+            { lat: 42.7048, lng: -76.8006 },
+            { lat: 42.7048, lng: -76.7960 },
+            { lat: 42.6977, lng: -76.7960 },
+            { lat: 42.6977, lng: -76.8006 },
+          ],
+        },
+        {
+          sector_id: "S3",
+          name: "Sector 3 - South Slope Field",
+          color: "#a855f7",
+          profile_name: "Water Conservation",
+          polygon: [
+            { lat: 42.7009, lng: -76.8070 },
+            { lat: 42.7009, lng: -76.8012 },
+            { lat: 42.6977, lng: -76.8012 },
+            { lat: 42.6977, lng: -76.8070 },
+          ],
+        },
+      ];
+
+      sectors = sampleSectors.map((s) => {
+        const stats = computePolygonStats(s.polygon);
+        return {
+          ...s,
+          area_acres: stats.acres,
+          area_hectares: stats.hectares,
+          lat: stats.lat,
+          lng: stats.lng,
+        };
+      });
+
+      selectedSectorId = "S1";
+      updateStep1Stats();
+      fitMapToPolygon(farmBoundaryCoords);
+      setStep(2);
+    }
+
+    async function runSectorAnalysis() {
+      setStep(3);
+      const statusText = document.getElementById("analysis-status-text");
+      statusText.textContent = "Fetching NASA POWER weather & USDA soil data...";
+
+      const farmStats =
+        farmBoundaryCoords.length > 0
+          ? computePolygonStats(farmBoundaryCoords)
+          : sectors.length > 0
+            ? computePolygonStats(sectors[0].polygon)
+            : { lat: DEFAULT_CENTER.lat, lng: DEFAULT_CENTER.lng, acres: 0, hectares: 0 };
+
+      const checkedCrops = Array.from(document.querySelectorAll(".crop-filter-cb:checked")).map(
+        (el) => el.value
+      );
+
+      const payload = {
+        lat: farmStats.lat,
+        lon: farmStats.lng,
+        farm_boundary: farmBoundaryCoords,
+        sectors: sectors.map((s) => ({
+          sector_id: s.sector_id,
+          name: s.name,
+          color: s.color,
+          polygon: s.polygon,
+          area_acres: s.area_acres,
+          area_hectares: s.area_hectares,
+          lat: s.lat,
+          lon: s.lng,
+          profile_name: s.profile_name,
+        })),
+        selected_crops: checkedCrops.length > 0 ? checkedCrops : null,
+        profile_name: document.getElementById("global-profile-select").value || "Balanced",
+        rotation_length: parseInt(document.getElementById("global-rotation-years").value || "3", 10),
+        top_n: 4,
+      };
+
+      try {
+        const res = await fetch("/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        latestAnalysis = await res.json();
+        activeResultTab =
+          latestAnalysis.sectors_analysis && latestAnalysis.sectors_analysis.length > 0
+            ? latestAnalysis.sectors_analysis[0].sector_id
+            : "FARM";
+        statusText.textContent = `Evaluated ${latestAnalysis.total_candidates_evaluated} rotations (${latestAnalysis.data_sources.nasa_power} NASA / ${latestAnalysis.data_sources.usda_soil} USDA)`;
+        renderAnalysisResults();
+      } catch (err) {
+        statusText.textContent = `Backend offline (${err.message}) - Run python src/backend/main.py --serve`;
+      }
+    }
+    function selectResultTab(tabId) {
+      activeResultTab = tabId;
+      if (tabId !== "FARM") {
+        selectedSectorId = tabId;
+        renderAllMapShapes();
+      }
+      renderAnalysisResults();
+    }
+
+    function renderAnalysisResults() {
+      if (!latestAnalysis) return;
+      const tabsEl = document.getElementById("sector-results-tabs");
+      const contentEl = document.getElementById("sector-results-content");
+
+      const secList = latestAnalysis.sectors_analysis || [];
+      let tabsHtml = `<button class="step-pill ${activeResultTab === "FARM" ? "active" : ""}" onclick="selectResultTab('FARM')">Whole Farm</button>`;
+      for (const s of secList) {
+        const activeCls = activeResultTab === s.sector_id ? "active" : "";
+        tabsHtml += `<button class="step-pill ${activeCls}" onclick="selectResultTab('${s.sector_id}')">${s.name}</button>`;
+      }
+      tabsEl.innerHTML = tabsHtml;
+
+      const target =
+        activeResultTab === "FARM"
+          ? {
+              title: "Whole Farm Summary",
+              acres: latestAnalysis.farm_boundary ? latestAnalysis.farm_boundary.area_acres : 0,
+              profile_used: latestAnalysis.profile_used,
+              soil: latestAnalysis.soil,
+              climate: latestAnalysis.climate,
+              rotations: latestAnalysis.recommended_rotations || [],
+            }
+          : (() => {
+              const found = secList.find((x) => x.sector_id === activeResultTab) || secList[0];
+              return {
+                title: found.name,
+                acres: found.area_acres,
+                profile_used: found.profile_used,
+                soil: found.soil,
+                climate: found.climate,
+                rotations: found.recommended_rotations || [],
+              };
+            })();
+
+      const rotCards = target.rotations
+        .map(
+          (r, idx) => `
+          <div class="rotation-card">
+            <div class="rotation-seq">#${idx + 1}: ${r.seq_names || r.sequence || r.seq_ids}</div>
+            <div style="font-size:0.79rem;color:var(--text-muted)">
+              Overall Score: <b style="color:var(--text-main)">${(r.total_score * 100).toFixed(1)} / 100</b>
+              &bull; Soil Health: ${(r.soil_health * 100).toFixed(0)}
+              &bull; Water Stress: ${(r.water_stress * 100).toFixed(0)}
+              &bull; N-Fixation: ${(r.nitrogen_fixation * 100).toFixed(0)}
+            </div>
+          </div>`
+        )
+        .join("");
+
+      contentEl.innerHTML = `
+        <div class="stat-grid" style="margin-top:6px">
+          <div class="stat-box">
+            <div class="stat-label">${target.title} Area</div>
+            <div class="stat-val">${Number(target.acres || 0).toFixed(2)} acres</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Priority Profile</div>
+            <div class="stat-val">${target.profile_used}</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">USDA Soil Unit &amp; pH</div>
+            <div class="stat-val">pH ${target.soil.ph} (${target.soil.clay_pct}% clay)</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">NASA Rain &amp; Sunlight</div>
+            <div class="stat-val">${Math.round(target.climate.annual_precip_mm)} mm/yr</div>
+          </div>
+        </div>
+        <div style="margin-top:8px">
+          <div class="stat-label">Top Recommended Crop Rotations</div>
+          ${rotCards || "<p>No matching rotations found.</p>"}
+        </div>`;
+    }
+  </script>
+</body>
+</html>

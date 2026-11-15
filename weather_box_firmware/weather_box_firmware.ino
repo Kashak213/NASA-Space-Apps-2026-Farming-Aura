@@ -2,23 +2,23 @@
 #include <DallasTemperature.h>
 #include <DHT.h>
 
-// ==================== PIN DEFINITIONS ====================
-#define PIN_SOIL_MOISTURE A0   // Capacitive Soil Moisture v1.2 (Analog)
-#define PIN_RAIN_ANALOG   A1   // Raindrop Sensor AO / S (Analog)
-#define PIN_DS18B20       2    // DS18B20 Waterproof Soil Temp Probe (1-Wire Digital)
-#define PIN_DHT11         3    // DHT11 Air Temp & Humidity (Digital)
-#define PIN_RAIN_DIGITAL  4    // Raindrop Sensor DO (Digital, Optional)
+// Sensor pin wiring on the Mobile Measurement Station (MMS)
+#define PIN_SOIL_MOISTURE A0   // Capacitive soil moisture probe v1.2 (analog)
+#define PIN_RAIN_ANALOG   A1   // Raindrop sensor pad AO / S (analog)
+#define PIN_DS18B20       2    // DS18B20 waterproof soil temperature probe (1-Wire digital)
+#define PIN_DHT11         3    // DHT11 air temperature and humidity sensor (digital)
+#define PIN_RAIN_DIGITAL  4    // Raindrop sensor DO pin (digital, optional)
 
 #define DHTTYPE DHT11
 
-// ==================== CALIBRATION CONSTANTS ====================
-// Capacitive Soil Moisture v1.2 calibrated to your sensor:
-const int SOIL_AIR_RAW   = 520;  // 0% moisture (dry in air)
-const int SOIL_WATER_RAW = 280;  // 100% moisture (submerged in water up to white line)
+// Raw analog calibration values measured with our sensors
+// Capacitive soil moisture probe v1.2 readings in dry air vs water
+const int SOIL_AIR_RAW   = 520;  // 0% moisture when dry in air
+const int SOIL_WATER_RAW = 280;  // 100% moisture when dipped in water up to the white line
 
-// Rain Sensor calibrated to your sensor (low ~20-60 when dry, rises to ~260+ when wet):
-const int RAIN_DRY_RAW   = 60;   // 0% rain (dry pad)
-const int RAIN_WET_RAW   = 270;  // 100% rain (wet pad)
+// Rain sensor pad readings (stays around 20-60 when dry and rises past 260 when wet)
+const int RAIN_DRY_RAW   = 60;   // 0% rain on a dry pad
+const int RAIN_WET_RAW   = 270;  // 100% rain on a wet pad
 
 OneWire oneWire(PIN_DS18B20);
 DallasTemperature soilTempSensor(&oneWire);
@@ -34,26 +34,26 @@ void setup() {
 }
 
 void loop() {
-  // 1. Read Capacitive Soil Moisture (A0)
+  // Read capacitive soil moisture on A0 and scale it from 0 to 100%
   int rawMoisture = analogRead(PIN_SOIL_MOISTURE);
   int soilMoisturePct = map(rawMoisture, SOIL_AIR_RAW, SOIL_WATER_RAW, 0, 100);
   soilMoisturePct = constrain(soilMoisturePct, 0, 100);
 
-  // 2. Read DS18B20 Soil Temperature (D2)
+  // Read DS18B20 waterproof soil temperature probe on D2
   soilTempSensor.requestTemperatures();
   float soilTempC = soilTempSensor.getTempCByIndex(0);
 
-  // 3. Read DHT11 Air Temperature & Relative Humidity (D3)
+  // Read DHT11 air temperature and relative humidity on D3
   float airHumidityPct = dht.readHumidity();
   float airTempC       = dht.readTemperature();
 
-  // 4. Read Raindrop Sensor (A1)
+  // Read raindrop pad on A1 and flag rain when wet percentage passes 15%
   int rawRain      = analogRead(PIN_RAIN_ANALOG);
   int rainPct      = map(rawRain, RAIN_DRY_RAW, RAIN_WET_RAW, 0, 100);
   rainPct          = constrain(rainPct, 0, 100);
   bool isRaining   = (rainPct > 15);
 
-  // 5. Emit single-line JSON for Python / Streamlit backend
+  // Print one JSON line over USB serial every 2 seconds for the Python backend
   Serial.print("{\"soil_moisture_pct\":");
   Serial.print(soilMoisturePct);
   Serial.print(",\"soil_moisture_raw\":");

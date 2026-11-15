@@ -29,7 +29,7 @@ NASA_POWER_MONTHLY_URL = "https://power.larc.nasa.gov/api/temporal/monthly/point
 # WS2M = wind speed at 2m which drives transpiration water loss (m/s)
 # PRECTOTCORR = corrected daily rainfall (mm/day)
 # T2M = air temperature at 2m (degrees Celsius)
-# GWETROOT = satellite-assimilated root-zone soil wetness (0.0 to 1.0 fraction)
+# GWETROOT = root-zone soil wetness fraction from 0.0 (bone dry) to 1.0 (saturated)
 NASA_PARAMETERS: tuple[str, ...] = (
     "ALLSKY_SFC_SW_DWN",
     "WS2M",

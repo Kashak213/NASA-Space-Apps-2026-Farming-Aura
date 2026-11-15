@@ -475,7 +475,7 @@ function scoreSequenceForField(seqIds, field, profileName, sensorDryOverride) {
 
   let repeatCount = 0;
   let sameTypeCount = 0;
-  let nSynergy = 0;
+  let nCredit = 0;
   let rootAlt = 0;
 
   for (let i = 0; i < n; i++) {
@@ -487,16 +487,16 @@ function scoreSequenceForField(seqIds, field, profileName, sensorDryOverride) {
 
     if (curr.nFix >= 0.5 && nxt.nFix === 0.0) {
       const demandW = clip(nxt.yieldT / 10.5, 0.3, 1.0);
-      nSynergy += curr.nFix * demandW * stepW;
+      nCredit += curr.nFix * demandW * stepW;
     }
     rootAlt += clip(Math.abs(curr.rootM - nxt.rootM) / 1.5, 0, 1) * stepW;
   }
 
   const ocDeficit = clip((3.0 - field.oc) / 2.0, 0, 1);
   const year1Bonus = 0.04 * (crops[0].nFix + crops[0].build) * (0.5 + 0.5 * ocDeficit);
-  const nCarryBonus = clip(nSynergy / n + year1Bonus, 0, 0.25);
+  const nCarryBonus = clip(nCredit / n + year1Bonus, 0, 0.25);
   const penaltyMult = clip(1.0 - 0.35 * (repeatCount / n) - 0.08 * (sameTypeCount / n), 0.65, 1.0);
-  const transScore = clip((0.5 * clip(rootAlt / n, 0, 1) + 0.5 * clip(nSynergy / Math.max(n * 0.5, 1.0), 0, 1)) * penaltyMult, 0, 1);
+  const transScore = clip((0.5 * clip(rootAlt / n, 0, 1) + 0.5 * clip(nCredit / Math.max(n * 0.5, 1.0), 0, 1)) * penaltyMult, 0, 1);
 
   const nFixAvg = clip(0.85 * mean(crops.map((c) => c.nFix)) + 0.6 * nCarryBonus, 0, 1);
   const yieldAvg = mean(crops.map((c) => clip(c.yieldT / 12.0, 0, 1)));
@@ -515,7 +515,7 @@ function scoreSequenceForField(seqIds, field, profileName, sensorDryOverride) {
   const baseBalanced = PRIORITY_PROFILES.Balanced;
   const targetWeights = PRIORITY_PROFILES[profileName] || baseBalanced;
   const intensityNorm = clip((appState.profileIntensity - 1) / 99, 0, 1);
-  // At 50 intensity use the profile's standard weights; scale emphasis smoothly from 1 to 100
+  // At 50 intensity we use the profile's standard weights, and scale emphasis smoothly from 1 to 100
   const powerScale = 0.25 + intensityNorm * 1.75;
   const rawWeights = {
     soil_health: baseBalanced.soil_health + (targetWeights.soil_health - baseBalanced.soil_health) * powerScale,
@@ -736,7 +736,7 @@ function evaluateCropSelection(selectedIds, topPick) {
       bannerEyebrow: 'SUGGESTION / PICK YOUR CROPS IN THE SIDEBAR',
       bannerTitle: 'This might be a better idea to start with.',
       heading: 'Suggestion: Pick 1 to 3 crops in the sidebar',
-      line1: 'You have not selected any crops yet — try picking your preferred New York crops in the Crops dropdown on the left.',
+      line1: 'You have not selected any crops yet, so try picking your preferred New York crops in the Crops dropdown on the left.',
       line2: `Better suggestion for this field: ${recLabel} (template ready for backend integration).`
     };
   }
@@ -744,7 +744,7 @@ function evaluateCropSelection(selectedIds, topPick) {
   if (count >= 4) {
     return {
       bannerEyebrow: `WARNING / ${count} CROPS SELECTED (TOO MANY)`,
-      bannerTitle: 'Picking this many crops is bad — try this better 3-crop plan.',
+      bannerTitle: 'Picking this many crops is bad, so try this better 3-crop plan.',
       heading: 'Why picking this many crops is bad',
       line1: `Selecting ${count} crops at once (${pickedNames.slice(0, 4).join(', ')}${count > 4 ? '...' : ''}) splits field management, mixes incompatible harvest schedules, and weakens soil recovery.`,
       line2: `Better suggestion: Narrow your field down to ${recLabel} for stronger soil nitrogen and higher yield.`
@@ -755,7 +755,7 @@ function evaluateCropSelection(selectedIds, topPick) {
     return {
       bannerEyebrow: 'GOOD SELECTION / BALANCED THREE-YEAR ROTATION',
       bannerTitle: 'This is a good crop selection for your field.',
-      heading: 'This is a good crop mix — why it works',
+      heading: 'This is a good crop mix: why it works',
       line1: `Your 3 selected crops (${pickedNames.join(', ')}) form a strong rotation that balances nitrogen fixation, root depth, and pest resistance.`,
       line2: `Recommended 3-year sequence: ${recLabel} within your ${appState.maxWaterDemand} mm water budget.`
     };
@@ -764,27 +764,27 @@ function evaluateCropSelection(selectedIds, topPick) {
   // Case: 1, 2, or 3 crops where a better suggestion is recommended
   if (count === 1) {
     return {
-      bannerEyebrow: 'SUGGESTION / 1 CROP SELECTED — THIS MIGHT BE A BETTER IDEA',
+      bannerEyebrow: 'SUGGESTION / 1 CROP SELECTED - THIS MIGHT BE A BETTER IDEA',
       bannerTitle: 'This might be a better idea than planting a single crop.',
       heading: 'Suggestion: This might be a better idea',
-      line1: `You only picked ${pickedNames[0]} — planting 1 crop repeatedly depletes soil nutrients and builds up crop-specific pests.`,
+      line1: `You only picked ${pickedNames[0]}, and planting 1 crop repeatedly depletes soil nutrients and builds up crop-specific pests.`,
       line2: `Better suggestion: Rotate ${pickedNames[0]} inside ${recLabel} to restore nitrogen and protect topsoil.`
     };
   }
 
   if (count === 2) {
     return {
-      bannerEyebrow: 'SUGGESTION / 2 CROPS SELECTED — THIS MIGHT BE A BETTER IDEA',
+      bannerEyebrow: 'SUGGESTION / 2 CROPS SELECTED - THIS MIGHT BE A BETTER IDEA',
       bannerTitle: 'This might be a better idea for a full 3-year cycle.',
       heading: 'Suggestion: This might be a better idea',
-      line1: `You picked ${pickedNames.join(' and ')} — adding a 3rd complementary crop completes a 3-year cycle and boosts organic carbon.`,
+      line1: `You picked ${pickedNames.join(' and ')}, and adding a 3rd complementary crop completes a 3-year cycle and boosts organic carbon.`,
       line2: `Better suggestion: Try ${recLabel} to pair your selection with balanced soil recovery.`
     };
   }
 
   // count === 3 but not an optimal combination (e.g. missing a legume or mixing perennials & annuals)
   return {
-    bannerEyebrow: 'SUGGESTION / 3 CROPS SELECTED — THIS MIGHT BE A BETTER IDEA',
+    bannerEyebrow: 'SUGGESTION / 3 CROPS SELECTED - THIS MIGHT BE A BETTER IDEA',
     bannerTitle: 'This might be a better idea for soil balance.',
     heading: 'Suggestion: This might be a better idea',
     line1: `Your 3 picks (${pickedNames.join(', ')}) either lack a nitrogen-fixing legume or mix perennial tree/vine crops with annual row crops.`,
@@ -1275,7 +1275,7 @@ function renderDashboard() {
     } else if (pickedNames.length <= 3) {
       dashSubRight.textContent = `Crops selected (${pickedNames.length}): ${pickedNames.join(', ')}`;
     } else {
-      dashSubRight.textContent = `Crops selected (${pickedNames.length} — too many): ${pickedNames.slice(0, 3).join(', ')} + ${pickedNames.length - 3} more`;
+      dashSubRight.textContent = `Crops selected (${pickedNames.length}, too many): ${pickedNames.slice(0, 3).join(', ')} + ${pickedNames.length - 3} more`;
     }
   }
 
@@ -1434,7 +1434,7 @@ function renderDashboard() {
     if (devRzm) devRzm.textContent = `${localMoist.toFixed(2)} m³/m³ (Dry)`;
     if (devSt) devSt.textContent = `${(liveMms && liveMms.soil_temp_c != null ? liveMms.soil_temp_c : field.soilTempC + 2.3).toFixed(1)} °C`;
     if (devAh) devAh.textContent = liveMms && liveMms.air_humidity_pct != null ? `${Math.round(liveMms.air_humidity_pct)} % RH` : '38 % RH';
-    if (alertTitle) alertTitle.textContent = 'Moisture probe: Dry soil selected — rotation adjusted';
+    if (alertTitle) alertTitle.textContent = 'Moisture probe: Dry soil selected, rotation adjusted';
     if (alertSub) {
       alertSub.textContent =
         'Backend response: Root-zone moisture is below the NASA satellite baseline. Prioritizing drought-tolerant legumes and lower water demand.';
@@ -1454,7 +1454,7 @@ function renderDashboard() {
     if (devRzm) devRzm.textContent = `${localMoist.toFixed(2)} m³/m³ (Wet)`;
     if (devSt) devSt.textContent = `${(liveMms && liveMms.soil_temp_c != null ? liveMms.soil_temp_c : field.soilTempC).toFixed(1)} °C`;
     if (devAh) devAh.textContent = liveMms && liveMms.air_humidity_pct != null ? `${Math.round(liveMms.air_humidity_pct)} % RH` : '68 % RH';
-    if (alertTitle) alertTitle.textContent = 'Moisture probe: Wet soil selected — full water budget available';
+    if (alertTitle) alertTitle.textContent = 'Moisture probe: Wet soil selected, full water budget available';
     if (alertSub) {
       alertSub.textContent = `Backend response: Root-zone moisture is well-supplied (${localMoist.toFixed(2)} m³/m³). High-yield crops and deep-rooted forages are supported.`;
     }
@@ -1474,7 +1474,7 @@ function renderDashboard() {
       : 'No MMS data';
   }
   if (liveMms && alertTitle) {
-    alertTitle.textContent = `Mobile Measurement Station: ${appState.probeMode === 'dry' ? 'Dry' : 'Wet'} soil detected — rotation adjusted`;
+    alertTitle.textContent = `Mobile Measurement Station: ${appState.probeMode === 'dry' ? 'Dry' : 'Wet'} soil detected, rotation adjusted`;
   }
 
   document.querySelectorAll('.probe-mode-btn').forEach((btn) => {

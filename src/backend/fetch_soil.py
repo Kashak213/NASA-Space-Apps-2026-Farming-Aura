@@ -1,11 +1,10 @@
 """
-USDA NRCS Soil Data Access (SDA) API client for fetching field soil properties.
+USDA Soil Data Access client for looking up field soil properties by lat/lon.
 
-Connects to the USDA Soil Data Access Tabular REST API (SSURGO database) using
-a latitude and longitude point query to pull topsoil horizon properties
-(organic carbon, soil pH, bulk density, cation exchange capacity, and
-sand/silt/clay percentages) formatted directly for scoring.py, with local
-caching in data/soil_cache for offline backup.
+Queries the USDA SSURGO database for a farm coordinate and pulls topsoil
+organic matter, soil pH, bulk density, cation exchange capacity, and sand,
+silt, and clay percentages for scoring.py. Saves responses in data/soil_cache
+so the app still works offline.
 """
 
 from __future__ import annotations
@@ -52,11 +51,11 @@ OM_TO_OC_FACTOR = 0.58
 
 def _build_sda_sql(lat: float, lon: float, max_depth_cm: int = 30) -> str:
     """
-    Build a T-SQL query for the USDA SDA endpoint that intersects a WGS84 point
-    (lon, lat) with SSURGO map units, picks the dominant soil component, and
-    returns representative topsoil horizon properties (0 to max_depth_cm).
+    Build the SQL query that matches a (lon, lat) point to its USDA SSURGO map
+    unit, picks the main soil component, and grabs topsoil layer properties down
+    to max_depth_cm.
     """
-    # Note: WKT point order is (longitude latitude)
+    # USDA WKT points put longitude first and latitude second
     wkt_point = f"point({float(lon):.6f} {float(lat):.6f})"
     return f"""
     SELECT TOP 5
@@ -150,10 +149,8 @@ def parse_sda_response(raw_payload: dict[str, Any]) -> list[dict[str, Any]]:
 
 def normalize_soil_for_scoring(horizon_rows: list[dict[str, Any]]) -> dict[str, Any]:
     """
-    Aggregate one or more root-zone horizon rows from USDA SSURGO using
-    horizon-thickness depth weighting into the soil dictionary keys expected by
-    scoring.py, including topsoil organic carbon, root-zone pH, bulk density,
-    subsoil bulk density (hardpan check), CEC, texture, and drainage class.
+    Combine the soil layers returned by USDA SSURGO (weighted by how thick each
+    layer is) into a single soil dictionary for scoring.py.
     """
     if not horizon_rows:
         return dict(DEFAULT_SOIL_DATA)

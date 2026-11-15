@@ -1,0 +1,61 @@
+{
+  "Table": [
+    [
+      "mukey",
+      "map_unit_name",
+      "cokey",
+      "component_name",
+      "component_pct",
+      "drainage_class",
+      "horizon_name",
+      "depth_top_cm",
+      "depth_bottom_cm",
+      "organic_matter_pct",
+      "ph",
+      "bulk_density",
+      "cec",
+      "sand_pct",
+      "silt_pct",
+      "clay_pct",
+      "awc"
+    ],
+    [
+      "294731",
+      "Ilion silty clay loam",
+      "28356758",
+      "Ilion",
+      "80",
+      "Poorly drained",
+      "H1",
+      "0",
+      "10",
+      "5.5",
+      "6.5",
+      "1.25",
+      "17.5",
+      "18",
+      "50",
+      "32",
+      "0.19"
+    ],
+    [
+      "294731",
+      "Ilion silty clay loam",
+      "28356758",
+      "Ilion",
+      "80",
+      "Poorly drained",
+      "H2",
+      "10",
+      "86",
+      "1.5",
+      "6.7",
+      "1.73000001907349",
+      "17.2",
+      "17.9",
+      "50.1",
+      "32",
+      "0.14"
+    ]
+  ]
+}
