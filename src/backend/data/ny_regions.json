@@ -1,0 +1,80 @@
+[
+  {
+    "region_id": "finger_lakes",
+    "region_name": "Finger Lakes",
+    "center_lat": 42.70,
+    "center_lon": -76.80,
+    "normal_annual_precip_mm": 940.0,
+    "normal_growing_precip_mm": 440.0,
+    "frost_free_days": 165,
+    "dominant_soils": "Glacial till silt loams (Honeoye, Lima, Angola)",
+    "primary_crops": ["C02", "C03", "C14", "C01", "C09", "C12", "C04", "C05"]
+  },
+  {
+    "region_id": "western_ny_lake_plain",
+    "region_name": "Western NY & Genesee Valley",
+    "center_lat": 42.98,
+    "center_lon": -78.15,
+    "normal_annual_precip_mm": 920.0,
+    "normal_growing_precip_mm": 425.0,
+    "frost_free_days": 170,
+    "dominant_soils": "Deep lacustrine and glacial outwash loams and muck soils",
+    "primary_crops": ["C02", "C03", "C14", "C09", "C10", "C11", "C12", "C15", "C16"]
+  },
+  {
+    "region_id": "central_ny",
+    "region_name": "Central New York & Mohawk Valley",
+    "center_lat": 42.92,
+    "center_lon": -75.60,
+    "normal_annual_precip_mm": 1040.0,
+    "normal_growing_precip_mm": 480.0,
+    "frost_free_days": 155,
+    "dominant_soils": "Silt loams and gravelly valley loams",
+    "primary_crops": ["C01", "C02", "C03", "C14", "C11", "C13", "C15"]
+  },
+  {
+    "region_id": "hudson_valley",
+    "region_name": "Hudson Valley",
+    "center_lat": 41.75,
+    "center_lon": -74.08,
+    "normal_annual_precip_mm": 1120.0,
+    "normal_growing_precip_mm": 510.0,
+    "frost_free_days": 180,
+    "dominant_soils": "River terrace sandy loams, shale silt loams, and black dirt muck",
+    "primary_crops": ["C04", "C05", "C06", "C07", "C10", "C12", "C13", "C15"]
+  },
+  {
+    "region_id": "north_country",
+    "region_name": "North Country & St. Lawrence Valley",
+    "center_lat": 44.60,
+    "center_lon": -75.15,
+    "normal_annual_precip_mm": 960.0,
+    "normal_growing_precip_mm": 445.0,
+    "frost_free_days": 135,
+    "dominant_soils": "Marine clay loams and glacial till",
+    "primary_crops": ["C01", "C02", "C03", "C14", "C08", "C11", "C17"]
+  },
+  {
+    "region_id": "southern_tier",
+    "region_name": "Southern Tier",
+    "center_lat": 42.15,
+    "center_lon": -76.50,
+    "normal_annual_precip_mm": 980.0,
+    "normal_growing_precip_mm": 460.0,
+    "frost_free_days": 145,
+    "dominant_soils": "Upland channery silt loams and valley outwash",
+    "primary_crops": ["C01", "C02", "C14", "C11", "C08", "C17"]
+  },
+  {
+    "region_id": "long_island",
+    "region_name": "Long Island (Suffolk County)",
+    "center_lat": 40.94,
+    "center_lon": -72.68,
+    "normal_annual_precip_mm": 1150.0,
+    "normal_growing_precip_mm": 490.0,
+    "frost_free_days": 205,
+    "dominant_soils": "Well-drained coastal plain sandy loams (Haven, Riverhead)",
+    "primary_crops": ["C05", "C07", "C09", "C11", "C12", "C13", "C15"]
+  }
+]
+

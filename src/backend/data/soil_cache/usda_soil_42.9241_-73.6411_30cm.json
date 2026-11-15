@@ -1,0 +1,42 @@
+{
+  "Table": [
+    [
+      "mukey",
+      "map_unit_name",
+      "cokey",
+      "component_name",
+      "component_pct",
+      "drainage_class",
+      "horizon_name",
+      "depth_top_cm",
+      "depth_bottom_cm",
+      "organic_matter_pct",
+      "ph",
+      "bulk_density",
+      "cec",
+      "sand_pct",
+      "silt_pct",
+      "clay_pct",
+      "awc"
+    ],
+    [
+      "293201",
+      "Scio very fine sandy loam, 0 to 3 percent slopes",
+      "28582480",
+      "Scio",
+      "85",
+      "Moderately well drained",
+      "H1",
+      "0",
+      "30",
+      "5",
+      "5.3",
+      "1.35000002384186",
+      "2.2",
+      "63.8",
+      "26.2",
+      "10",
+      "0.2"
+    ]
+  ]
+}
