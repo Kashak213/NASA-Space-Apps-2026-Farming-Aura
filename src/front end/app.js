@@ -368,6 +368,7 @@ const appState = {
   customFieldBorders: {},
   drawBorderMode: false,
   selectedProfile: 'Balanced',
+  profileIntensity: 50,
   selectedCrops: ['C01', 'C02', 'C03'],
   maxWaterDemand: 550,
   sensorEnabled: true,
@@ -476,7 +477,26 @@ function scoreSequenceForField(seqIds, field, profileName, sensorDryOverride) {
   });
   const soilCompat = clip(0.8 * mean(compatScores) + 0.2 * transScore, 0, 1);
 
-  const w = PRIORITY_PROFILES[profileName] || PRIORITY_PROFILES.Balanced;
+  const baseBalanced = PRIORITY_PROFILES.Balanced;
+  const targetWeights = PRIORITY_PROFILES[profileName] || baseBalanced;
+  const intensityNorm = clip((appState.profileIntensity - 1) / 99, 0, 1);
+  // At 50 intensity use the profile's standard weights; scale emphasis smoothly from 1 to 100
+  const powerScale = 0.25 + intensityNorm * 1.75;
+  const rawWeights = {
+    soil_health: baseBalanced.soil_health + (targetWeights.soil_health - baseBalanced.soil_health) * powerScale,
+    water_stress: baseBalanced.water_stress + (targetWeights.water_stress - baseBalanced.water_stress) * powerScale,
+    climate_res: baseBalanced.climate_res + (targetWeights.climate_res - baseBalanced.climate_res) * powerScale,
+    nitrogen_fix: baseBalanced.nitrogen_fix + (targetWeights.nitrogen_fix - baseBalanced.nitrogen_fix) * powerScale,
+    yield: baseBalanced.yield + (targetWeights.yield - baseBalanced.yield) * powerScale,
+    drought_tol: baseBalanced.drought_tol + (targetWeights.drought_tol - baseBalanced.drought_tol) * powerScale,
+    soil_compat: baseBalanced.soil_compat + (targetWeights.soil_compat - baseBalanced.soil_compat) * powerScale
+  };
+  const weightSum = Object.values(rawWeights).reduce((acc, v) => acc + Math.max(0.01, v), 0);
+  const w = {};
+  Object.keys(rawWeights).forEach((k) => {
+    w[k] = Math.max(0.01, rawWeights[k]) / weightSum;
+  });
+
   const rawTotal =
     w.soil_health * soilHealth +
     w.water_stress * waterSafety +
@@ -1154,6 +1174,27 @@ function renderDashboard() {
     if (box) box.textContent = isChecked ? '✓' : '';
   });
 
+  // Priority profile intensity slider readout and track fill (1-100)
+  const intensityVal = clip(appState.profileIntensity || 50, 1, 100);
+  const intensityPct = Math.round(((intensityVal - 1) / 99) * 100);
+  const intensityBg = `linear-gradient(to right, #8f4419 0%, #8f4419 ${intensityPct}%, #e7b892 ${intensityPct}%, #e7b892 100%)`;
+
+  const intensityReadout = document.getElementById('profile-intensity-readout');
+  const intensitySlider = document.getElementById('profile-intensity-slider');
+  const onboardingReadout = document.getElementById('onboarding-intensity-readout');
+  const onboardingSlider = document.getElementById('onboarding-intensity-slider');
+
+  if (intensityReadout) intensityReadout.textContent = `${intensityVal} / 100`;
+  if (intensitySlider) {
+    intensitySlider.value = String(intensityVal);
+    intensitySlider.style.background = intensityBg;
+  }
+  if (onboardingReadout) onboardingReadout.textContent = `${intensityVal} / 100`;
+  if (onboardingSlider) {
+    onboardingSlider.value = String(intensityVal);
+    onboardingSlider.style.background = intensityBg;
+  }
+
   // Water demand slider readout and track fill
   const waterReadout = document.getElementById('water-demand-readout');
   const waterSlider = document.getElementById('water-demand-slider');
@@ -1185,7 +1226,7 @@ function renderDashboard() {
     dashMainTitle.textContent = activeFieldName;
   }
   if (dashSubLeft) {
-    dashSubLeft.textContent = `Previous crop(s): ${prevSummaryText} • ${appState.fieldCount} fields (F001–${formatFieldCode(appState.fieldCount)}) • ${appState.selectedProfile} profile`;
+    dashSubLeft.textContent = `Previous crop(s): ${prevSummaryText} • ${appState.fieldCount} fields (F001–${formatFieldCode(appState.fieldCount)}) • ${appState.selectedProfile} (${intensityVal}/100)`;
   }
   if (dashSubRight) {
     const pickedNames = selectedIds.map((id) => CROPS_DATA[id]?.name).filter(Boolean);
@@ -1696,6 +1737,21 @@ document.addEventListener('DOMContentLoaded', () => {
       e.stopPropagation();
       closeAllDropdowns();
     });
+  }
+
+  // Priority profile intensity sliders (1-100) on both onboarding and dashboard sidebar
+  const handleIntensityInput = (e) => {
+    appState.profileIntensity = clip(parseInt(e.target.value, 10) || 1, 1, 100);
+    appState.selectedRankIndex = 0;
+    renderDashboard();
+  };
+  const sidebarIntensitySlider = document.getElementById('profile-intensity-slider');
+  if (sidebarIntensitySlider) {
+    sidebarIntensitySlider.addEventListener('input', handleIntensityInput);
+  }
+  const onboardingIntensitySlider = document.getElementById('onboarding-intensity-slider');
+  if (onboardingIntensitySlider) {
+    onboardingIntensitySlider.addEventListener('input', handleIntensityInput);
   }
 
   // Dashboard sidebar Max water demand slider

@@ -339,6 +339,22 @@
             <button type="button" class="profile-choice-btn" data-profile="Climate Resilient">
               Climate Resilient
             </button>
+
+            <div class="onboarding-intensity-box">
+              <div class="onboarding-intensity-header">
+                <label class="onboarding-intensity-label" for="onboarding-intensity-slider">Priority intensity (1–100)</label>
+                <span id="onboarding-intensity-readout" class="onboarding-intensity-readout">50 / 100</span>
+              </div>
+              <input
+                id="onboarding-intensity-slider"
+                type="range"
+                class="water-slider"
+                min="1"
+                max="100"
+                step="1"
+                value="50"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -402,6 +418,21 @@
                 <button type="button" class="cream-option-btn" data-profile-option="Climate Resilient">Climate Resilient</button>
               </div>
             </div>
+          </div>
+
+          <!-- Slider: Priority profile intensity (1-100) -->
+          <div class="sidebar-control-group" style="margin-top: 16px;">
+            <label class="sidebar-label" for="profile-intensity-slider">Priority intensity</label>
+            <div id="profile-intensity-readout" class="water-demand-value">50 / 100</div>
+            <input
+              id="profile-intensity-slider"
+              type="range"
+              class="water-slider"
+              min="1"
+              max="100"
+              step="1"
+              value="50"
+            />
           </div>
 
           <!-- Dropdown 3: Crops -->
