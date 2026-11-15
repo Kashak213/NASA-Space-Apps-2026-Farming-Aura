@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Farming Aura — Field Shift Crop Rotation Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- SCREEN 1: LANDING PAGE & LOGIN -->
+  <div id="landing-view" class="app-view active-view visible-view">
+    <div class="landing-wrapper">
+
+      <section class="landing-hero-section">
+        <header class="top-navbar">
+          <div class="brand-block" data-nav-target="landing-view">
+            <div class="brand-title">Farming Aura</div>
+            <div class="brand-subtitle">Built for Field Shift • NASA Space Apps Challenge 2026</div>
+          </div>
+          <nav class="top-nav-links">
+            <button type="button" class="top-nav-link" data-nav-target="dashboard-view">Demo</button>
+            <button type="button" class="top-nav-link open-sources-modal-btn">Data sources</button>
+          </nav>
+        </header>
+
+        <div class="hero-center-stage">
+          <div class="hero-glass-card">
+            <h1 class="hero-heading">
+              Know the <span class="word-past">Past</span><br />
+              Grow the <span class="word-future">future.</span>
+            </h1>
+
+            <button type="button" id="hero-login-scroll-btn" class="hero-login-btn">
+              Login/Sign-up
+            </button>
+
+            <div class="hero-mission-box">
+              <div class="hero-mission-title">Adapt your farm, shape your vision:</div>
+              <p class="hero-mission-text">
+                Farming Aura combines precise satellite data, crop traits, and live soil readings to optimize your multi-year crop rotation.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="login-section" class="landing-login-section">
+        <div class="login-outer-card">
+          <div class="login-left-panel">
+            <div>
+              <div class="login-photo-wrap">
+                <img src="assets/login-crop-rows.jpg" alt="Sunlit green crop rows at sunrise" />
+              </div>
+              <h2 class="login-left-quote">
+                Know your land.<br />
+                Grow with confidence.
+              </h2>
+            </div>
+            <div class="login-left-footer">FARMING AURA / FIELD SHIFT</div>
+          </div>
+
+          <div class="login-right-panel">
+            <h2 class="login-welcome-title">Welcome back.</h2>
+            <p class="login-welcome-sub">Sign in to access your field recommendations.</p>
+
+            <form id="login-form">
+              <div class="login-form-group">
+                <label class="login-label" for="login-email">Email address</label>
+                <input
+                  id="login-email"
+                  type="email"
+                  class="login-input"
+                  value="farmer@example.com"
+                  placeholder="farmer@example.com"
+                  required
+                />
+              </div>
+
+              <div class="login-form-group">
+                <label class="login-label" for="login-password">Password</label>
+                <input
+                  id="login-password"
+                  type="password"
+                  class="login-input"
+                  value="password1234"
+                  placeholder="••••••••••"
+                  required
+                />
+              </div>
+
+              <button type="submit" class="login-submit-btn">
+                <span>Continue to region setup &rarr;</span>
+              </button>
+            </form>
+
+            <a href="#login-section" class="login-forgot-link" data-nav-target="location-view">
+              Forgot password?
+            </a>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- SCREEN 2: SELECT YOUR LOCATION -->
+  <div id="location-view" class="app-view">
+    <div class="onboarding-bg">
+      <header class="top-navbar">
+        <div class="brand-block" data-nav-target="landing-view">
+          <div class="brand-title">Farming Aura</div>
+          <div class="brand-subtitle">Built for Field Shift • NASA Space Apps Challenge 2026</div>
+        </div>
+        <nav class="top-nav-links">
+          <button type="button" class="top-nav-link" data-nav-target="dashboard-view">Demo</button>
+          <button type="button" class="top-nav-link open-sources-modal-btn">Data sources</button>
+        </nav>
+      </header>
+
+      <div class="location-stage">
+        <div class="location-backdrop-shell">
+          <h1 class="location-step-heading">SELECT YOUR LOCATION</h1>
+
+          <div class="location-grid">
+            <!-- Left schematic map card -->
+            <div class="schematic-map-frame">
+              <div class="schematic-map-canvas">
+                <div class="map-search-box">
+                  <input
+                    id="step1-map-search"
+                    type="text"
+                    class="map-search-input"
+                    placeholder="Search city, county or ZIP code"
+                  />
+                </div>
+
+                <div class="map-zoom-controls">
+                  <button type="button" id="map-zoom-in" class="map-zoom-btn" title="Zoom in">+</button>
+                  <button type="button" id="map-zoom-out" class="map-zoom-btn" title="Zoom out">&minus;</button>
+                </div>
+
+                <!-- Schematic SVG matching the Hudson & Mohawk River valley graphic -->
+                <svg id="schematic-map-svg" class="schematic-svg" viewBox="0 0 800 540" preserveAspectRatio="none">
+                  <rect width="800" height="540" fill="#d6e3c8" />
+                  <!-- Diagonal background zones -->
+                  <polygon points="0,120 350,0 800,0 800,260 0,480" fill="#e5ebdc" />
+                  <polygon points="0,240 800,80 800,360 0,520" fill="#eaefe2" />
+                  <!-- Subtle grid lines -->
+                  <line x1="120" y1="0" x2="360" y2="540" stroke="#cdd8c0" stroke-width="1.5" />
+                  <line x1="420" y1="0" x2="210" y2="540" stroke="#cdd8c0" stroke-width="1.5" />
+                  <line x1="580" y1="0" x2="430" y2="540" stroke="#cdd8c0" stroke-width="1.5" />
+                  <line x1="0" y1="160" x2="800" y2="390" stroke="#cdd8c0" stroke-width="1.5" />
+                  <!-- Green agricultural blocks -->
+                  <polygon points="82,102 192,94 214,156 96,165" fill="#bdd0a8" stroke="#a6bc90" stroke-width="1.5" />
+                  <polygon points="58,332 152,302 184,386 78,412" fill="#bdd0a8" stroke="#a6bc90" stroke-width="1.5" />
+                  <polygon points="635,332 762,302 782,388 656,418" fill="#bdd0a8" stroke="#a6bc90" stroke-width="1.5" />
+                  <!-- Hudson River & Mohawk River curves -->
+                  <path
+                    d="M 465,0 C 455,90 508,165 502,250 C 495,315 390,340 378,425 C 370,475 385,515 392,540"
+                    fill="none"
+                    stroke="#a9cbe0"
+                    stroke-width="22"
+                    stroke-linecap="round"
+                  />
+                  <!-- Major highways -->
+                  <path
+                    d="M 0,240 Q 250,215 470,275 T 800,335"
+                    fill="none"
+                    stroke="#ffffff"
+                    stroke-width="9"
+                  />
+                  <path
+                    d="M 0,240 Q 250,215 470,275 T 800,335"
+                    fill="none"
+                    stroke="#cdb28a"
+                    stroke-width="3"
+                  />
+                  <path
+                    d="M 0,432 Q 360,295 800,118"
+                    fill="none"
+                    stroke="#ffffff"
+                    stroke-width="9"
+                  />
+                  <path
+                    d="M 0,432 Q 360,295 800,118"
+                    fill="none"
+                    stroke="#cdb28a"
+                    stroke-width="3"
+                  />
+                  <path
+                    d="M 225,0 L 348,262 L 406,540"
+                    fill="none"
+                    stroke="#ffffff"
+                    stroke-width="9"
+                  />
+                  <path
+                    d="M 225,0 L 348,262 L 406,540"
+                    fill="none"
+                    stroke="#cdb28a"
+                    stroke-width="3"
+                  />
+                </svg>
+
+                <!-- Interactive City Pins -->
+                <div class="city-pin" data-city="Saratoga Springs" style="top: 25%; left: 47%;">
+                  <div class="city-pin-dot"></div>
+                  <div class="city-pin-label">Saratoga Springs</div>
+                </div>
+
+                <div class="city-pin" data-city="Schenectady" style="top: 43.5%; left: 25.5%;">
+                  <div class="city-pin-dot"></div>
+                  <div class="city-pin-label">Schenectady</div>
+                </div>
+
+                <div class="city-pin" data-city="Troy" style="top: 46.5%; left: 65%;">
+                  <div class="city-pin-dot"></div>
+                  <div class="city-pin-label">Troy</div>
+                </div>
+
+                <div class="city-pin selected-city" data-city="Albany" style="top: 58%; left: 44.5%;">
+                  <div class="city-pin-dot"></div>
+                  <div class="city-pin-label">Albany</div>
+                </div>
+
+                <div class="city-pin" data-city="Hudson" style="top: 84.5%; left: 42%;">
+                  <div class="city-pin-dot"></div>
+                  <div class="city-pin-label">Hudson</div>
+                </div>
+
+                <div class="map-Disclaim-caption">
+                  Interactive schematic • approximate city locations • not for navigation
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Region Selected Panel -->
+            <div class="region-panel-card">
+              <div>
+                <h2 class="region-section-title">REGION SELECTED</h2>
+                <div id="step1-region-selected" class="region-display-box">Albany, New York</div>
+
+                <h2 class="region-section-title">LATITUDE / LONGITUDE</h2>
+                <div id="step1-latlon-display" class="region-display-box">27.00101, 280.1</div>
+
+                <h2 class="region-section-title">CHANGE REGION</h2>
+                <div class="region-dropdown-wrap">
+                  <button type="button" id="step1-dropdown-trigger" class="region-dropdown-trigger">
+                    <span id="step1-dropdown-label">Search another location</span>
+                    <span>&#8964;</span>
+                  </button>
+                  <div id="step1-dropdown-menu" class="region-dropdown-menu">
+                    <button type="button" class="region-dropdown-item active-item" data-city="Albany">
+                      <span>Albany, New York</span>
+                      <span>42.65, -73.76</span>
+                    </button>
+                    <button type="button" class="region-dropdown-item" data-city="Saratoga Springs">
+                      <span>Saratoga Springs, New York</span>
+                      <span>43.08, -73.78</span>
+                    </button>
+                    <button type="button" class="region-dropdown-item" data-city="Schenectady">
+                      <span>Schenectady, New York</span>
+                      <span>42.81, -73.94</span>
+                    </button>
+                    <button type="button" class="region-dropdown-item" data-city="Troy">
+                      <span>Troy, New York</span>
+                      <span>42.73, -73.69</span>
+                    </button>
+                    <button type="button" class="region-dropdown-item" data-city="Hudson">
+                      <span>Hudson, New York</span>
+                      <span>42.25, -73.79</span>
+                    </button>
+                    <button type="button" class="region-dropdown-item" data-field="F001">
+                      <span>F001 · Test field</span>
+                      <span>41.50, -93.60</span>
+                    </button>
+                    <button type="button" class="region-dropdown-item" data-field="F002">
+                      <span>F002 · Test field</span>
+                      <span>41.70, -93.40</span>
+                    </button>
+                    <button type="button" class="region-dropdown-item" data-field="F003">
+                      <span>F003 · Test field</span>
+                      <span>40.80, -95.20</span>
+                    </button>
+                    <button type="button" class="region-dropdown-item" data-field="F004">
+                      <span>F004 · Test field</span>
+                      <span>42.10, -92.80</span>
+                    </button>
+                    <button type="button" class="region-dropdown-item" data-field="F005">
+                      <span>F005 · Test field</span>
+                      <span>41.30, -94.10</span>
+                    </button>
+                    <button type="button" class="region-dropdown-item" data-field="F006">
+                      <span>F006 · Test field</span>
+                      <span>40.50, -96.00</span>
+                    </button>
+                    <button type="button" class="region-dropdown-item" data-field="F007">
+                      <span>F007 · Test field</span>
+                      <span>42.50, -91.50</span>
+                    </button>
+                    <button type="button" class="region-dropdown-item" data-field="F008">
+                      <span>F008 · Test field</span>
+                      <span>41.00, -94.80</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="region-latlon-grid">
+                  <div class="region-coord-pill">
+                    <span>Latitude</span>
+                    <input id="step1-lat-input" type="text" class="region-coord-input" value="42.6526" />
+                  </div>
+                  <div class="region-coord-pill">
+                    <span>Longitude</span>
+                    <input id="step1-lon-input" type="text" class="region-coord-input" value="-73.7562" />
+                  </div>
+                </div>
+              </div>
+
+              <button type="button" id="confirm-region-btn" class="confirm-region-btn">
+                <span>Confirm region and continue &rarr;</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 3: CHOOSE A PRIORITY PROFILE -->
+  <div id="profile-view" class="app-view">
+    <div class="onboarding-bg">
+      <header class="top-navbar">
+        <div class="brand-block" data-nav-target="landing-view">
+          <div class="brand-title">Farming Aura</div>
+          <div class="brand-subtitle-caps">NASA SPACE APPS / 2026</div>
+        </div>
+        <nav class="top-nav-links">
+          <button type="button" class="top-nav-link" data-nav-target="dashboard-view">Demo</button>
+          <button type="button" class="top-nav-link open-sources-modal-btn">Data sources</button>
+        </nav>
+      </header>
+
+      <div class="profile-stage">
+        <div class="profile-outer-box">
+          <h1 class="profile-heading">CHOOSE A PRIORITY PROFILE</h1>
+          <div class="profile-inner-card">
+            <button type="button" class="profile-choice-btn selected-profile-btn" data-profile="Balanced">
+              Balanced
+            </button>
+            <button type="button" class="profile-choice-btn" data-profile="Max Yield">
+              Max Yield
+            </button>
+            <button type="button" class="profile-choice-btn" data-profile="Water Conservation">
+              Water Conservation
+            </button>
+            <button type="button" class="profile-choice-btn" data-profile="Soil Health First">
+              Soil Health First
+            </button>
+            <button type="button" class="profile-choice-btn" data-profile="Climate Resilient">
+              Climate Resilient
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 4: MAIN DASHBOARD -->
+  <div id="dashboard-view" class="app-view">
+    <div class="dashboard-layout">
+
+      <!-- Left Sidebar -->
+      <aside class="dashboard-sidebar">
+        <div>
+          <div class="sidebar-brand" data-nav-target="landing-view" title="Back to home">
+            Farming Aura
+          </div>
+
+          <div class="sidebar-section-label">FIELD SETTINGS</div>
+
+          <!-- Dropdown 1: Field -->
+          <div class="sidebar-control-group">
+            <label class="sidebar-label">Field</label>
+            <button type="button" id="sidebar-field-trigger" class="custom-select-trigger">
+              <span id="sidebar-field-label">Select field...</span>
+              <span class="custom-select-chevron">&#8964;</span>
+            </button>
+            <div id="sidebar-field-menu" class="field-dropdown-menu">
+              <button type="button" class="field-option-btn selected-field" data-field="F001">F001 · Test field</button>
+              <button type="button" class="field-option-btn" data-field="F002">F002 · Test field</button>
+              <button type="button" class="field-option-btn" data-field="F003">F003 · Test field</button>
+              <button type="button" class="field-option-btn" data-field="F004">F004 · Test field</button>
+              <button type="button" class="field-option-btn" data-field="F005">F005 · Test field</button>
+              <button type="button" class="field-option-btn" data-field="F006">F006 · Test field</button>
+              <button type="button" class="field-option-btn" data-field="F007">F007 · Test field</button>
+              <button type="button" class="field-option-btn" data-field="F008">F008 · Test field</button>
+              <button type="button" id="field-custom-map-btn" class="field-custom-map-btn">
+                Choose custom map location<br />&rarr;
+              </button>
+              <button type="button" id="field-menu-close-btn" class="field-close-btn">Close</button>
+            </div>
+          </div>
+
+          <!-- Dropdown 2: Priority profile -->
+          <div class="sidebar-control-group">
+            <label class="sidebar-label">Priority profile</label>
+            <button type="button" id="sidebar-profile-trigger" class="custom-select-trigger">
+              <span id="sidebar-profile-label">Select priority profile...</span>
+              <span class="custom-select-chevron">&#8964;</span>
+            </button>
+            <div id="sidebar-profile-menu" class="cream-popover-menu">
+              <div class="cream-popover-title">Choose priority profile</div>
+              <div class="cream-popover-list">
+                <button type="button" class="cream-option-btn active-option" data-profile-option="Balanced">Balanced</button>
+                <button type="button" class="cream-option-btn" data-profile-option="Max Yield">Max Yield</button>
+                <button type="button" class="cream-option-btn" data-profile-option="Water Conservation">Water Conservation</button>
+                <button type="button" class="cream-option-btn" data-profile-option="Soil Health First">Soil Health First</button>
+                <button type="button" class="cream-option-btn" data-profile-option="Climate Resilient">Climate Resilient</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dropdown 3: Equipment -->
+          <div class="sidebar-control-group">
+            <label class="sidebar-label">Equipment</label>
+            <button type="button" id="sidebar-equip-trigger" class="custom-select-trigger">
+              <span id="sidebar-equip-label">Select equipment...</span>
+              <span class="custom-select-chevron">&#8964;</span>
+            </button>
+            <div id="sidebar-equip-menu" class="cream-popover-menu">
+              <div class="cream-popover-title">Choose equipment</div>
+              <div class="cream-popover-list">
+                <button type="button" class="cream-option-btn active-option" data-equip-option="Row-crop only">Row-crop only</button>
+                <button type="button" class="cream-option-btn" data-equip-option="All crop types">All crop types</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Slider: Max water demand -->
+          <div class="sidebar-control-group" style="margin-top: 28px;">
+            <label class="sidebar-label" for="water-demand-slider">Max water demand</label>
+            <div id="water-demand-readout" class="water-demand-value">550 mm / yr</div>
+            <input
+              id="water-demand-slider"
+              type="range"
+              class="water-slider"
+              min="250"
+              max="650"
+              step="25"
+              value="550"
+            />
+          </div>
+
+          <!-- Toggle: Local sensor readings -->
+          <div class="sidebar-control-group" style="margin-top: 28px;">
+            <label class="sidebar-label">Local sensor readings</label>
+            <div class="sensor-toggle-row">
+              <button
+                type="button"
+                id="sidebar-sensor-switch"
+                class="sensor-switch active"
+                aria-label="Toggle local sensor readings"
+              >
+                <span class="sensor-switch-thumb"></span>
+              </button>
+              <span id="sidebar-sensor-status" class="sensor-status-text">Enabled · demo</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar-footer">
+          <div class="sidebar-section-label" style="margin-bottom: 10px;">DATA SOURCES</div>
+          <div class="sidebar-sources-list">
+            NASA POWER / SMAP<br />
+            MODIS / GPM<br />
+            SoilGrids / SSURGO
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Dashboard Content -->
+      <main class="dashboard-main">
+        <div id="dash-eyebrow-text" class="dash-eyebrow">FIELD F001 / DEMO DATA</div>
+        <h1 class="dash-title">Your field, understood.</h1>
+        <div class="dash-subtitle-row">
+          <div id="dash-subtitle-left" class="dash-subtitle-left">Demo data • Balanced priority profile</div>
+          <div id="dash-subtitle-right" class="dash-subtitle-right">Equipment constraint: row crops only</div>
+        </div>
+
+        <!-- 4 KPI Cards -->
+        <div class="kpi-cards-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Soil health</div>
+            <div id="kpi-soil-val" class="kpi-value">0.81 SH</div>
+            <div id="kpi-soil-sub" class="kpi-sub">OC 2.8% · pH 6.5</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Annual rainfall</div>
+            <div id="kpi-rain-val" class="kpi-value">530 mm</div>
+            <div class="kpi-sub">Illustrative annual total</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Root-zone moisture</div>
+            <div id="kpi-moisture-val" class="kpi-value">0.35 RZM</div>
+            <div class="kpi-sub">Sample soil moisture</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Soil temperature</div>
+            <div id="kpi-temp-val" class="kpi-value">18.6°C</div>
+            <div class="kpi-sub">Above planting threshold</div>
+          </div>
+        </div>
+
+        <!-- 3 Tab Buttons -->
+        <div class="dash-tabs-bar">
+          <button type="button" class="dash-tab-btn active-tab" data-tab="rotations">
+            Crop rotations
+          </button>
+          <button type="button" class="dash-tab-btn" data-tab="map">
+            Field map &amp; climate
+          </button>
+          <button type="button" class="dash-tab-btn" data-tab="sensors">
+            Live sensor readings
+          </button>
+        </div>
+
+        <!-- TAB 1: CROP ROTATIONS -->
+        <section id="tab-panel-rotations" class="dash-tab-panel active-panel visible-panel">
+          <div class="rotation-banner-card">
+            <div class="rotation-banner-eyebrow">RECOMMENDED / THREE-YEAR ROTATION</div>
+            <h2 class="rotation-banner-title">A stronger season starts here.</h2>
+
+            <div class="rotation-years-grid">
+              <div class="year-step-card">
+                <div class="year-step-tag">YEAR 01</div>
+                <div id="year-01-crop" class="year-step-crop">Soybean</div>
+                <div id="year-01-role" class="year-step-role">Legume • nitrogen fixation</div>
+              </div>
+              <div class="year-step-card">
+                <div class="year-step-tag">YEAR 02</div>
+                <div id="year-02-crop" class="year-step-crop">Cover crop mix</div>
+                <div id="year-02-role" class="year-step-role">Soil building</div>
+              </div>
+              <div class="year-step-card">
+                <div class="year-step-tag">YEAR 03</div>
+                <div id="year-03-crop" class="year-step-crop">Corn</div>
+                <div id="year-03-role" class="year-step-role">Grain • yield potential</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rotation-mid-grid">
+            <div class="white-panel-card">
+              <h3 class="panel-serif-heading">Why this rotation won</h3>
+              <div class="why-won-list">
+                <p id="why-won-line-1" class="why-won-item">Legume rotation supports soil nitrogen.</p>
+                <p id="why-won-line-2" class="why-won-item">Cover crops protect soil between seasons.</p>
+              </div>
+            </div>
+
+            <div class="white-panel-card">
+              <h3 class="panel-serif-heading">Rotation score breakdown</h3>
+              <div class="breakdown-rows">
+                <div class="breakdown-row">
+                  <span class="breakdown-label">Soil health</span>
+                  <div class="breakdown-track">
+                    <div id="bar-soil-health" class="breakdown-fill" style="width: 82%;"></div>
+                  </div>
+                </div>
+                <div class="breakdown-row">
+                  <span class="breakdown-label">Water safety</span>
+                  <div class="breakdown-track">
+                    <div id="bar-water-safety" class="breakdown-fill" style="width: 88%;"></div>
+                  </div>
+                </div>
+                <div class="breakdown-row">
+                  <span class="breakdown-label">Resilience</span>
+                  <div class="breakdown-track">
+                    <div id="bar-resilience" class="breakdown-fill" style="width: 76%;"></div>
+                  </div>
+                </div>
+                <div class="breakdown-row">
+                  <span class="breakdown-label">Yield potential</span>
+                  <div class="breakdown-track">
+                    <div id="bar-yield-potential" class="breakdown-fill" style="width: 71%;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="white-panel-card">
+            <h3 class="panel-serif-heading">Ranked alternatives · illustrative scores</h3>
+            <table class="ranked-table">
+              <thead>
+                <tr>
+                  <th style="width: 68px;">RANK</th>
+                  <th>ROTATION</th>
+                  <th style="width: 140px;">TOTAL SCORE</th>
+                  <th style="width: 140px;">WATER SAFETY</th>
+                </tr>
+              </thead>
+              <tbody id="ranked-alternatives-tbody">
+                <tr class="ranked-row selected-rank-row">
+                  <td>01</td>
+                  <td>Soybean &rarr; Cover crop mix &rarr; Corn</td>
+                  <td>0.86</td>
+                  <td>0.88</td>
+                </tr>
+                <tr class="ranked-row">
+                  <td>02</td>
+                  <td>Sorghum &rarr; Soybean &rarr; Rye</td>
+                  <td>0.81</td>
+                  <td>0.92</td>
+                </tr>
+                <tr class="ranked-row">
+                  <td>03</td>
+                  <td>Corn &rarr; Soybean &rarr; Cover crop mix</td>
+                  <td>0.77</td>
+                  <td>0.84</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- TAB 2: FIELD MAP & CLIMATE -->
+        <section id="tab-panel-map" class="dash-tab-panel">
+          <div class="map-climate-top-grid">
+            <div>
+              <div class="satellite-map-container">
+                <img
+                  src="assets/field-health-map.jpg"
+                  alt="Field health map showing F001 through F008"
+                  class="satellite-map-img"
+                />
+                <!-- Interactive clickable hotspots mapped to F001-F008 badges -->
+                <button type="button" class="field-hotspot active-hotspot" data-field="F001" title="Select Field F001" style="left: 15.5%; top: 21%; width: 14.5%; height: 13.5%;"></button>
+                <button type="button" class="field-hotspot" data-field="F002" title="Select Field F002" style="left: 43%; top: 18.5%; width: 16.5%; height: 13.5%;"></button>
+                <button type="button" class="field-hotspot" data-field="F003" title="Select Field F003" style="left: 72%; top: 16%; width: 14%; height: 13.5%;"></button>
+                <button type="button" class="field-hotspot" data-field="F004" title="Select Field F004" style="left: 11%; top: 43.5%; width: 18.5%; height: 13.5%;"></button>
+                <button type="button" class="field-hotspot" data-field="F005" title="Select Field F005" style="left: 68%; top: 39%; width: 16.5%; height: 13.5%;"></button>
+                <button type="button" class="field-hotspot" data-field="F006" title="Select Field F006" style="left: 13.5%; top: 67%; width: 14%; height: 13.5%;"></button>
+                <button type="button" class="field-hotspot" data-field="F007" title="Select Field F007" style="left: 39%; top: 65%; width: 17%; height: 13.5%;"></button>
+                <button type="button" class="field-hotspot" data-field="F008" title="Select Field F008" style="left: 67.5%; top: 62.5%; width: 14%; height: 13.5%;"></button>
+              </div>
+              <div class="map-caption-meta">
+                <div id="map-selected-field-meta">Selected field: F001 • simulated field readings</div>
+                <div id="map-rotation-preview-meta">Rotation preview: Soybean &rarr; Cover crop &rarr; Corn</div>
+              </div>
+            </div>
+
+            <div class="white-panel-card">
+              <h3 class="panel-serif-heading green-heading" style="margin-bottom: 6px;">Crop water demand</h3>
+              <div id="crop-water-rain-sub" class="water-demand-sub">Annual rainfall: 452 mm</div>
+
+              <div class="crop-water-list">
+                <div class="crop-water-item">
+                  <div class="crop-water-header">
+                    <span>Rye</span>
+                    <span class="crop-water-mm">180 mm</span>
+                  </div>
+                  <div class="crop-water-bar-wrap">
+                    <div id="water-bar-rye" class="crop-water-bar" style="width: 28%;"></div>
+                  </div>
+                </div>
+
+                <div class="crop-water-item">
+                  <div class="crop-water-header">
+                    <span>Sorghum</span>
+                    <span class="crop-water-mm">300 mm</span>
+                  </div>
+                  <div class="crop-water-bar-wrap">
+                    <div id="water-bar-sorghum" class="crop-water-bar" style="width: 47%;"></div>
+                  </div>
+                </div>
+
+                <div class="crop-water-item">
+                  <div class="crop-water-header">
+                    <span>Soybean</span>
+                    <span class="crop-water-mm">450 mm</span>
+                  </div>
+                  <div class="crop-water-bar-wrap">
+                    <div id="water-bar-soybean" class="crop-water-bar" style="width: 70%;"></div>
+                  </div>
+                </div>
+
+                <div class="crop-water-item">
+                  <div class="crop-water-header">
+                    <span>Corn</span>
+                    <span class="crop-water-mm">550 mm</span>
+                  </div>
+                  <div class="crop-water-bar-wrap">
+                    <div id="water-bar-corn" class="crop-water-bar exceeds-rain" style="width: 86%;"></div>
+                  </div>
+                </div>
+
+                <div class="crop-water-item">
+                  <div class="crop-water-header">
+                    <span>Alfalfa</span>
+                    <span class="crop-water-mm">600 mm</span>
+                  </div>
+                  <div class="crop-water-bar-wrap">
+                    <div id="water-bar-alfalfa" class="crop-water-bar exceeds-rain" style="width: 94%;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="white-panel-card">
+            <h3 class="panel-serif-heading green-heading" style="margin-bottom: 6px;">Seasonal shifts · 2023 vs 2024</h3>
+            <div class="seasonal-sub">Illustrative trend comparison / rainfall, heat and NDVI</div>
+
+            <div class="seasonal-bars-stage">
+              <div class="seasonal-bar-col">
+                <div id="season-bar-0" class="seasonal-bar-rect bar-2023" style="height: 82px;"></div>
+                <span class="seasonal-bar-label">Spring</span>
+              </div>
+              <div class="seasonal-bar-col">
+                <div id="season-bar-1" class="seasonal-bar-rect bar-2024" style="height: 122px;"></div>
+                <span class="seasonal-bar-label">Spring</span>
+              </div>
+              <div class="seasonal-bar-col">
+                <div id="season-bar-2" class="seasonal-bar-rect bar-2023" style="height: 108px;"></div>
+                <span class="seasonal-bar-label">Summer</span>
+              </div>
+              <div class="seasonal-bar-col">
+                <div id="season-bar-3" class="seasonal-bar-rect bar-2024" style="height: 68px;"></div>
+                <span class="seasonal-bar-label">Summer</span>
+              </div>
+              <div class="seasonal-bar-col">
+                <div id="season-bar-4" class="seasonal-bar-rect bar-2023" style="height: 92px;"></div>
+                <span class="seasonal-bar-label">Spring</span>
+              </div>
+              <div class="seasonal-bar-col">
+                <div id="season-bar-5" class="seasonal-bar-rect bar-2024" style="height: 64px;"></div>
+                <span class="seasonal-bar-label">Spring</span>
+              </div>
+              <div class="seasonal-bar-col">
+                <div id="season-bar-6" class="seasonal-bar-rect bar-2023" style="height: 76px;"></div>
+                <span class="seasonal-bar-label">Summer</span>
+              </div>
+              <div class="seasonal-bar-col">
+                <div id="season-bar-7" class="seasonal-bar-rect bar-2024" style="height: 48px;"></div>
+                <span class="seasonal-bar-label">Summer</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 3: LIVE SENSOR READINGS -->
+        <section id="tab-panel-sensors" class="dash-tab-panel">
+          <div class="sensor-alert-banner">
+            <h2 id="sensor-alert-title" class="sensor-alert-title">Dry soil detected &mdash; rotation adjusted</h2>
+            <p id="sensor-alert-sub" class="sensor-alert-sub">
+              Demo: consider Sorghum &rarr; Soybean for water resilience.
+            </p>
+          </div>
+
+          <div class="sensor-comparison-grid">
+            <div class="white-panel-card">
+              <h3 class="panel-serif-heading" style="margin-bottom: 6px;">NASA satellite estimate</h3>
+              <div class="sensor-card-sub">Regional observation</div>
+
+              <div class="sensor-reading-row">
+                <span class="sensor-reading-name">Root-zone moisture</span>
+                <span id="sensor-nasa-rzm" class="sensor-reading-val">0.35 m³/m³</span>
+              </div>
+              <div class="sensor-reading-row">
+                <span class="sensor-reading-name">Air temperature</span>
+                <span id="sensor-nasa-temp" class="sensor-reading-val">24.8 °C</span>
+              </div>
+              <div class="sensor-reading-row">
+                <span class="sensor-reading-name">Recent precipitation</span>
+                <span id="sensor-nasa-precip" class="sensor-reading-val">220 mm</span>
+              </div>
+            </div>
+
+            <div class="white-panel-card">
+              <h3 class="panel-serif-heading" style="margin-bottom: 6px;">Elegoo Uno readings</h3>
+              <div class="sensor-card-sub">Local ground-truth · demo</div>
+
+              <div class="sensor-reading-row">
+                <span class="sensor-reading-name">Root-zone moisture</span>
+                <span id="sensor-dev-rzm" class="sensor-reading-val">0.22 m³/m³ (Dry)</span>
+              </div>
+              <div class="sensor-reading-row">
+                <span class="sensor-reading-name">Soil temperature</span>
+                <span id="sensor-dev-st" class="sensor-reading-val">20.9 °C</span>
+              </div>
+              <div class="sensor-reading-row">
+                <span class="sensor-reading-name">Air humidity</span>
+                <span id="sensor-dev-ah" class="sensor-reading-val">38 % RH</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="white-panel-card">
+            <h3 class="panel-serif-heading">From satellite to soil.</h3>
+            <div class="satellite-steps-list">
+              <div class="satellite-step-line">
+                <span class="satellite-step-num">01</span>
+                <span>Move the capacitive probe from wet to dry soil.</span>
+              </div>
+              <div class="satellite-step-line">
+                <span class="satellite-step-num">02</span>
+                <span>Compare local readings against the NASA estimate.</span>
+              </div>
+              <div class="satellite-step-line">
+                <span class="satellite-step-num">03</span>
+                <span>Watch the recommended crop rotation change.</span>
+              </div>
+            </div>
+
+            <div class="probe-sim-bar">
+              <span class="probe-sim-label">Simulate Elegoo Uno capacitive probe state:</span>
+              <div class="probe-sim-buttons">
+                <button type="button" class="probe-mode-btn active-probe-mode" data-probe="dry">
+                  Dry soil probe
+                </button>
+                <button type="button" class="probe-mode-btn" data-probe="wet">
+                  Wet soil probe
+                </button>
+                <button type="button" class="probe-mode-btn" data-probe="template">
+                  Template placeholders
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- DATA SOURCES MODAL -->
+  <div id="data-sources-modal" class="modal-backdrop">
+    <div class="modal-card">
+      <h2 class="modal-title">NASA &amp; Soil Data Sources</h2>
+      <p class="modal-body">
+        <strong>NASA POWER &amp; GPM:</strong> Seasonal temperature, solar radiation, and precipitation anomalies.<br /><br />
+        <strong>NASA SMAP &amp; MODIS:</strong> Root-zone soil moisture estimates and NDVI vegetation health trends.<br /><br />
+        <strong>SoilGrids &amp; USDA SSURGO:</strong> Organic carbon percentage, soil pH, clay/sand texture, bulk density, and cation exchange capacity (CEC).<br /><br />
+        <strong>Elegoo Uno Hardware Probe:</strong> Local capacitive soil moisture, temperature, and humidity ground-truth sensor readings.
+      </p>
+      <button type="button" id="close-sources-modal-btn" class="modal-close-btn">Close</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
