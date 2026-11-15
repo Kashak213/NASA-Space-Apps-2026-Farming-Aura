@@ -204,9 +204,26 @@
       put('climate-temp-explanation', text.temp_explanation);
       put('climate-rain-explanation', text.rain_explanation);
       const heading = document.getElementById('why-won-heading');
-      if (heading && !heading.textContent.endsWith('· Gemini')) heading.textContent += ' · Gemini';
+      if (heading) {
+        heading.textContent = heading.textContent.replace(/\s*·\s*Gemini\s*$/i, '');
+      }
+      let tag = document.getElementById('why-won-gemini-tag');
+      if (!tag) {
+        const list = document.querySelector('.why-won-list');
+        if (list) {
+          tag = document.createElement('div');
+          tag.id = 'why-won-gemini-tag';
+          tag.className = 'why-won-attribution';
+          tag.innerHTML = '<strong>Generated from Gemini</strong>';
+          list.appendChild(tag);
+        }
+      }
+      if (tag) tag.style.display = 'block';
       return;
     }
+
+    const tag = document.getElementById('why-won-gemini-tag');
+    if (tag) tag.style.display = 'none';
 
     if (aiAnswers.has(key)) return; // already asked and Gemini had nothing
     clearTimeout(aiTimer);
