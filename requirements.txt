@@ -1,29 +1,10 @@
 # NASA Space Apps 2026 - Field Shift: Adapting Farms with NASA Data
 # pip install -r requirements.txt
 
-# data & math
-pandas>=2.2.0
-numpy>=1.26.0
-scipy>=1.13.0
-scikit-learn>=1.5.0
-
-# maps & satellite rasters (MODIS / SMAP GeoTIFFs & NetCDF)
-geopandas>=0.14.0
-rasterio>=1.3.0
-xarray>=2024.2.0
-pyproj>=3.6.0
-
-# NASA APIs
-earthaccess>=0.9.0
-requests>=2.31.0
-
-# UI & charts
-streamlit>=1.36.0
-plotly>=5.22.0
-folium>=0.17.0
-matplotlib>=3.9.0
-
-# config & validation
-python-dotenv>=1.0.0
+# Backend Web API, Validation, and Live NASA POWER / USDA SSURGO Clients
+fastapi>=0.111.0
+uvicorn>=0.30.0
 pydantic>=2.7.0
+requests>=2.31.0
+python-dotenv>=1.0.0
 

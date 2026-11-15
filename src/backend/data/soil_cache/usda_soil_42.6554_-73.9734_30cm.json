@@ -1,0 +1,61 @@
+{
+  "Table": [
+    [
+      "mukey",
+      "map_unit_name",
+      "cokey",
+      "component_name",
+      "component_pct",
+      "drainage_class",
+      "horizon_name",
+      "depth_top_cm",
+      "depth_bottom_cm",
+      "organic_matter_pct",
+      "ph",
+      "bulk_density",
+      "cec",
+      "sand_pct",
+      "silt_pct",
+      "clay_pct",
+      "awc"
+    ],
+    [
+      "288709",
+      "Chenango gravelly silt loam, loamy substratum, rolling",
+      "28900728",
+      "Chenango",
+      "90",
+      "Well drained",
+      "H1",
+      "0",
+      "28",
+      "4",
+      "5",
+      "1.35000002384186",
+      "7.1",
+      "32.1",
+      "55.9",
+      "12",
+      "0.1"
+    ],
+    [
+      "288709",
+      "Chenango gravelly silt loam, loamy substratum, rolling",
+      "28900728",
+      "Chenango",
+      "90",
+      "Well drained",
+      "H2",
+      "28",
+      "145",
+      "0.5",
+      "5.3",
+      "1.39999997615814",
+      "6.6",
+      "32.1",
+      "55.9",
+      "12",
+      "0.08"
+    ]
+  ]
+}

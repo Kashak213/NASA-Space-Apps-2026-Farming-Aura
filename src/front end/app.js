@@ -1,4 +1,4 @@
-// Client-side state, rotation scoring engine, and UI interactions for Farming Aura
+﻿// Client-side state, rotation scoring engine, and UI interactions for Farming Aura
 
 const FIELDS_DATA = {
   F001: {
@@ -279,33 +279,33 @@ const CITY_LOCATIONS = {
 };
 
 const CROPS_DATA = {
-  C01: { id: 'C01', name: 'Hay & Alfalfa (Haylage)', type: 'legume', isPerennial: false, roleTag: 'Forage legume • nitrogen fixation', water: 580, nFix: 0.85, droughtTol: 0.55, phMin: 6.2, phMax: 7.5, clayMin: 18, clayMax: 40, yieldT: 9.5, rootM: 2.8, build: 0.95 },
-  C02: { id: 'C02', name: 'Field Corn (Silage & Grain)', type: 'grain', isPerennial: false, roleTag: 'Grain • high silage & grain yield', water: 550, nFix: 0.0, droughtTol: 0.35, phMin: 5.8, phMax: 7.0, clayMin: 20, clayMax: 40, yieldT: 11.0, rootM: 1.2, build: 0.25 },
-  C03: { id: 'C03', name: 'Soybeans & Small Grains', type: 'legume', isPerennial: false, roleTag: 'Legume • nitrogen fixation & cover', water: 420, nFix: 0.75, droughtTol: 0.60, phMin: 6.0, phMax: 7.2, clayMin: 18, clayMax: 45, yieldT: 4.2, rootM: 1.3, build: 0.85 },
+  C01: { id: 'C01', name: 'Hay or Alfalfa (Haylage)', type: 'legume', isPerennial: false, roleTag: 'Forage legume • nitrogen fixation', water: 580, nFix: 0.85, droughtTol: 0.55, phMin: 6.2, phMax: 7.5, clayMin: 18, clayMax: 40, yieldT: 9.5, rootM: 2.8, build: 0.95 },
+  C02: { id: 'C02', name: 'Field Corn (Silage or Grain)', type: 'grain', isPerennial: false, roleTag: 'Grain • high silage or grain yield', water: 550, nFix: 0.0, droughtTol: 0.35, phMin: 5.8, phMax: 7.0, clayMin: 20, clayMax: 40, yieldT: 11.0, rootM: 1.2, build: 0.25 },
+  C03: { id: 'C03', name: 'Soybeans or Small Grains', type: 'legume', isPerennial: false, roleTag: 'Legume • nitrogen fixation or cover', water: 420, nFix: 0.75, droughtTol: 0.60, phMin: 6.0, phMax: 7.2, clayMin: 18, clayMax: 45, yieldT: 4.2, rootM: 1.3, build: 0.85 },
   C04: { id: 'C04', name: 'Apples', type: 'orchard', isPerennial: true, roleTag: 'Orchard • perennial tree fruit', water: 500, nFix: 0.0, droughtTol: 0.55, phMin: 6.0, phMax: 7.0, clayMin: 15, clayMax: 35, yieldT: 10.0, rootM: 2.0, build: 0.60 },
-  C05: { id: 'C05', name: 'Grapes (Juice & Wine)', type: 'vineyard', isPerennial: true, roleTag: 'Vineyard • deep roots & low water', water: 380, nFix: 0.0, droughtTol: 0.75, phMin: 5.5, phMax: 7.0, clayMin: 15, clayMax: 35, yieldT: 8.0, rootM: 2.2, build: 0.55 },
-  C06: { id: 'C06', name: 'Cherries, Peaches, Pears & Plums', type: 'orchard', isPerennial: true, roleTag: 'Stone & pome fruit • orchard block', water: 480, nFix: 0.0, droughtTol: 0.50, phMin: 6.0, phMax: 7.0, clayMin: 15, clayMax: 32, yieldT: 8.5, rootM: 1.8, build: 0.55 },
+  C05: { id: 'C05', name: 'Grapes (Juice or Wine)', type: 'vineyard', isPerennial: true, roleTag: 'Vineyard • deep roots or low water', water: 380, nFix: 0.0, droughtTol: 0.75, phMin: 5.5, phMax: 7.0, clayMin: 15, clayMax: 35, yieldT: 8.0, rootM: 2.2, build: 0.55 },
+  C06: { id: 'C06', name: 'Cherries, Peaches, Pears or Plums', type: 'orchard', isPerennial: true, roleTag: 'Stone or pome fruit • orchard block', water: 480, nFix: 0.0, droughtTol: 0.50, phMin: 6.0, phMax: 7.0, clayMin: 15, clayMax: 32, yieldT: 8.5, rootM: 1.8, build: 0.55 },
   C07: { id: 'C07', name: 'Berries', type: 'berry', isPerennial: true, roleTag: 'Small fruit • acidic soil specialist', water: 430, nFix: 0.0, droughtTol: 0.45, phMin: 4.8, phMax: 6.5, clayMin: 12, clayMax: 30, yieldT: 6.5, rootM: 0.6, build: 0.50 },
-  C08: { id: 'C08', name: 'Sugar Maple (Maple Syrup)', type: 'agroforestry', isPerennial: true, roleTag: 'Agroforestry • deep canopy & carbon', water: 450, nFix: 0.0, droughtTol: 0.70, phMin: 5.5, phMax: 7.2, clayMin: 15, clayMax: 38, yieldT: 4.5, rootM: 2.5, build: 0.90 },
+  C08: { id: 'C08', name: 'Sugar Maple (Maple Syrup)', type: 'agroforestry', isPerennial: true, roleTag: 'Agroforestry • deep canopy or carbon', water: 450, nFix: 0.0, droughtTol: 0.70, phMin: 5.5, phMax: 7.2, clayMin: 15, clayMax: 38, yieldT: 4.5, rootM: 2.5, build: 0.90 },
   C09: { id: 'C09', name: 'Cabbage', type: 'vegetable', isPerennial: false, roleTag: 'Brassica • high-value cool crop', water: 440, nFix: 0.0, droughtTol: 0.40, phMin: 6.0, phMax: 7.2, clayMin: 18, clayMax: 38, yieldT: 11.5, rootM: 0.6, build: 0.30 },
   C10: { id: 'C10', name: 'Onions', type: 'root_veg', isPerennial: false, roleTag: 'Allium • shallow root cash crop', water: 410, nFix: 0.0, droughtTol: 0.35, phMin: 6.0, phMax: 7.0, clayMin: 12, clayMax: 30, yieldT: 10.5, rootM: 0.4, build: 0.25 },
-  C11: { id: 'C11', name: 'Potatoes', type: 'root_veg', isPerennial: false, roleTag: 'Tuber • high yield & loose soil', water: 480, nFix: 0.0, droughtTol: 0.40, phMin: 5.2, phMax: 6.5, clayMin: 12, clayMax: 32, yieldT: 11.8, rootM: 0.7, build: 0.20 },
-  C12: { id: 'C12', name: 'Sweet Corn, Snap Beans & Green Peas', type: 'legume', isPerennial: false, roleTag: 'Vegetable legume • nitrogen builder', water: 430, nFix: 0.65, droughtTol: 0.50, phMin: 5.8, phMax: 7.0, clayMin: 15, clayMax: 38, yieldT: 7.5, rootM: 0.9, build: 0.75 },
-  C13: { id: 'C13', name: 'Beets, Carrots, Squash & Pumpkins', type: 'vegetable', isPerennial: false, roleTag: 'Root & vine veg • broad ground cover', water: 400, nFix: 0.0, droughtTol: 0.55, phMin: 5.8, phMax: 7.0, clayMin: 12, clayMax: 35, yieldT: 9.2, rootM: 0.9, build: 0.45 }
+  C11: { id: 'C11', name: 'Potatoes', type: 'root_veg', isPerennial: false, roleTag: 'Tuber • high yield or loose soil', water: 480, nFix: 0.0, droughtTol: 0.40, phMin: 5.2, phMax: 6.5, clayMin: 12, clayMax: 32, yieldT: 11.8, rootM: 0.7, build: 0.20 },
+  C12: { id: 'C12', name: 'Sweet Corn, Snap Beans or Green Peas', type: 'legume', isPerennial: false, roleTag: 'Vegetable legume • nitrogen builder', water: 430, nFix: 0.65, droughtTol: 0.50, phMin: 5.8, phMax: 7.0, clayMin: 15, clayMax: 38, yieldT: 7.5, rootM: 0.9, build: 0.75 },
+  C13: { id: 'C13', name: 'Beets, Carrots, Squash or Pumpkins', type: 'vegetable', isPerennial: false, roleTag: 'Root or vine veg • broad ground cover', water: 400, nFix: 0.0, droughtTol: 0.55, phMin: 5.8, phMax: 7.0, clayMin: 12, clayMax: 35, yieldT: 9.2, rootM: 0.9, build: 0.45 }
 };
 
 const CANDIDATE_SEQUENCES = [
-  ['C03', 'C02', 'C01'], // Soybeans & Small Grains -> Field Corn -> Hay & Alfalfa
-  ['C01', 'C02', 'C03'], // Hay & Alfalfa -> Field Corn -> Soybeans & Small Grains
-  ['C03', 'C02', 'C11'], // Soybeans & Small Grains -> Field Corn -> Potatoes
-  ['C12', 'C09', 'C10'], // Sweet Corn, Snap Beans & Green Peas -> Cabbage -> Onions
-  ['C03', 'C11', 'C13'], // Soybeans & Small Grains -> Potatoes -> Beets, Carrots, Squash & Pumpkins
-  ['C12', 'C11', 'C09'], // Sweet Corn, Snap Beans & Green Peas -> Potatoes -> Cabbage
-  ['C03', 'C09', 'C13'], // Soybeans & Small Grains -> Cabbage -> Beets, Carrots, Squash & Pumpkins
-  ['C12', 'C10', 'C13'], // Sweet Corn, Snap Beans & Green Peas -> Onions -> Beets, Carrots, Squash & Pumpkins
-  ['C02', 'C12', 'C13'], // Field Corn -> Sweet Corn, Snap Beans & Green Peas -> Beets, Carrots, Squash & Pumpkins
+  ['C03', 'C02', 'C01'], // Soybeans or Small Grains -> Field Corn -> Hay & Alfalfa
+  ['C01', 'C02', 'C03'], // Hay & Alfalfa -> Field Corn -> Soybeans or Small Grains
+  ['C03', 'C02', 'C11'], // Soybeans or Small Grains -> Field Corn -> Potatoes
+  ['C12', 'C09', 'C10'], // Sweet Corn, Snap Beans or Green Peas -> Cabbage -> Onions
+  ['C03', 'C11', 'C13'], // Soybeans or Small Grains -> Potatoes -> Beets, Carrots, Squash or Pumpkins
+  ['C12', 'C11', 'C09'], // Sweet Corn, Snap Beans or Green Peas -> Potatoes -> Cabbage
+  ['C03', 'C09', 'C13'], // Soybeans or Small Grains -> Cabbage -> Beets, Carrots, Squash or Pumpkins
+  ['C12', 'C10', 'C13'], // Sweet Corn, Snap Beans or Green Peas -> Onions -> Beets, Carrots, Squash or Pumpkins
+  ['C02', 'C12', 'C13'], // Field Corn -> Sweet Corn, Snap Beans or Green Peas -> Beets, Carrots, Squash or Pumpkins
   ['C04', 'C07', 'C05'], // Apples -> Berries -> Grapes
-  ['C06', 'C04', 'C08']  // Cherries, Peaches, Pears & Plums -> Apples -> Sugar Maple
+  ['C06', 'C04', 'C08']  // Cherries, Peaches, Pears or Plums -> Apples -> Sugar Maple
 ];
 
 const PRIORITY_PROFILES = {
@@ -694,7 +694,7 @@ function getRankedRotations() {
 function evaluateCropSelection(selectedIds, topPick) {
   const count = selectedIds.length;
   const pickedNames = selectedIds.map((id) => CROPS_DATA[id]?.name).filter(Boolean);
-  const recLabel = topPick ? topPick.label : 'Soybeans & Small Grains → Field Corn (Silage & Grain) → Hay & Alfalfa (Haylage)';
+  const recLabel = topPick ? topPick.label : 'Soybeans or Small Grains → Field Corn (Silage or Grain) → Hay or Alfalfa (Haylage)';
 
   if (count === 0) {
     return {
@@ -1109,7 +1109,7 @@ function renderClimateLineChart(field) {
 
   if (rainExplEl) {
     const signRain = rainDiff >= 0 ? `+${rainDiff} mm` : `${rainDiff} mm`;
-    rainExplEl.textContent = `From 2020 to 2024 on ${activeFieldLabel}, annual growing-season rainfall changed by ${signRain} (${rainSeries[0]} mm to ${rainSeries[4]} mm). An increase in rainfall (+mm) recharges root-zone soil moisture and supports higher-transpiration crops like Hay & Alfalfa and Field Corn. A decrease in rainfall (-mm) elevates drought risk and shifts our rotation score toward water-safe legumes like Soybeans & Small Grains.`;
+    rainExplEl.textContent = `From 2020 to 2024 on ${activeFieldLabel}, annual growing-season rainfall changed by ${signRain} (${rainSeries[0]} mm to ${rainSeries[4]} mm). An increase in rainfall (+mm) recharges root-zone soil moisture and supports higher-transpiration crops like Hay & Alfalfa and Field Corn. A decrease in rainfall (-mm) elevates drought risk and shifts our rotation score toward water-safe legumes like Soybeans or Small Grains.`;
   }
 }
 
@@ -1147,7 +1147,7 @@ function renderDashboard() {
   const selectedIds = appState.selectedCrops || [];
 
   // Sidebar trigger labels for Previous Crop (single-select), Priority Profile, and Crops
-  const prevSummaryText = CROPS_DATA[appState.previousCropId]?.name || 'Field Corn (Silage & Grain)';
+  const prevSummaryText = CROPS_DATA[appState.previousCropId]?.name || 'Field Corn (Silage or Grain)';
   const prevCropTrigLabel = document.getElementById('sidebar-prev-crop-label');
   const profileTrigLabel = document.getElementById('sidebar-profile-label');
   const equipTrigLabel = document.getElementById('sidebar-equip-label');
@@ -1405,7 +1405,7 @@ function renderDashboard() {
       backendLine1.textContent = `Your moisture probe indicates dry topsoil (${localMoist.toFixed(2)} m³/m³ vs NASA ${field.moistureAvg.toFixed(2)} m³/m³). Backend advises reducing tillage, scheduling supplemental irrigation if available, and leading with nitrogen-fixing legumes that tolerate dry spells.`;
     }
     if (backendLine2) {
-      backendLine2.textContent = `Backend recommended rotation for Dry soil: ${topPick ? topPick.label : 'Soybeans & Small Grains → Beets, Carrots, Squash & Pumpkins → Hay & Alfalfa (Haylage)'}.`;
+      backendLine2.textContent = `Backend recommended rotation for Dry soil: ${topPick ? topPick.label : 'Soybeans or Small Grains → Beets, Carrots, Squash or Pumpkins → Hay or Alfalfa (Haylage)'}.`;
     }
   } else {
     const localMoist = Math.min(0.49, field.moistureAvg + 0.06);
@@ -1424,7 +1424,7 @@ function renderDashboard() {
       backendLine1.textContent = `Your moisture probe confirms wet root-zone conditions (${localMoist.toFixed(2)} m³/m³ vs NASA ${field.moistureAvg.toFixed(2)} m³/m³). Backend advises monitoring field drainage to prevent root compaction and taking advantage of strong moisture reserves for high-biomass crops.`;
     }
     if (backendLine2) {
-      backendLine2.textContent = `Backend recommended rotation for Wet soil: ${topPick ? topPick.label : 'Soybeans & Small Grains → Field Corn (Silage & Grain) → Hay & Alfalfa (Haylage)'}.`;
+      backendLine2.textContent = `Backend recommended rotation for Wet soil: ${topPick ? topPick.label : 'Soybeans or Small Grains → Field Corn (Silage or Grain) → Hay or Alfalfa (Haylage)'}.`;
     }
   }
 
