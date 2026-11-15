@@ -361,7 +361,7 @@ const appState = {
   currentView: 'landing-view',
   activeTab: 'rotations',
   selectedCity: 'Albany',
-  previousCrops: ['C02'],
+  previousCropId: 'C02',
   fieldCount: 8,
   selectedFieldNumber: 1,
   selectedFieldId: 'F001',
@@ -636,17 +636,16 @@ function getRankedRotations() {
       selectionBonus = matchCount * 0.05;
     }
 
-    // Factor in what the previous crops planted were so Year 01 avoids repeating them
-    const prevIds = appState.previousCrops || [];
-    const prevCropObjs = prevIds.map((id) => CROPS_DATA[id]).filter(Boolean);
+    // Factor in what the previous crop planted was so Year 01 does not repeat it
+    const prevCrop = CROPS_DATA[appState.previousCropId];
     const year1Crop = CROPS_DATA[seq[0]];
     let prevCropDelta = 0;
-    if (prevCropObjs.length > 0 && year1Crop) {
-      if (prevIds.includes(year1Crop.id)) {
+    if (prevCrop && year1Crop) {
+      if (prevCrop.id === year1Crop.id) {
         prevCropDelta = -0.08;
-      } else if (prevCropObjs.some((p) => p.nFix === 0.0) && year1Crop.nFix >= 0.5) {
+      } else if (prevCrop.nFix === 0.0 && year1Crop.nFix >= 0.5) {
         prevCropDelta = 0.04;
-      } else if (prevCropObjs.every((p) => p.type !== year1Crop.type)) {
+      } else if (prevCrop.type !== year1Crop.type) {
         prevCropDelta = 0.02;
       }
     }
@@ -1123,28 +1122,12 @@ function renderDashboard() {
   const topPick = ranked[appState.selectedRankIndex] || ranked[0];
   const selectedIds = appState.selectedCrops || [];
 
-  // Sidebar trigger labels for Previous Crops (multi-select), Priority Profile, and Crops
-  const prevIds = appState.previousCrops || [];
-  const prevNames = prevIds.map((id) => CROPS_DATA[id]?.name).filter(Boolean);
-  const prevSummaryText =
-    prevNames.length === 0
-      ? 'None selected'
-      : prevNames.length <= 2
-      ? prevNames.join(', ')
-      : `${prevNames.slice(0, 2).join(', ')} +${prevNames.length - 2} more`;
-
+  // Sidebar trigger labels for Previous Crop (single-select), Priority Profile, and Crops
+  const prevSummaryText = CROPS_DATA[appState.previousCropId]?.name || 'Field Corn (Silage & Grain)';
   const prevCropTrigLabel = document.getElementById('sidebar-prev-crop-label');
   const profileTrigLabel = document.getElementById('sidebar-profile-label');
   const equipTrigLabel = document.getElementById('sidebar-equip-label');
-  if (prevCropTrigLabel) {
-    if (prevIds.length === 0) {
-      prevCropTrigLabel.textContent = 'Select previous crops...';
-    } else if (prevIds.length === 1) {
-      prevCropTrigLabel.textContent = CROPS_DATA[prevIds[0]]?.name || '1 previous crop';
-    } else {
-      prevCropTrigLabel.textContent = `${prevIds.length} previous crops selected`;
-    }
-  }
+  if (prevCropTrigLabel) prevCropTrigLabel.textContent = prevSummaryText;
   if (profileTrigLabel) profileTrigLabel.textContent = appState.selectedProfile;
   if (equipTrigLabel) {
     if (selectedIds.length === 0) {
@@ -1158,11 +1141,7 @@ function renderDashboard() {
 
   // Highlight active items inside sidebar dropdowns
   document.querySelectorAll('[data-prev-crop-option]').forEach((btn) => {
-    const cid = btn.dataset.prevCropOption;
-    const isChecked = prevIds.includes(cid);
-    btn.classList.toggle('active-option', isChecked);
-    const box = btn.querySelector('.crop-check-box');
-    if (box) box.textContent = isChecked ? '✓' : '';
+    btn.classList.toggle('active-option', btn.dataset.prevCropOption === appState.previousCropId);
   });
   document.querySelectorAll('[data-profile-option]').forEach((btn) => {
     btn.classList.toggle('active-option', btn.dataset.profileOption === appState.selectedProfile);
@@ -1538,52 +1517,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Dashboard sidebar dropdown 1: Previous crop planted (multi-select)
+  // Dashboard sidebar dropdown 1: Previous crop planted (single-select)
   const prevCropTrigger = document.getElementById('sidebar-prev-crop-trigger');
-  const prevCropMenu = document.getElementById('sidebar-prev-crop-menu');
   if (prevCropTrigger) {
     prevCropTrigger.addEventListener('click', (e) => {
       toggleDropdown('sidebar-prev-crop-menu', 'sidebar-prev-crop-trigger', e);
-    });
-  }
-  if (prevCropMenu) {
-    prevCropMenu.addEventListener('click', (e) => {
-      e.stopPropagation();
     });
   }
 
   document.querySelectorAll('[data-prev-crop-option]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const cid = btn.dataset.prevCropOption;
-      const idx = appState.previousCrops.indexOf(cid);
-      if (idx >= 0) {
-        appState.previousCrops.splice(idx, 1);
-      } else {
-        appState.previousCrops.push(cid);
-      }
+      appState.previousCropId = btn.dataset.prevCropOption;
       appState.selectedRankIndex = 0;
+      closeAllDropdowns();
       renderDashboard();
     });
   });
-
-  const prevCropsClearBtn = document.getElementById('prev-crops-clear-btn');
-  if (prevCropsClearBtn) {
-    prevCropsClearBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      appState.previousCrops = [];
-      appState.selectedRankIndex = 0;
-      renderDashboard();
-    });
-  }
-
-  const prevCropsDoneBtn = document.getElementById('prev-crops-done-btn');
-  if (prevCropsDoneBtn) {
-    prevCropsDoneBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      closeAllDropdowns();
-    });
-  }
 
   // Tab 2: Field count input, active field selector, and border drawing on the map
   const mapFieldCountInput = document.getElementById('map-field-count-input');
