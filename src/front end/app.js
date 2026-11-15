@@ -362,7 +362,7 @@ const appState = {
   activeTab: 'rotations',
   selectedCity: 'Albany',
   previousCropId: 'C02',
-  fieldCount: 8,
+  fieldCount: 1,
   selectedFieldNumber: 1,
   selectedFieldId: 'F001',
   customFieldBorders: {},
