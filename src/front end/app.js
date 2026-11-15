@@ -239,7 +239,7 @@ const CITY_LOCATIONS = {
   Albany: {
     cityKey: 'Albany',
     label: 'Albany, New York',
-    displayCoords: '27.00101, 280.1',
+    displayCoords: '42.6526, -73.7562',
     lat: '42.6526',
     lon: '-73.7562',
     defaultField: 'F001'
@@ -1480,16 +1480,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Step 1 search input filters cities on the map
-  const mapSearch = document.getElementById('step1-map-search');
-  if (mapSearch) {
-    mapSearch.addEventListener('input', (e) => {
-      const q = e.target.value.trim().toLowerCase();
-      if (!q) return;
-      const matchKey = Object.keys(CITY_LOCATIONS).find((k) => k.toLowerCase().includes(q));
-      if (matchKey) selectCityLocation(matchKey);
-    });
-  }
+  // Step 1 search box: address lookup lives in maps.js (Google geocoder, OpenStreetMap fallback)
 
   // Step 1 map zoom controls
   const zoomInBtn = document.getElementById('map-zoom-in');

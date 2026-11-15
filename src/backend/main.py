@@ -904,6 +904,15 @@ if FastAPI is not None:
         FRONTEND_DIR = BACKEND_DIR.parent / "front end"
         if FRONTEND_DIR.is_dir():
             app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
+
+            # Make browsers re-check the dashboard files every load, so edits to
+            # app.js / api.js / maps.js show up instead of a stale cached copy
+            @app.middleware("http")
+            async def no_stale_frontend(request, call_next):
+                response = await call_next(request)
+                if request.method == "GET" and not response.headers.get("cache-control"):
+                    response.headers["Cache-Control"] = "no-cache"
+                return response
     except ImportError:
         pass
 else:
