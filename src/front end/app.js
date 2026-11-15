@@ -1,4 +1,4 @@
-﻿// Client-side state, rotation scoring engine, and UI interactions for Farming Aura
+// Client-side state, rotation scoring engine, and UI interactions for Farming Aura
 
 const FIELDS_DATA = {
   F001: {
