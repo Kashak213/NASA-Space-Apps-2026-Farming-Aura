@@ -689,6 +689,10 @@ def analyze_location_and_crops(
             "drainage_score": round(soil_drainage_score(soil_data), 3),
         },
         "climate": climate_data,
+        "nasa_yearly": {
+            key: nasa_result.get("summary", {}).get(key, {})
+            for key in ("yearly_spring_precip_mm", "yearly_summer_precip_mm", "yearly_summer_temp_c")
+        },
         "previous_crops_matched": [
             {
                 "crop_id": c["crop_id"],

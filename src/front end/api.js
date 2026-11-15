@@ -29,6 +29,7 @@
   const sampleFields = JSON.parse(JSON.stringify(FIELDS_DATA));
   const localRanking = getRankedRotations;
 
+  // What the dashboard currently shows. Used as the cache key and turned into the backend's format below.
   function buildRequest() {
     const latInput = document.getElementById('step1-lat-input');
     const lonInput = document.getElementById('step1-lon-input');
@@ -36,11 +37,9 @@
     const lon = parseFloat(lonInput ? lonInput.value : '');
     return {
       field_id: appState.selectedFieldId,
-      city: appState.selectedCity,
       lat: Number.isFinite(lat) ? lat : null,
       lon: Number.isFinite(lon) ? lon : null,
       profile: appState.selectedProfile,
-      intensity: appState.profileIntensity,
       selected_crops: appState.selectedCrops || [],
       previous_crop: appState.previousCropId,
       max_water: appState.maxWaterDemand,
@@ -49,34 +48,147 @@
     };
   }
 
-  // Put NASA's rain and temperature onto the selected field, or put the sample numbers back
+  // ---- Translating between the dashboard and the backend's /analyze (src/backend/main.py) ----
+  const DRY_PROBE_SOIL_MOISTURE = 0.12; // volumetric water content the dry probe reading stands for
+  const SELECTED_CROP_BONUS = 0.05; // per selected crop, so rotations using the farmer's picks rank first
+
+  function toBackendPayload(request) {
+    const payload = {
+      lat: request.lat,
+      lon: request.lon,
+      selected_crops: request.selected_crops,
+      previous_crop: request.previous_crop || null,
+      profile_name: request.profile || 'Balanced',
+      max_water_demand_mm: Number.isFinite(request.max_water) ? request.max_water : null,
+      top_n: 20 // ask for plenty, a few can be dropped when they repeat a crop group the dashboard merges
+    };
+    if (request.dry_probe) payload.sensor_overrides = { soil_moisture: DRY_PROBE_SOIL_MOISTURE };
+    return payload;
+  }
+
+  // The backend splits a few of the dashboard's merged crop groups (it has 17 crops, the dashboard 13).
+  // Load its crop list once and add the extra ones so their names and numbers can be shown.
+  let backendCropsLoaded = false;
+  fetch(`${API_BASE}/crops`)
+    .then((res) => (res.ok ? res.json() : null))
+    .then((data) => {
+      (data && data.crops ? data.crops : []).forEach((c) => {
+        if (CROPS_DATA[c.crop_id]) return; // the dashboard's own wording wins for crops it already has
+        CROPS_DATA[c.crop_id] = {
+          id: c.crop_id,
+          name: c.crop_name,
+          type: c.crop_type,
+          isPerennial: Boolean(c.is_perennial),
+          roleTag: String(c.crop_type || 'crop').replace(/_/g, ' '),
+          water: Number(c.water_demand_mm) || 450,
+          nFix: Number(c.nitrogen_fixation) || 0,
+          droughtTol: Number(c.drought_tolerance) || 0.5,
+          phMin: Number(c.optimal_ph_min) || 6.0,
+          phMax: Number(c.optimal_ph_max) || 7.0,
+          clayMin: Number(c.optimal_clay_min) || 15,
+          clayMax: Number(c.optimal_clay_max) || 35,
+          yieldT: Number(c.typical_yield_t_ha) || 5,
+          rootM: Number(c.root_depth_m) || 1,
+          build: Number(c.soil_building_score) || 0.5
+        };
+      });
+      backendCropsLoaded = true;
+      if (answers.size) renderAll();
+    })
+    .catch(() => {});
+
+  // Backend rotation row -> the row shape app.js draws
+  function toDashboardRow(row, selectedIds) {
+    const seqIds = String(row.seq_ids || '')
+      .split('->')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const crops = seqIds.map((id) => CROPS_DATA[id]);
+    if (!seqIds.length || crops.some((c) => !c)) return null;
+    const matchCount = seqIds.filter((id) => selectedIds.includes(id)).length;
+    const totalScore = Number(row.total_score) || 0;
+    return {
+      seqIds,
+      crops,
+      label: crops.map((c) => c.name).join(' → '),
+      totalScore,
+      soilHealth: Number(row.soil_health) || 0,
+      waterSafety: Number(row.water_stress) || 0, // backend's water_stress: higher = safer
+      resilience: Number(row.climate_res) || 0,
+      yieldPotential: Number(row.yield_potential) || 0,
+      nFixAvg: Number(row.nitrogen_fixation) || 0,
+      matchCount,
+      sortScore: totalScore + SELECTED_CROP_BONUS * matchCount
+    };
+  }
+
+  function toRankedRows(data, request) {
+    const rows = (data.recommended_rotations || [])
+      .map((row) => toDashboardRow(row, request.selected_crops))
+      .filter(Boolean);
+    rows.sort((a, b) => b.sortScore - a.sortScore || b.totalScore - a.totalScore);
+    return rows;
+  }
+
+  // Real NASA POWER weather and USDA soil numbers, in the field keys app.js reads
+  function toFieldUpdate(data) {
+    const update = {};
+    const put = (key, value) => {
+      if (typeof value === 'number' && Number.isFinite(value)) update[key] = value;
+    };
+    const sources = data.data_sources || {};
+    const climate = data.climate || {};
+    const yearly = data.nasa_yearly || {};
+
+    if (sources.nasa_power === 'live' || sources.nasa_power === 'cache') {
+      put('tempSummer', climate.summer_temp_c);
+      put('moistureAvg', climate.soil_moisture_avg);
+      put('mapMoisture', climate.soil_moisture_avg);
+      ['2023', '2024'].forEach((yr) => {
+        put(`spring${yr}Precip`, (yearly.yearly_spring_precip_mm || {})[yr]);
+        put(`summer${yr}Precip`, (yearly.yearly_summer_precip_mm || {})[yr]);
+      });
+    }
+    // 'fallback' soil is a generic default loam, so only real USDA SSURGO readings replace the sample field
+    if (sources.usda_soil && sources.usda_soil !== 'fallback') {
+      const soil = data.soil || {};
+      put('ph', soil.ph);
+      put('oc', soil.organic_carbon_pct);
+      put('clay', soil.clay_pct);
+      put('sand', soil.sand_pct);
+      put('bd', soil.bulk_density);
+      put('cec', soil.cec);
+      put('mapSoilScore', soil.baseline_soil_score);
+    }
+    return update;
+  }
+
+  // Put the backend's numbers onto the selected field, or put the sample numbers back
   function applyFieldUpdate(fieldId, update) {
     const field = FIELDS_DATA[fieldId];
     if (!field || !sampleFields[fieldId]) return;
     Object.assign(field, sampleFields[fieldId], update || {});
   }
 
-  // The backend sends crop ids, app.js wants the full crop objects
-  function toDashboardShape(row) {
-    return { ...row, crops: row.seqIds.map((id) => CROPS_DATA[id]).filter(Boolean) };
-  }
-
   function askBackend(key, request) {
     if (waiting.has(key)) return;
     if (backendDownSince && Date.now() - backendDownSince < RETRY_AFTER_MS) return;
+    if (request.lat === null || request.lon === null) return; // the backend needs a location
     waiting.add(key);
 
     fetch(`${API_BASE}/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request)
+      body: JSON.stringify(toBackendPayload(request))
     })
       .then((res) => {
         if (!res.ok) throw new Error(`backend said ${res.status}`);
         return res.json();
       })
       .then((data) => {
-        if (!data || !Array.isArray(data.ranked) || !data.ranked.length) throw new Error('empty answer');
+        if (!data || !Array.isArray(data.recommended_rotations) || !data.recommended_rotations.length) {
+          throw new Error('empty answer');
+        }
         backendDownSince = 0;
         answers.set(key, data);
         // only redraw if the farmer hasn't changed something else in the meantime
@@ -99,9 +211,14 @@
     const data = answers.get(key);
 
     if (data) {
-      applyFieldUpdate(request.field_id, data.field_update);
-      lastSource = data.nasa_source;
-      return data.ranked.map(toDashboardShape);
+      const rows = toRankedRows(data, request);
+      if (rows.length) {
+        applyFieldUpdate(request.field_id, toFieldUpdate(data));
+        lastSource = (data.data_sources || {}).nasa_power || 'demo';
+        return rows;
+      }
+      // every row used a crop we couldn't show yet; the built-in ranking covers until /crops loads
+      if (backendCropsLoaded) console.warn('[Farming Aura] backend rotations could not be shown, using built-in scoring.');
     }
 
     askBackend(key, request);

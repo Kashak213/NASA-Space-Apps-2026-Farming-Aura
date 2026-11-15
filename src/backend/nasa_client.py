@@ -63,6 +63,8 @@ MONTH_DAYS: dict[str, float] = {
 }
 GROWING_SEASON_MONTHS: tuple[str, ...] = ("05", "06", "07", "08", "09")
 SUMMER_MONTHS: tuple[str, ...] = ("06", "07", "08")
+SPRING_MONTHS: tuple[str, ...] = ("03", "04", "05")
+DAYS_PER_SEASON = 92.0  # March-May and June-August both have 92 days
 
 
 def _http_get_json(url: str, params: dict[str, Any], timeout: int = 10) -> dict[str, Any]:
@@ -297,6 +299,12 @@ def summarize_parameters(
         "growing_season_gwetroot": growing_gwetroot_avg or gwetroot_avg,
         "precip_anom_trend": precip_anom_trend,
         "drought_trend": drought_trend,
+        # Per-year season totals, so the dashboard's year-by-year climate chart can show real NASA numbers
+        "yearly_spring_precip_mm": {
+            yr: round(v * DAYS_PER_SEASON, 1) for yr, v in _yearly_means("PRECTOTCORR", SPRING_MONTHS).items()
+        },
+        "yearly_summer_precip_mm": {yr: round(v * DAYS_PER_SEASON, 1) for yr, v in yearly_summer_precip.items()},
+        "yearly_summer_temp_c": {yr: round(v, 2) for yr, v in yearly_summer_temp.items()},
     }
 
 
