@@ -42,6 +42,12 @@ from fetch_soil import fetch_usda_soil
 # Import the NASA POWER client to get sunlight, wind speed, rainfall, temperature, and root wetness
 from nasa_client import fetch_nasa_power
 
+# Gemini writes the plain-English dashboard explanations; the key stays on the backend only
+from gemini_client import explain_dashboard, gemini_is_configured
+
+# gemini_client puts src/ on sys.path, so the shared .env reader is importable here
+from config import get_google_maps_api_key  # noqa: E402
+
 # Import the 7-weight scoring functions and preset farmer priority profiles from scoring.py
 from scoring import (
     PROFILES,
@@ -790,9 +796,17 @@ if FastAPI is not None:
         )
 
     @app.get("/health")
-    def health_check() -> dict[str, str]:
+    def health_check() -> dict[str, Any]:
         """Simple health check endpoint so the frontend knows the backend server is awake."""
-        return {"status": "ok"}
+        return {"status": "ok", "gemini": gemini_is_configured()}
+
+    @app.get("/config")
+    def public_config() -> dict[str, Any]:
+        """
+        Browser-safe settings. Only the Google Maps key goes out (it is locked to our sites
+        in Google Cloud). GEMINI_API_KEY must never be added here; it stays backend-only.
+        """
+        return {"google_maps_api_key": get_google_maps_api_key()}
 
     @app.get("/crops")
     def list_available_crops() -> dict[str, Any]:
@@ -828,6 +842,79 @@ if FastAPI is not None:
         except ValueError as exc:
             # Return HTTP 400 Bad Request if coordinates or profile names are invalid
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    class ExplainRequestModel(BaseModel):  # type: ignore[misc]
+        """What is on the dashboard right now, sent as ids and numbers so Gemini only sees clean data."""
+
+        field_number: int = 1
+        city: str = "Albany"
+        profile: str = "Balanced"
+        previous_crop: Optional[str] = None
+        max_water: int = 550
+        probe: str = "off"
+        rotation: list[str] = []
+        scores: dict[str, float] = {}
+        total_score: float = 0.0
+        years: list[int] = []
+        summer_temp_c: list[float] = []
+        season_rain_mm: list[float] = []
+
+    @app.post("/explain")
+    def explain_endpoint(req: ExplainRequestModel) -> dict[str, Any]:
+        """Ask Gemini to put the top rotation and the climate chart into plain English."""
+        if not gemini_is_configured():
+            return {"enabled": False, "text": None}
+
+        catalog = load_crops()
+        rotation_crops = [c for c in (get_crop_by_id(cid, catalog) for cid in req.rotation) if c][:3]
+        if len(rotation_crops) < 3:
+            return {"enabled": True, "text": None}
+
+        previous = get_crop_by_id(req.previous_crop, catalog) if req.previous_crop else None
+        score_names = ("soil_health", "water_safety", "resilience", "yield_potential", "nitrogen_fixation")
+        points = min(len(req.years), len(req.summer_temp_c), len(req.season_rain_mm), 10)
+
+        facts = {
+            "field": f"Field F{max(1, req.field_number):03d} near {req.city or 'a custom location'}, New York",
+            "farmer_priority": req.profile if req.profile in PROFILES else "Balanced",
+            "previous_crop": previous["crop_name"] if previous else "not given",
+            "max_water_demand_mm_per_year": req.max_water,
+            "moisture_probe": req.probe if req.probe in ("wet", "dry") else "not used",
+            "recommended_rotation": [
+                {
+                    "year": i + 1,
+                    "crop": c["crop_name"],
+                    "type": c.get("crop_type"),
+                    "water_need_mm": c.get("water_demand_mm"),
+                    "fixes_nitrogen": float(c.get("nitrogen_fixation") or 0) >= 0.5,
+                }
+                for i, c in enumerate(rotation_crops)
+            ],
+            "rotation_total_score_0_to_1": round(req.total_score, 2),
+            "scores_0_to_1": {k: round(float(req.scores[k]), 2) for k in score_names if k in req.scores},
+            "summer_temperature_c_by_year": {str(req.years[i]): req.summer_temp_c[i] for i in range(points)},
+            "growing_season_rain_mm_by_year": {str(req.years[i]): round(req.season_rain_mm[i]) for i in range(points)},
+        }
+        return {"enabled": True, "text": explain_dashboard(facts)}
+
+    # Serve the dashboard too, so http://localhost:8000 runs the whole app. Must stay below the routes.
+    try:
+        from fastapi.staticfiles import StaticFiles
+
+        FRONTEND_DIR = BACKEND_DIR.parent / "front end"
+        if FRONTEND_DIR.is_dir():
+            app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
+
+            # Make browsers re-check the dashboard files every load, so edits to
+            # app.js / api.js / maps.js show up instead of a stale cached copy
+            @app.middleware("http")
+            async def no_stale_frontend(request, call_next):
+                response = await call_next(request)
+                if request.method == "GET" and not response.headers.get("cache-control"):
+                    response.headers["Cache-Control"] = "no-cache"
+                return response
+    except ImportError:
+        pass
 else:
     # Keep app set to None when FastAPI is not installed so importing main.py still works
     app = None

@@ -110,7 +110,8 @@
                     id="step1-map-search"
                     type="text"
                     class="map-search-input"
-                    placeholder="Search city, county or ZIP code"
+                    placeholder="Search an address, city or ZIP code, then press Enter"
+                    autocomplete="off"
                   />
                 </div>
 
@@ -181,34 +182,8 @@
                   />
                 </svg>
 
-                <!-- Interactive City Pins -->
-                <div class="city-pin" data-city="Saratoga Springs" style="top: 25%; left: 47%;">
-                  <div class="city-pin-dot"></div>
-                  <div class="city-pin-label">Saratoga Springs</div>
-                </div>
-
-                <div class="city-pin" data-city="Schenectady" style="top: 43.5%; left: 25.5%;">
-                  <div class="city-pin-dot"></div>
-                  <div class="city-pin-label">Schenectady</div>
-                </div>
-
-                <div class="city-pin" data-city="Troy" style="top: 46.5%; left: 65%;">
-                  <div class="city-pin-dot"></div>
-                  <div class="city-pin-label">Troy</div>
-                </div>
-
-                <div class="city-pin selected-city" data-city="Albany" style="top: 58%; left: 44.5%;">
-                  <div class="city-pin-dot"></div>
-                  <div class="city-pin-label">Albany</div>
-                </div>
-
-                <div class="city-pin" data-city="Hudson" style="top: 84.5%; left: 42%;">
-                  <div class="city-pin-dot"></div>
-                  <div class="city-pin-label">Hudson</div>
-                </div>
-
                 <div class="map-Disclaim-caption">
-                  Interactive schematic • approximate city locations • not for navigation
+                  Schematic preview • search an address above to set your farm location
                 </div>
               </div>
             </div>
@@ -220,37 +195,7 @@
                 <div id="step1-region-selected" class="region-display-box">Albany, New York</div>
 
                 <h2 class="region-section-title">LATITUDE / LONGITUDE</h2>
-                <div id="step1-latlon-display" class="region-display-box">27.00101, 280.1</div>
-
-                <h2 class="region-section-title">CHANGE REGION</h2>
-                <div class="region-dropdown-wrap">
-                  <button type="button" id="step1-dropdown-trigger" class="region-dropdown-trigger">
-                    <span id="step1-dropdown-label">Search another location</span>
-                    <span>&#8964;</span>
-                  </button>
-                  <div id="step1-dropdown-menu" class="region-dropdown-menu">
-                    <button type="button" class="region-dropdown-item active-item" data-city="Albany">
-                      <span>Albany, New York</span>
-                      <span>42.65, -73.76</span>
-                    </button>
-                    <button type="button" class="region-dropdown-item" data-city="Saratoga Springs">
-                      <span>Saratoga Springs, New York</span>
-                      <span>43.08, -73.78</span>
-                    </button>
-                    <button type="button" class="region-dropdown-item" data-city="Schenectady">
-                      <span>Schenectady, New York</span>
-                      <span>42.81, -73.94</span>
-                    </button>
-                    <button type="button" class="region-dropdown-item" data-city="Troy">
-                      <span>Troy, New York</span>
-                      <span>42.73, -73.69</span>
-                    </button>
-                    <button type="button" class="region-dropdown-item" data-city="Hudson">
-                      <span>Hudson, New York</span>
-                      <span>42.25, -73.79</span>
-                    </button>
-                  </div>
-                </div>
+                <div id="step1-latlon-display" class="region-display-box">42.6526, -73.7562</div>
 
                 <div class="region-latlon-grid">
                   <div class="region-coord-pill">
@@ -937,5 +882,8 @@
   </div>
 
   <script src="app.js"></script>
+  <script src="api.js"></script>
+  <script src="maps.js"></script>
+  <script src="field-map.js"></script>
 </body>
 </html>

@@ -46,10 +46,10 @@ def get_google_maps_api_key() -> str | None:
 
 
 def get_gemini_api_key() -> str | None:
-    """Returns Gemini API key if set, otherwise None."""
+    """Backend-only Gemini key. Never send this to the browser."""
     return get_secret("GEMINI_API_KEY")
 
 
 def get_gemini_model() -> str:
-    """Returns the Gemini model to use, defaulting to gemini-3.1-flash-lite-preview."""
-    return get_secret("GEMINI_MODEL", default="gemini-3.1-flash-lite-preview") or "gemini-3.1-flash-lite-preview"
+    """Gemini model name, overridable with GEMINI_MODEL in .env."""
+    return get_secret("GEMINI_MODEL") or "gemini-3.1-flash-lite-preview"
