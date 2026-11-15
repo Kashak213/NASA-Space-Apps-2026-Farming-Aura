@@ -192,11 +192,11 @@
           Search for your town or coordinates below, then click around the edges of your property on the satellite map to highlight your outer farm boundary.
         </p>
         <div class="input-row">
-          <input id="location-search-input" type="text" placeholder="Search town, address, or lat, lon (e.g. Geneva, NY)" onkeydown="if(event.key==='Enter') searchLocation()" />
+          <input id="location-search-input" type="text" title="Search farm location" aria-label="Search farm location" placeholder="Search town, address, or lat, lon (e.g. Geneva, NY)" onkeydown="if(event.key==='Enter') searchLocation()" />
           <button class="btn-secondary" onclick="searchLocation()">Fly To</button>
         </div>
         <div class="input-row">
-          <select id="preset-region-select" onchange="jumpToPresetRegion(this.value)">
+          <select id="preset-region-select" title="Jump to a New York Farming Region" aria-label="Jump to a New York Farming Region" onchange="jumpToPresetRegion(this.value)">
             <option value="">Jump to a New York Farming Region...</option>
             <option value="42.70,-76.80,16">Finger Lakes (Seneca / Cayuga)</option>
             <option value="42.85,-77.80,16">Genesee Valley (Livingston County)</option>
@@ -262,16 +262,16 @@
 
         <div class="panel-box" style="background: var(--bg-dark)">
           <h2>Farm-Wide Goal &amp; Crop Filter</h2>
-          <label class="stat-label">Default Farmer Priority Profile</label>
-          <select id="global-profile-select">
+          <label class="stat-label" for="global-profile-select">Default Farmer Priority Profile</label>
+          <select id="global-profile-select" title="Default Farmer Priority Profile">
             <option value="Balanced">Balanced (Soil + Water + Yield)</option>
             <option value="Max Yield">Max Yield</option>
             <option value="Water Conservation">Water Conservation</option>
             <option value="Soil Health First">Soil Health First</option>
             <option value="Climate Resilient">Climate Resilient</option>
           </select>
-          <label class="stat-label" style="margin-top:4px">Rotation Cycle Length</label>
-          <select id="global-rotation-years">
+          <label class="stat-label" for="global-rotation-years" style="margin-top:4px">Rotation Cycle Length</label>
+          <select id="global-rotation-years" title="Rotation Cycle Length">
             <option value="3" selected>3-Year Crop Rotation</option>
             <option value="4">4-Year Crop Rotation</option>
           </select>
@@ -833,13 +833,13 @@
             <div class="sector-head">
               <div style="display:flex;align-items:center;gap:8px;flex:1">
                 <span class="color-dot" style="background:${s.color}"></span>
-                <input type="text" value="${s.name}" onclick="event.stopPropagation()" oninput="updateSectorName('${s.sector_id}', this.value)" />
+                <input type="text" title="Sector name" aria-label="Sector name" value="${s.name}" onclick="event.stopPropagation()" oninput="updateSectorName('${s.sector_id}', this.value)" />
               </div>
               <button class="btn-danger" style="padding:4px 8px;font-size:0.74rem" onclick="event.stopPropagation(); deleteSector('${s.sector_id}')">Delete</button>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:0.78rem;color:var(--text-muted)">
               <span><b>${s.area_acres.toFixed(2)} ac</b> (${s.area_hectares.toFixed(2)} ha)</span>
-              <select style="width:auto;padding:4px 8px;font-size:0.76rem" onclick="event.stopPropagation()" onchange="updateSectorProfile('${s.sector_id}', this.value)">
+              <select title="Sector priority profile" aria-label="Sector priority profile" style="width:auto;padding:4px 8px;font-size:0.76rem" onclick="event.stopPropagation()" onchange="updateSectorProfile('${s.sector_id}', this.value)">
                 ${opts}
               </select>
             </div>

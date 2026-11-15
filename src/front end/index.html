@@ -109,6 +109,8 @@
                   <input
                     id="step1-map-search"
                     type="text"
+                    title="Search city, county or ZIP code"
+                    aria-label="Search city, county or ZIP code"
                     class="map-search-input"
                     placeholder="Search city, county or ZIP code"
                   />
@@ -255,11 +257,11 @@
                 <div class="region-latlon-grid">
                   <div class="region-coord-pill">
                     <span>Latitude</span>
-                    <input id="step1-lat-input" type="text" class="region-coord-input" value="42.6526" />
+                    <input id="step1-lat-input" type="text" title="Latitude" aria-label="Latitude" class="region-coord-input" value="42.6526" />
                   </div>
                   <div class="region-coord-pill">
                     <span>Longitude</span>
-                    <input id="step1-lon-input" type="text" class="region-coord-input" value="-73.7562" />
+                    <input id="step1-lon-input" type="text" title="Longitude" aria-label="Longitude" class="region-coord-input" value="-73.7562" />
                   </div>
                 </div>
               </div>
@@ -717,7 +719,7 @@
 
                 <div class="map-control-field">
                   <label class="map-control-label" for="map-active-field-select">Active field</label>
-                  <select id="map-active-field-select" class="map-active-field-select"></select>
+                  <select id="map-active-field-select" title="Active field" class="map-active-field-select"></select>
                 </div>
 
                 <div class="map-control-actions">

@@ -94,18 +94,22 @@ def find_nearest_ny_region(lat: float, lon: float) -> Optional[dict[str, Any]]:
 # Try importing FastAPI and Pydantic so main.py can run as an HTTP web server,
 # while still working as a normal Python module for Streamlit or terminal tests
 # even when FastAPI is not installed on a teammate's laptop yet
+from contextlib import asynccontextmanager
+
+FastAPI: Any = None
+HTTPException: Any = None
+CORSMiddleware: Any = None
+HTMLResponse: Any = None
+BaseModel: Any = object
+Field: Any = None
+
 try:
     from fastapi import FastAPI, HTTPException
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import HTMLResponse
     from pydantic import BaseModel, Field
 except ImportError:
-    FastAPI = None
-    HTTPException = None
-    CORSMiddleware = None
-    HTMLResponse = None
-    BaseModel = object
-    Field = None
+    pass
 
 
 def compute_polygon_centroid_and_acres(polygon_points: list[dict[str, Any]]) -> dict[str, float]:
@@ -793,10 +797,18 @@ def load_ui_html() -> str:
 
 
 if FastAPI is not None:
+    # Start reading the Mobile Measurement Station (MMS) as soon as the server boots.
+    # If the MMS is not plugged in, get_mms_telemetry() just reports connected=False.
+    @asynccontextmanager
+    async def _app_lifespan(_app: Any) -> Any:
+        start_mms_reader()
+        yield
+
     app = FastAPI(
         title="Field Shift Crop Rotation API",
         description="Fetches NASA POWER weather and USDA SSURGO soil data for a farm location and ranks crop rotations.",
         version="1.0.0",
+        lifespan=_app_lifespan,
     )
 
     app.add_middleware(
@@ -898,12 +910,6 @@ if FastAPI is not None:
         except ValueError as exc:
             # Return HTTP 400 Bad Request if coordinates or profile names are invalid
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    # Start reading the Mobile Measurement Station (MMS) as soon as the server boots.
-    # If the MMS is not plugged in, get_mms_telemetry() just reports connected=False.
-    @app.on_event("startup")
-    def boot_mms_reader() -> None:
-        start_mms_reader()
 
     # Serve the frontend from the same server so one command runs the whole demo.
     # This goes last so the API routes above take priority over the static files.
