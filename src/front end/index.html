@@ -850,5 +850,19 @@
   </div>
 
   <script src="app.js"></script>
+  <script>
+    async function getVariable() {
+
+        // Fetch information from Python
+        const response = await fetch("/get-variable");
+
+        // Convert the response into JSON
+        const data = await response.json();
+
+        // Print the backend variable inside the HTML text
+        document.getElementById("myText").innerText = data.message;
+
+    }
+  </script>
 </body>
 </html>
