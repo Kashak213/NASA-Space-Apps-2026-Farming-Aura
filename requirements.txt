@@ -8,3 +8,22 @@ pydantic>=2.7.0
 requests>=2.31.0
 python-dotenv>=1.0.0
 
+# ---------------------------------------------------------------------------
+# External APIs (no pip install needed, but each needs a key in the root .env)
+# Copy .env.example to .env and fill these in. Never commit .env.
+#
+# 1. Google Maps JavaScript API  -> GOOGLE_MAPS_API_KEY=...
+#    Satellite map on the location screen + field outline planner.
+#    In Google Cloud Console: enable "Maps JavaScript API" (optionally
+#    "Geocoding API" for address search), attach a billing account, and
+#    allow http://localhost:8000/* under the key's website restrictions.
+#    Without it the app falls back to the drawn map and OpenStreetMap search.
+#
+# 2. Google Gemini API  -> GEMINI_API_KEY=...  (+ GEMINI_MODEL=gemini-3.1-flash-lite-preview)
+#    Plain-English crop rotation explanations, called from the backend only.
+#    Get a key at https://aistudio.google.com/apikey
+#    Without it the dashboard uses its built-in template text.
+#
+# Python 3.9+ required. Run the app from src/backend: uvicorn main:app --port 8000
+# ---------------------------------------------------------------------------
+
