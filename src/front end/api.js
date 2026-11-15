@@ -463,8 +463,10 @@
     const key = JSON.stringify(request);
     const text = aiAnswers.get(key);
 
-    const whyTag = document.getElementById('why-won-gemini-tag');
-    const climateTag = document.getElementById('climate-gemini-tag');
+    // "Generated from Gemini" tags only show while Gemini's own text is on screen
+    const geminiTags = ['why-won-gemini-tag', 'climate-gemini-tag', 'banner-gemini-tag', 'sequence-gemini-tag']
+      .map((id) => document.getElementById(id))
+      .filter(Boolean);
 
     if (text) {
       const put = (id, value) => {
@@ -482,21 +484,19 @@
           put(`ranked-row-analysis-${idx}`, line);
         });
       }
-      const badge = document.getElementById('sequence-analysis-badge');
-      if (badge) {
-        badge.textContent = text.source === 'gemini' ? 'NASA POWER · Gemini API Live' : 'NASA POWER · Gemini Analysis';
-      }
       const heading = document.getElementById('why-won-heading');
       if (heading) {
         heading.textContent = heading.textContent.replace(/\s*·\s*Gemini\s*$/i, '');
       }
-      if (whyTag) whyTag.style.display = 'inline-flex';
-      if (climateTag) climateTag.style.display = 'inline-flex';
+      geminiTags.forEach((tag) => {
+        tag.style.display = 'inline-flex';
+      });
       return;
     }
 
-    if (whyTag) whyTag.style.display = 'none';
-    if (climateTag) climateTag.style.display = 'none';
+    geminiTags.forEach((tag) => {
+      tag.style.display = 'none';
+    });
 
     if (aiAnswers.has(key)) return; // already asked and Gemini had nothing
     clearTimeout(aiTimer);

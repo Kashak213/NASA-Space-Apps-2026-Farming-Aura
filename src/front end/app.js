@@ -1474,7 +1474,7 @@ function renderDashboard() {
     if (bannerSeqText) bannerSeqText.textContent = defaultQuickAnalysis;
     if (seqAnalysisText) seqAnalysisText.textContent = defaultQuickAnalysis;
     if (seqAnalysisTitle) {
-      seqAnalysisTitle.textContent = `Quick analysis for Rank #${String(appState.selectedRankIndex + 1).padStart(2, '0')} (${topPick.label}) · Gemini`;
+      seqAnalysisTitle.textContent = 'Quick analysis';
     }
   }
 
