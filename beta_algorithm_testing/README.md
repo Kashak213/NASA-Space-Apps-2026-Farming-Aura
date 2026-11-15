@@ -4,12 +4,8 @@
 **Project:** NASA Space Apps 2026 - Team Farming Aura  
 **Challenge:** Field Shift: Adapting Farms with NASA Data
 
----
-
 ## Overview
 This folder documents our pre-hackathon testing for the crop rotation scoring and sorting math before the competition weekend. Right now all tests run on small mock CSV files in `../data/sample/` using `../data/sample_data_test.py`. Our goal here was to make sure the scoring formula, crop order rules, and tie-breaking logic give realistic farming results across different soil types and farmer goals before hooking up live NASA feeds.
-
----
 
 ## How the Scoring Model Works
 
@@ -47,8 +43,6 @@ Rotations are sorted from highest to lowest using three keys:
 2. `water_stress` (First tiebreaker, picks safer water use)
 3. `nitrogen_fixation` (Second tiebreaker, picks better soil nitrogen recovery)
 
----
-
 ## How to Run the Test Script
 From the repository root, run:
 
@@ -68,8 +62,6 @@ Test 5 runs 10 `assert` checks at the end of the script and crashes with an `Ass
 - Equipment filtering and dynamic sequence generation return valid rotations
 - Output rankings are sorted properly and tiebreakers work in the right order
 - Running the script twice gives the exact same ranking
-
----
 
 ## Current Test Results and Notes
 - **Field Conditions Change the Top Pick:** On a healthy, well-watered field (`F003`), the `Balanced` profile picks `Soybean -> Cover Crop Mix -> Corn` (`0.6639`). On the dry, compacted, low-carbon field `F006`, `Balanced` switches to `Sorghum -> Soybean` (`0.4938`) to save water, while `Soil Health First` picks `Soybean -> Cover Crop Mix -> Corn` (`0.4682`) to rebuild organic carbon and loosen packed clay.

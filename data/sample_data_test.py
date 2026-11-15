@@ -7,13 +7,13 @@ a penalty multiplier if a rotation repeats the same crop back to back or when
 the end of the cycle loops back into Year 1.
 
   rotation_score = penalty_multiplier * (
-      w1 * soil_health_score  +  # starting soil quality + root depth & organic matter build
-      w2 * water_stress_score +  # field water supply vs crop water demand
-      w3 * climate_resilience +  # rain/NDVI stability + mixing crop types
-      w4 * nitrogen_fixation  +  # legume N fixation + bonus when legume comes before grain
-      w5 * yield_potential    +  # avg crop yield scaled 0 to 1
-      w6 * drought_tolerance  +  # how well the crops handle dry spells
-      w7 * soil_compatibility    # pH/clay match + switching root depths
+      w1 * soil_health_score +
+      w2 * water_stress_score +
+      w3 * climate_resilience +
+      w4 * nitrogen_fixation +
+      w5 * yield_potential +
+      w6 * drought_tolerance +
+      w7 * soil_compatibility
   )
 
 Ties on total_score break on water_stress first, then nitrogen_fixation.
@@ -34,7 +34,7 @@ BASE_DIR = Path(__file__).parent
 SAMPLE_DIR = BASE_DIR / "sample"
 
 
-# --- csv loading & climate stats ---
+# csv loading & climate stats
 
 def load_csv(filepath: Path) -> list[dict]:
     """Load CSV rows as dicts and cast number strings to floats."""
@@ -108,11 +108,11 @@ def get_field_climate_agg(climate: list, field_id: str) -> dict:
 
         anom_prev = statistics.mean([r["anomaly_precip_pct"] for r in prev_rows])
         anom_curr = statistics.mean([r["anomaly_precip_pct"] for r in curr_rows])
-        agg["precip_anom_trend"] = anom_curr - anom_prev    # < 0 means rain dropping
+        agg["precip_anom_trend"] = anom_curr - anom_prev  # < 0 means rain dropping
 
         ndvi_prev = statistics.mean([r["ndvi_avg"] for r in prev_rows])
         ndvi_curr = statistics.mean([r["ndvi_avg"] for r in curr_rows])
-        agg["ndvi_trend"] = ndvi_curr - ndvi_prev            # < 0 means less green cover
+        agg["ndvi_trend"] = ndvi_curr - ndvi_prev  # < 0 means less green cover
     else:
         agg["drought_trend"] = 0.0
         agg["precip_anom_trend"] = 0.0
@@ -125,7 +125,7 @@ def get_crop(crops: list, crop_id: str) -> dict:
     return next((c for c in crops if c["crop_id"] == crop_id), None)
 
 
-# --- sub-score functions (all return 0.0 to 1.0) ---
+# sub-score functions (0.0 to 1.0 scale)
 
 def clip(val: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, val))
@@ -318,7 +318,7 @@ def sequence_transition_analysis(crop_rows: list[dict], soil: dict) -> dict:
     }
 
 
-# --- rotation scoring & constraint filters ---
+# rotation scoring & constraint filters
 
 def score_rotation(seq: list[str], soil: dict, climate_agg: dict,
                    crops: list, weights: dict) -> dict:
@@ -440,7 +440,7 @@ def generate_candidate_rotations(
     return generated
 
 
-# --- sorting & preset profiles ---
+# sorting & preset profiles
 
 def sort_rotations(results: list[dict]) -> list[dict]:
     """Sort by total_score desc, breaking ties with water_stress then nitrogen_fixation."""
@@ -452,18 +452,18 @@ def sort_rotations(results: list[dict]) -> list[dict]:
 
 
 CANDIDATE_ROTATIONS = [
-    ["C01", "C02"],               # Corn -> Soybean
-    ["C01", "C02", "C03"],        # Corn -> Soybean -> Winter Wheat
-    ["C02", "C01", "C02"],        # Soybean-heavy (repeats Soy on wrap-around)
-    ["C01", "C02", "C06"],        # Corn -> Soy -> Cover crop
-    ["C02", "C06", "C01"],        # Soy -> Cover crop -> Corn
-    ["C12", "C01", "C02"],        # Clover -> Corn -> Soy
-    ["C10", "C01", "C03"],        # Field Pea -> Corn -> Wheat
-    ["C07", "C02"],               # Sorghum -> Soy (dry fields)
-    ["C07", "C10", "C01"],        # Sorghum -> Pea -> Corn
-    ["C08", "C02", "C07"],        # Sunflower -> Soy -> Sorghum
-    ["C05", "C01", "C05"],        # Alfalfa -> Corn -> Alfalfa (repeats Alfalfa on wrap-around)
-    ["C06", "C02", "C11", "C01"], # Cover -> Soy -> Rye -> Corn
+    ["C01", "C02"],  # Corn -> Soybean
+    ["C01", "C02", "C03"],  # Corn -> Soybean -> Winter Wheat
+    ["C02", "C01", "C02"],  # Soybean-heavy (repeats Soy on wrap-around)
+    ["C01", "C02", "C06"],  # Corn -> Soy -> Cover crop
+    ["C02", "C06", "C01"],  # Soy -> Cover crop -> Corn
+    ["C12", "C01", "C02"],  # Clover -> Corn -> Soy
+    ["C10", "C01", "C03"],  # Field Pea -> Corn -> Wheat
+    ["C07", "C02"],  # Sorghum -> Soy (dry fields)
+    ["C07", "C10", "C01"],  # Sorghum -> Pea -> Corn
+    ["C08", "C02", "C07"],  # Sunflower -> Soy -> Sorghum
+    ["C05", "C01", "C05"],  # Alfalfa -> Corn -> Alfalfa (repeats Alfalfa on wrap-around)
+    ["C06", "C02", "C11", "C01"],  # Cover -> Soy -> Rye -> Corn
 ]
 
 PROFILES = {
@@ -490,7 +490,7 @@ PROFILES = {
 }
 
 
-# --- console test runners ---
+# console test runners
 
 def seq_label(seq_ids_str: str, crops: list) -> str:
     """Convert 'C01 -> C02' into 'Corn -> Soybean'."""
@@ -504,9 +504,7 @@ def seq_label(seq_ids_str: str, crops: list) -> str:
 
 def test_single_field(field_id: str, soil: list, climate: list, crops: list,
                       profile_name: str = "Balanced"):
-    print(f"\n{'='*70}")
-    print(f"  FIELD: {field_id}   |   PROFILE: {profile_name}")
-    print(f"{'='*70}")
+    print(f"\n[Field {field_id} | Profile: {profile_name}]")
 
     s = get_field_soil(soil, field_id)
     c = get_field_climate_agg(climate, field_id)
@@ -521,9 +519,8 @@ def test_single_field(field_id: str, soil: list, climate: list, crops: list,
     results = [score_rotation(seq, s, c, crops, w) for seq in CANDIDATE_ROTATIONS]
     ranked = sort_rotations(results)
 
-    print("\n   Top 5 Recommendations:")
+    print("\n  Top 5 Recommendations:")
     print(f"  {'Rank':<5} {'Crop Rotation Sequence':<38} {'Score':>6} {'SoilH':>6} {'Water':>6} {'N-Fix':>6} {'Trans':>6}")
-    print(f"  {'-'*5} {'-'*38} {'-'*6} {'-'*6} {'-'*6} {'-'*6} {'-'*6}")
     for i, r in enumerate(ranked[:5], 1):
         label = seq_label(r["seq_ids"], crops)[:37]
         print(f"  {i:<5} {label:<38} {r['total_score']:>6.4f} "
@@ -535,9 +532,7 @@ def test_single_field(field_id: str, soil: list, climate: list, crops: list,
 def test_cross_field(seq: list, soil: list, climate: list, crops: list,
                      profile_name: str = "Balanced"):
     label = seq_label(" → ".join(seq), crops)
-    print(f"\n{'='*70}")
-    print(f"  CROSS-FIELD: '{label}'   |   {profile_name}")
-    print(f"{'='*70}")
+    print(f"\n[Cross-Field: '{label}' | {profile_name}]")
     w = PROFILES[profile_name]
     results = []
     for s in soil:
@@ -548,22 +543,17 @@ def test_cross_field(seq: list, soil: list, climate: list, crops: list,
         results.append(r)
     ranked = sorted(results, key=lambda r: r["total_score"], reverse=True)
     print(f"\n  {'Rank':<5} {'Field':<8} {'Score':>7} {'SoilH':>7} {'Water':>7} {'Climate':>8}")
-    print(f"  {'-'*5} {'-'*8} {'-'*7} {'-'*7} {'-'*7} {'-'*8}")
     for i, r in enumerate(ranked, 1):
         print(f"  {i:<5} {r['field_id']:<8} {r['total_score']:>7.4f} "
               f"{r['soil_health']:>7.3f} {r['water_stress']:>7.3f} {r['climate_res']:>8.3f}")
 
 
 def test_sensitivity(field_id: str, soil: list, climate: list, crops: list):
-    print(f"\n{'='*70}")
-    print(f"  SENSITIVITY TEST - Field {field_id} across all priority profiles")
-    print("  (Same field, different farmer goals -> different #1 pick)")
-    print(f"{'='*70}")
+    print(f"\n[Sensitivity Test - Field {field_id} across priority profiles]")
     s = get_field_soil(soil, field_id)
     c = get_field_climate_agg(climate, field_id)
 
     print(f"\n  {'Profile':<22} {'#1 Recommended Rotation':<40} {'Score':>6}")
-    print(f"  {'-'*22} {'-'*40} {'-'*6}")
     for pname, w in PROFILES.items():
         results = [score_rotation(seq, s, c, crops, w) for seq in CANDIDATE_ROTATIONS]
         ranked = sort_rotations(results)
@@ -572,12 +562,10 @@ def test_sensitivity(field_id: str, soil: list, climate: list, crops: list):
         print(f"  {pname:<22} {label:<40} {top['total_score']:>6.4f}")
 
 
-# --- assertion checks ---
+# assertion checks
 
 def run_assertions(soil: list, climate: list, crops: list) -> None:
-    print(f"\n{'='*70}")
-    print("  ASSERTION CHECKS")
-    print(f"{'='*70}")
+    print("\n[Assertion Checks]")
 
     # profile weights have to add up to 1.0 so final score stays in [0, 1]
     for pname, w in PROFILES.items():
@@ -677,9 +665,9 @@ if __name__ == "__main__":
     soil, climate, crops = load_all()
 
     print("\n\n TEST 1 - Single Field Analysis (Balanced Profile)")
-    test_single_field("F001", soil, climate, crops, "Balanced")   # average field
-    test_single_field("F005", soil, climate, crops, "Balanced")   # healthy field
-    test_single_field("F006", soil, climate, crops, "Balanced")   # dry, degraded field
+    test_single_field("F001", soil, climate, crops, "Balanced")  # average field
+    test_single_field("F005", soil, climate, crops, "Balanced")  # healthy field
+    test_single_field("F006", soil, climate, crops, "Balanced")  # dry, degraded field
 
     print("\n\n TEST 2 - Priority Profile Comparison (Field F002)")
     for profile in PROFILES:
@@ -690,8 +678,8 @@ if __name__ == "__main__":
     test_cross_field(["C07", "C10", "C01"], soil, climate, crops, "Water Conservation")
 
     print("\n\n TEST 4 - Sensitivity: Priority Goals Change the Top Pick")
-    test_sensitivity("F003", soil, climate, crops)   # healthy field
-    test_sensitivity("F006", soil, climate, crops)   # stressed field
+    test_sensitivity("F003", soil, climate, crops)  # healthy field
+    test_sensitivity("F006", soil, climate, crops)  # stressed field
 
     print("\n\n TEST 5 - Assertion Checks")
     run_assertions(soil, climate, crops)
