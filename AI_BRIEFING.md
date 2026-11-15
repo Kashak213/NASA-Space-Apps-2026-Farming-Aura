@@ -259,3 +259,13 @@ Whether the frontend runs purely client-side on GitHub Pages or talks to the Pyt
 3. **Graceful Fallback Contract:**
    - When the **Mobile Measurement Station (MMS)** is plugged in (`connected: true`), its live readings populate the frontend KPI cards and "Live sensor readings" tab and adjust field moisture/drought/temperature in the rotation scoring engine.
    - When the **Mobile Measurement Station (MMS)** is unplugged (`connected: false`), the backend and frontend automatically fall back to NASA POWER + USDA SSURGO satellite/soil data and manual Wet/Dry simulation with zero errors.
+4. **Running Everything Together (one command, one port):**
+   ```bash
+   python3 -m venv .venv && .venv/bin/pip install -r src/backend/requirements.txt
+   .venv/bin/uvicorn --app-dir src/backend main:app --host 127.0.0.1 --port 8000
+   ```
+   Then open `http://localhost:8000`. The backend serves `src/front end/` and exposes `GET /mms/latest` (also `/sensor/latest`). The frontend (`pollMms()` in `app.js`) polls it every 2 seconds. On Linux the user needs serial permission (`sudo usermod -aG dialout $USER` or `sudo chmod a+rw /dev/ttyACM0`).
+5. **Frontend Wiring (`src/front end/app.js`, `appState.mms`):**
+   - Live MMS values replace the demo numbers in the Root-zone moisture and Soil temperature KPI cards and the "Mobile Measurement Station readings" card on the Live sensor tab (moisture, soil temp, air humidity, rain).
+   - While live, the MMS moisture reading decides Wet or Dry (`probe_mode`, wet when moisture is 35% or higher or it is raining), so the manual Wet/Dry buttons are ignored and the rotation ranking updates automatically.
+   - The sidebar toggle reads `Live · MMS connected` when plugged in and `Enabled · demo (MMS offline)` otherwise. Layout and CSS are unchanged.

@@ -374,8 +374,43 @@ const appState = {
   sensorEnabled: true,
   probeMode: 'dry', // 'wet' | 'dry'
   mapZoom: 1.0,
-  selectedRankIndex: 0
+  selectedRankIndex: 0,
+  // Latest packet from the Mobile Measurement Station (MMS), filled in by pollMms()
+  mms: { connected: false, latest: null, lastJson: '' }
 };
+
+// Where the backend lives. If the page is served by the backend itself (port 8000) use relative URLs.
+const MMS_API_BASE = (location.protocol === 'http:' && location.port === '8000') ? '' : 'http://127.0.0.1:8000';
+
+// True when the MMS is plugged in, sending fresh data, and the sidebar sensor toggle is on
+function isMmsLive() {
+  return Boolean(appState.sensorEnabled && appState.mms.connected && appState.mms.latest);
+}
+
+// Ask the backend for the newest MMS reading. If the backend or the MMS is offline we just
+// fall back to the demo/satellite numbers that the page already uses.
+async function pollMms() {
+  let next = { connected: false, latest: null };
+  try {
+    const res = await fetch(`${MMS_API_BASE}/mms/latest`, { cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      next = { connected: Boolean(data.connected), latest: data.latest || null };
+    }
+  } catch (err) {
+    // backend not running, keep offline fallback
+  }
+
+  const nextJson = JSON.stringify(next);
+  if (nextJson === appState.mms.lastJson) return;
+
+  appState.mms = { ...next, lastJson: nextJson };
+  // When live, the Wet/Dry decision follows the moisture sensor instead of the manual buttons
+  if (isMmsLive() && appState.mms.latest.probe_mode) {
+    appState.probeMode = appState.mms.latest.probe_mode;
+  }
+  renderDashboard();
+}
 
 function clip(val, lo, hi) {
   return Math.max(lo, Math.min(hi, val));
@@ -1209,7 +1244,11 @@ function renderDashboard() {
   const sensorStatus = document.getElementById('sidebar-sensor-status');
   if (sensorSwitch) sensorSwitch.classList.toggle('active', appState.sensorEnabled);
   if (sensorStatus) {
-    sensorStatus.textContent = appState.sensorEnabled ? 'Enabled · demo' : 'Disabled · satellite only';
+    if (isMmsLive()) {
+      sensorStatus.textContent = 'Live · MMS connected';
+    } else {
+      sensorStatus.textContent = appState.sensorEnabled ? 'Enabled · demo (MMS offline)' : 'Disabled · satellite only';
+    }
   }
 
   // Header eyebrow, title, and subtitles
@@ -1250,8 +1289,11 @@ function renderDashboard() {
   if (kpiSoilVal) kpiSoilVal.textContent = `${topPick.soilHealth.toFixed(2)} SH`;
   if (kpiSoilSub) kpiSoilSub.textContent = `OC ${field.oc.toFixed(1)}% · pH ${field.ph.toFixed(1)}`;
   if (kpiRainVal) kpiRainVal.textContent = `${annualRain} mm`;
-  if (kpiMoistureVal) kpiMoistureVal.textContent = `${field.moistureAvg.toFixed(2)} RZM`;
-  if (kpiTempVal) kpiTempVal.textContent = `${field.soilTempC.toFixed(1)}°C`;
+  const liveMms = isMmsLive() ? appState.mms.latest : null;
+  const kpiMoisture = liveMms && liveMms.soil_moisture_m3 != null ? liveMms.soil_moisture_m3 : field.moistureAvg;
+  const kpiSoilTemp = liveMms && liveMms.soil_temp_c != null ? liveMms.soil_temp_c : field.soilTempC;
+  if (kpiMoistureVal) kpiMoistureVal.textContent = `${kpiMoisture.toFixed(2)} RZM`;
+  if (kpiTempVal) kpiTempVal.textContent = `${kpiSoilTemp.toFixed(1)}°C`;
 
   // Tab 1: 3-year recommended rotation cards
   if (topPick && topPick.crops.length >= 3) {
@@ -1382,14 +1424,15 @@ function renderDashboard() {
   const backendLine1 = document.getElementById('moisture-backend-line-1');
   const backendLine2 = document.getElementById('moisture-backend-line-2');
 
+  const devRain = document.getElementById('sensor-dev-rain');
   if (appState.probeMode === 'dry') {
-    const localMoist = Math.max(0.14, field.moistureAvg - 0.13);
+    const localMoist = liveMms && liveMms.soil_moisture_m3 != null ? liveMms.soil_moisture_m3 : Math.max(0.14, field.moistureAvg - 0.13);
     if (nasaRzm) nasaRzm.textContent = `${field.moistureAvg.toFixed(2)} m³/m³`;
     if (nasaTemp) nasaTemp.textContent = `${field.tempSummer.toFixed(1)} °C`;
     if (nasaPrecip) nasaPrecip.textContent = `${field.summer2024Precip} mm`;
     if (devRzm) devRzm.textContent = `${localMoist.toFixed(2)} m³/m³ (Dry)`;
-    if (devSt) devSt.textContent = `${(field.soilTempC + 2.3).toFixed(1)} °C`;
-    if (devAh) devAh.textContent = '38 % RH';
+    if (devSt) devSt.textContent = `${(liveMms && liveMms.soil_temp_c != null ? liveMms.soil_temp_c : field.soilTempC + 2.3).toFixed(1)} °C`;
+    if (devAh) devAh.textContent = liveMms && liveMms.air_humidity_pct != null ? `${Math.round(liveMms.air_humidity_pct)} % RH` : '38 % RH';
     if (alertTitle) alertTitle.textContent = 'Moisture probe: Dry soil selected — rotation adjusted';
     if (alertSub) {
       alertSub.textContent =
@@ -1403,13 +1446,13 @@ function renderDashboard() {
       backendLine2.textContent = `Backend recommended rotation for Dry soil: ${topPick ? topPick.label : 'Soybeans & Small Grains → Beets, Carrots, Squash & Pumpkins → Hay & Alfalfa (Haylage)'}.`;
     }
   } else {
-    const localMoist = Math.min(0.49, field.moistureAvg + 0.06);
+    const localMoist = liveMms && liveMms.soil_moisture_m3 != null ? liveMms.soil_moisture_m3 : Math.min(0.49, field.moistureAvg + 0.06);
     if (nasaRzm) nasaRzm.textContent = `${field.moistureAvg.toFixed(2)} m³/m³`;
     if (nasaTemp) nasaTemp.textContent = `${field.tempSummer.toFixed(1)} °C`;
     if (nasaPrecip) nasaPrecip.textContent = `${field.summer2024Precip} mm`;
     if (devRzm) devRzm.textContent = `${localMoist.toFixed(2)} m³/m³ (Wet)`;
-    if (devSt) devSt.textContent = `${field.soilTempC.toFixed(1)} °C`;
-    if (devAh) devAh.textContent = '68 % RH';
+    if (devSt) devSt.textContent = `${(liveMms && liveMms.soil_temp_c != null ? liveMms.soil_temp_c : field.soilTempC).toFixed(1)} °C`;
+    if (devAh) devAh.textContent = liveMms && liveMms.air_humidity_pct != null ? `${Math.round(liveMms.air_humidity_pct)} % RH` : '68 % RH';
     if (alertTitle) alertTitle.textContent = 'Moisture probe: Wet soil selected — full water budget available';
     if (alertSub) {
       alertSub.textContent = `Backend response: Root-zone moisture is well-supplied (${localMoist.toFixed(2)} m³/m³). High-yield crops and deep-rooted forages are supported.`;
@@ -1421,6 +1464,16 @@ function renderDashboard() {
     if (backendLine2) {
       backendLine2.textContent = `Backend recommended rotation for Wet soil: ${topPick ? topPick.label : 'Soybeans & Small Grains → Field Corn (Silage & Grain) → Hay & Alfalfa (Haylage)'}.`;
     }
+  }
+
+  // Rain row and live labels only change when the MMS is actually sending data
+  if (devRain) {
+    devRain.textContent = liveMms
+      ? (liveMms.is_raining ? `Raining (${liveMms.rain_intensity_pct}%)` : 'Dry')
+      : 'No MMS data';
+  }
+  if (liveMms && alertTitle) {
+    alertTitle.textContent = `Mobile Measurement Station: ${appState.probeMode === 'dry' ? 'Dry' : 'Wet'} soil detected — rotation adjusted`;
   }
 
   document.querySelectorAll('.probe-mode-btn').forEach((btn) => {
@@ -1769,6 +1822,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (sensorSwitch) {
     sensorSwitch.addEventListener('click', () => {
       appState.sensorEnabled = !appState.sensorEnabled;
+      if (isMmsLive() && appState.mms.latest.probe_mode) {
+        appState.probeMode = appState.mms.latest.probe_mode;
+      }
       renderDashboard();
     });
   }
@@ -1798,6 +1854,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Tab 3 moisture probe Wet / Dry decision buttons
   document.querySelectorAll('.probe-mode-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
+      // While the MMS is live, the sensor decides Wet or Dry
+      if (isMmsLive()) return;
       appState.probeMode = btn.dataset.probe;
       renderDashboard();
     });
@@ -1827,4 +1885,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialize first view
   renderAll();
+
+  // Start listening for the Mobile Measurement Station (MMS)
+  pollMms();
+  setInterval(pollMms, 2000);
 });

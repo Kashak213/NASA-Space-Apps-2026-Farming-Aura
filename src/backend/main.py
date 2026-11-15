@@ -13,7 +13,21 @@ from __future__ import annotations
 # Standard library imports for building crop combinations and printing JSON test output
 import itertools
 import json
+import math
+import sys
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any, Optional
+
+# Ensure both src/ and src/backend/ are on sys.path so imports work from any working directory
+BACKEND_DIR = Path(__file__).resolve().parent
+SRC_DIR = BACKEND_DIR.parent
+for _p in (str(BACKEND_DIR), str(SRC_DIR)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+# Import the Google Maps API key helper from src/config.py (.env and Hugging Face Secrets)
+from config import get_google_maps_api_key
 
 # Import crop lookup helpers and rotation generators from crops.py
 from crops import (
@@ -49,13 +63,71 @@ from scoring import (
 try:
     from fastapi import FastAPI, HTTPException
     from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.responses import HTMLResponse
     from pydantic import BaseModel, Field
 except ImportError:
     FastAPI = None
     HTTPException = None
     CORSMiddleware = None
+    HTMLResponse = None
     BaseModel = object
     Field = None
+
+
+def compute_polygon_centroid_and_acres(polygon_points: list[dict[str, Any]]) -> dict[str, float]:
+    """
+    Calculate the center latitude, center longitude, and land area in acres and
+    hectares for a farm outline or field sector polygon drawn on Google Maps.
+    """
+    cleaned: list[tuple[float, float]] = []
+    for pt in polygon_points or []:
+        if not isinstance(pt, dict):
+            continue
+        pt_lat = pt.get("lat", pt.get("latitude"))
+        pt_lon = pt.get("lon", pt.get("lng", pt.get("longitude")))
+        if pt_lat is not None and pt_lon is not None:
+            cleaned.append((float(pt_lat), float(pt_lon)))
+
+    if not cleaned:
+        raise ValueError("Polygon must contain at least one coordinate with lat and lon/lng.")
+
+    avg_lat = sum(p[0] for p in cleaned) / len(cleaned)
+    avg_lon = sum(p[1] for p in cleaned) / len(cleaned)
+
+    # Need at least 3 corners to enclose a 2D field polygon for area math
+    if len(cleaned) < 3:
+        return {
+            "lat": round(avg_lat, 6),
+            "lon": round(avg_lon, 6),
+            "area_acres": 0.0,
+            "area_hectares": 0.0,
+        }
+
+    # Convert degrees to local meters around avg_lat and apply the shoelace polygon area formula
+    meters_per_deg_lat = 111132.92
+    meters_per_deg_lon = 111412.84 * math.cos(math.radians(avg_lat))
+
+    shoelace_sum = 0.0
+    n = len(cleaned)
+    for i in range(n):
+        lat1, lon1 = cleaned[i]
+        lat2, lon2 = cleaned[(i + 1) % n]
+        x1 = (lon1 - avg_lon) * meters_per_deg_lon
+        y1 = (lat1 - avg_lat) * meters_per_deg_lat
+        x2 = (lon2 - avg_lon) * meters_per_deg_lon
+        y2 = (lat2 - avg_lat) * meters_per_deg_lat
+        shoelace_sum += (x1 * y2) - (x2 * y1)
+
+    area_sq_meters = abs(shoelace_sum) * 0.5
+    area_acres = area_sq_meters / 4046.8564224
+    area_hectares = area_sq_meters / 10000.0
+
+    return {
+        "lat": round(avg_lat, 6),
+        "lon": round(avg_lon, 6),
+        "area_acres": round(area_acres, 2),
+        "area_hectares": round(area_hectares, 2),
+    }
 
 
 def resolve_farmer_crops(
@@ -480,6 +552,27 @@ def analyze_farm_request(payload: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def get_frontend_config_payload() -> dict[str, Any]:
+    """
+    Return the Google Maps API key from .env or Hugging Face Spaces Secrets so the
+    frontend can load the interactive Google Satellite map and fall back to Leaflet
+    only when no key is configured.
+    """
+    gmaps_key = get_google_maps_api_key()
+    return {
+        "google_maps_api_key": gmaps_key,
+        "has_google_maps_key": bool(gmaps_key),
+    }
+
+
+def load_ui_html() -> str:
+    """Read the interactive map and crop rotation planner HTML file from src/ui/index.html."""
+    ui_path = SRC_DIR / "ui" / "index.html"
+    if ui_path.is_file():
+        return ui_path.read_text(encoding="utf-8")
+    return "<html><body><h2>Field Shift UI not found at src/ui/index.html</h2></body></html>"
+
+
 # If FastAPI is installed in the environment, set up the HTTP web server and routes
 if FastAPI is not None:
     # Create the FastAPI application instance
@@ -500,8 +593,16 @@ if FastAPI is not None:
 
     # Define the expected JSON request body for POST /analyze using Pydantic
     class AnalyzeRequestModel(BaseModel):  # type: ignore[misc]
-        lat: float = Field(..., description="Farm latitude in decimal degrees")
-        lon: float = Field(..., description="Farm longitude in decimal degrees")
+        lat: Optional[float] = Field(default=None, description="Farm latitude in decimal degrees")
+        lon: Optional[float] = Field(default=None, description="Farm longitude in decimal degrees")
+        farm_boundary: Optional[list[dict[str, float]]] = Field(
+            default=None,
+            description="Optional list of {lat, lng} vertices for the farm outline polygon drawn on Google Maps",
+        )
+        sectors: Optional[list[dict[str, Any]]] = Field(
+            default=None,
+            description="Optional list of highlighted field sector polygons inside the farm",
+        )
         selected_crops: Optional[list[str]] = Field(
             default=None,
             description="List of crop IDs or crop names the farmer wants to grow (e.g. ['C02', 'C03'] or ['Field Corn', 'Soybeans'])",
@@ -522,6 +623,16 @@ if FastAPI is not None:
         row_crop_only: bool = Field(default=False)
         max_water_demand_mm: Optional[float] = Field(default=None)
         top_n: int = Field(default=5, ge=1, le=20)
+
+    @app.get("/", response_class=HTMLResponse)
+    def serve_frontend_ui() -> Any:
+        """Serve the interactive Google Maps farm outline and sector selector web app."""
+        return HTMLResponse(content=load_ui_html())
+
+    @app.get("/config")
+    def get_public_config() -> dict[str, Any]:
+        """Return the Google Maps API key loaded from .env or Hugging Face Spaces Secrets."""
+        return get_frontend_config_payload()
 
     @app.get("/health")
     def health_check() -> dict[str, str]:
@@ -562,6 +673,20 @@ if FastAPI is not None:
         except ValueError as exc:
             # Return HTTP 400 Bad Request if coordinates or profile names are invalid
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # Start reading the Mobile Measurement Station (MMS) as soon as the server boots.
+    # If the MMS is not plugged in, get_mms_telemetry() just reports connected=False.
+    @app.on_event("startup")
+    def boot_mms_reader() -> None:
+        start_mms_reader()
+
+    # Serve the frontend from the same server so one command runs the whole demo.
+    # This goes last so the API routes above take priority over the static files.
+    _frontend_dir = Path(__file__).resolve().parent.parent / "front end"
+    if _frontend_dir.exists():
+        from fastapi.staticfiles import StaticFiles
+
+        app.mount("/", StaticFiles(directory=str(_frontend_dir), html=True), name="frontend")
 else:
     # Keep app set to None when FastAPI is not installed so importing main.py still works
     app = None
