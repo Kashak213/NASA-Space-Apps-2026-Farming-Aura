@@ -362,7 +362,7 @@ const appState = {
   activeTab: 'rotations',
   selectedCity: 'Albany',
   previousCropId: 'C02',
-  fieldCount: 8,
+  fieldCount: 1,
   selectedFieldNumber: 1,
   selectedFieldId: 'F001',
   customFieldBorders: {},
@@ -1008,19 +1008,21 @@ function renderClimateLineChart(field) {
   const toF = (c) => Math.round((c * 9) / 5 + 32);
 
   // Chart coordinate space inside 820x300 viewBox
-  const padLeft = 108;
-  const padRight = 98;
-  const padTop = 28;
-  const padBottom = 50;
+  const padLeft = 120;
+  const padRight = 104;
+  const padTop = 34;
+  const padBottom = 52;
   const plotW = 820 - padLeft - padRight;
   const plotH = 300 - padTop - padBottom;
+  // Inset the first/last data points from the Y-axes so centered point labels never overlap axis ticks
+  const xInset = 54;
 
   const tempMin = 20;
   const tempMax = 28;
   const rainMin = 350;
   const rainMax = 800;
 
-  const xAt = (i) => padLeft + (i / (years.length - 1)) * plotW;
+  const xAt = (i) => padLeft + xInset + (i / (years.length - 1)) * (plotW - xInset * 2);
   const yTemp = (c) => padTop + (1 - clip((c - tempMin) / (tempMax - tempMin), 0, 1)) * plotH;
   const yRain = (mm) => padTop + (1 - clip((mm - rainMin) / (rainMax - rainMin), 0, 1)) * plotH;
 
@@ -1067,22 +1069,24 @@ function renderClimateLineChart(field) {
     <polyline fill="none" stroke="#183925" stroke-width="3" points="${rainPoints}" />
   `;
 
-  tempSeriesC.forEach((c, i) => {
+  // Place each point's label on the outer side of the two series so labels never collide with each other or dots
+  years.forEach((_, i) => {
     const x = xAt(i);
-    const y = yTemp(c);
+    const yT = yTemp(tempSeriesC[i]);
+    const yR = yRain(rainSeries[i]);
+    const c = tempSeriesC[i];
     const f = toF(c);
-    markersHtml += `
-      <circle cx="${x}" cy="${y}" r="5" fill="#b8501c" stroke="#ffffff" stroke-width="1.5" />
-      <text x="${x}" y="${y - 10}" text-anchor="middle" fill="#b8501c" font-size="10.5" font-weight="700">${c}°C (${f}°F)</text>
-    `;
-  });
+    const mm = rainSeries[i];
 
-  rainSeries.forEach((mm, i) => {
-    const x = xAt(i);
-    const y = yRain(mm);
+    const tempIsHigher = yT <= yR;
+    const tempLabelY = tempIsHigher ? yT - 12 : yT + 20;
+    const rainLabelY = tempIsHigher ? yR + 20 : yR - 12;
+
     markersHtml += `
-      <circle cx="${x}" cy="${y}" r="5" fill="#183925" stroke="#ffffff" stroke-width="1.5" />
-      <text x="${x}" y="${y + 18}" text-anchor="middle" fill="#183925" font-size="10.5" font-weight="700">${mm} mm</text>
+      <circle cx="${x}" cy="${yT}" r="5" fill="#b8501c" stroke="#ffffff" stroke-width="1.5" />
+      <circle cx="${x}" cy="${yR}" r="5" fill="#183925" stroke="#ffffff" stroke-width="1.5" />
+      <text x="${x}" y="${tempLabelY}" text-anchor="middle" fill="#b8501c" stroke="#faf8f2" stroke-width="3" paint-order="stroke" font-size="10.5" font-weight="700">${c}°C (${f}°F)</text>
+      <text x="${x}" y="${rainLabelY}" text-anchor="middle" fill="#183925" stroke="#faf8f2" stroke-width="3" paint-order="stroke" font-size="10.5" font-weight="700">${mm} mm</text>
     `;
   });
 
@@ -1226,7 +1230,8 @@ function renderDashboard() {
     dashMainTitle.textContent = activeFieldName;
   }
   if (dashSubLeft) {
-    dashSubLeft.textContent = `Previous crop(s): ${prevSummaryText} • ${appState.fieldCount} fields (F001–${formatFieldCode(appState.fieldCount)}) • ${appState.selectedProfile} (${intensityVal}/100)`;
+    const fieldCountText = appState.fieldCount === 1 ? '1 field' : `${appState.fieldCount} fields`;
+    dashSubLeft.textContent = `Previous crop(s): ${prevSummaryText} • ${fieldCountText} • ${appState.selectedProfile} (${intensityVal}/100)`;
   }
   if (dashSubRight) {
     const pickedNames = selectedIds.map((id) => CROPS_DATA[id]?.name).filter(Boolean);
