@@ -977,7 +977,7 @@ body {
   background-color: #f3f0ec;
 }
 
-/* Priority profile & Equipment popover cards matching Figma */
+/* Priority profile & Crops popover cards matching Figma */
 .cream-popover-menu {
   position: absolute;
   top: calc(100% + 6px);
@@ -1030,6 +1030,81 @@ body {
   border-color: #c78b52;
   font-weight: 600;
   transform: translateX(2px);
+}
+
+/* Multi-select crop list inside sidebar popover */
+.cream-popover-menu.crops-popover-menu {
+  width: 276px;
+  max-height: 410px;
+  display: none;
+  flex-direction: column;
+}
+
+.cream-popover-menu.crops-popover-menu.open {
+  display: flex;
+}
+
+.crop-multiselect-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  max-height: 300px;
+  padding-right: 4px;
+}
+
+.crop-option-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.crop-check-box {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid #b5835a;
+  background-color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.cream-option-btn.active-option .crop-check-box {
+  background-color: #8f4419;
+  border-color: #8f4419;
+}
+
+.popover-actions-bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(143, 68, 25, 0.15);
+}
+
+.popover-action-btn {
+  flex: 1;
+  border: 1px solid #c78b52;
+  background-color: #ffffff;
+  color: #6b3110;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.popover-action-btn.primary-action {
+  background-color: #8f4419;
+  border-color: #8f4419;
+  color: #ffffff;
 }
 
 @keyframes fadeDropdown {
