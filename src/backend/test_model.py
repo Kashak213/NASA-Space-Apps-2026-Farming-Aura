@@ -67,14 +67,52 @@ def prompt_int(prompt_text: str, default_val: int, min_val: int, max_val: int) -
             print("  -> Please enter a whole number.")
 
 
+def prompt_previous_crop(catalog: list[dict[str, Any]]) -> Optional[list[str]]:
+    """
+    Ask the user what crop (or sequence of crops) was already farmed on the
+    field prior to Year 1 so the model can factor in nitrogen carry-over, soil
+    compaction recovery, and pest/disease break rules.
+    """
+    print("\n" + "=" * 74)
+    print("  STEP 2A: WHAT CROP WAS ALREADY FARMED ON THIS FIELD?")
+    print("=" * 74)
+    print(f"  {'#':<4} {'ID':<6} {'Crop Name':<42} {'Family':<14}")
+    print(f"  {'-' * 4} {'-' * 6} {'-' * 42} {'-' * 14}")
+    for idx, crop in enumerate(catalog, 1):
+        print(
+            f"  {idx:<4} {crop['crop_id']:<6} {crop['crop_name'][:42]:<42} "
+            f"{crop['crop_type']:<14}"
+        )
+
+    print("\n  Enter the crop that was farmed last season (number, ID like C02, or name like Field Corn).")
+    print("  Press Enter if no prior crop history is known.")
+    raw = input("\n  Already farmed crop(s): ").strip()
+    if not raw or raw.lower() in ("none", "no", "skip"):
+        return None
+
+    chosen_prev: list[str] = []
+    for part in raw.split(","):
+        token = part.strip()
+        if not token:
+            continue
+        if token.isdigit():
+            num = int(token)
+            if 1 <= num <= len(catalog):
+                chosen_prev.append(str(catalog[num - 1]["crop_id"]))
+                continue
+        chosen_prev.append(token)
+
+    return chosen_prev if chosen_prev else None
+
+
 def prompt_crops(catalog: list[dict[str, Any]]) -> Optional[list[str]]:
     """
-    Show the numbered table of all 13 New York crops and let the user type
+    Show the numbered table of all 17 New York crop groups and let the user type
     crop numbers (1, 2, 3), crop IDs (C01, C02), crop names (Field Corn, Soybeans),
     or crop types (grain, legume, vegetable). Pressing Enter selects all crops.
     """
     print("\n" + "=" * 74)
-    print("  STEP 2: CHOOSE CROPS TO FARM")
+    print("  STEP 2B: CHOOSE CROPS TO FARM IN THE NEW ROTATION")
     print("=" * 74)
     print(f"  {'#':<4} {'ID':<6} {'Crop Name':<36} {'Family':<14} {'Water (mm)'}")
     print(f"  {'-' * 4} {'-' * 6} {'-' * 36} {'-' * 14} {'-' * 10}")
@@ -86,7 +124,7 @@ def prompt_crops(catalog: list[dict[str, Any]]) -> Optional[list[str]]:
 
     print("\n  Enter crops separated by commas.")
     print("  You can type numbers (2, 3, 11), IDs (C02, C03, C11), names (Corn, Soybeans, Potatoes),")
-    print("  or crop families (grain, legume, vegetable). Press Enter to test all 13 crops.")
+    print("  or crop families (grain, legume, vegetable). Press Enter to test all 17 crop groups.")
 
     raw = input("\n  Your crop selection: ").strip()
     if not raw or raw.lower() == "all":
@@ -244,6 +282,15 @@ def display_results(result: dict[str, Any]) -> None:
             f"{rot['yield_potential']:>6.3f} {rot['wind_safety']:>6.3f} {rot['sunlight_score']:>6.3f}"
         )
         print(f"            -> {rot['seq_names']}")
+        prev_eff = rot.get("previous_crop_effect", {})
+        if prev_eff.get("has_previous_crop"):
+            prev_names_str = ", ".join(prev_eff.get("previous_crop_names", []))
+            print(
+                f"               [Prior Crop: {prev_names_str} -> Year 1 Effect: {prev_eff.get('year1_transition')} "
+                f"| N-Carryover: +{prev_eff.get('prev_n_carryover_credit', 0.0):.3f} "
+                f"| Soil Recovery: +{prev_eff.get('prev_soil_recovery_bonus', 0.0):.3f} "
+                f"| Penalty: -{prev_eff.get('prev_penalty_applied', 0.0):.3f}]"
+            )
 
     # 5. Show how the #1 winning rotation scores across all 5 preset profiles
     comparison = result.get("top_rotation_profile_comparison", {})
@@ -271,6 +318,7 @@ def run_interactive_tester() -> None:
         lat = prompt_float("  Enter Latitude ", 42.70, min_val=-90.0, max_val=90.0)
         lon = prompt_float("  Enter Longitude", -76.80, min_val=-180.0, max_val=180.0)
 
+        previous_crops = prompt_previous_crop(catalog)
         selected_crops = prompt_crops(catalog)
         profile_name, custom_weights = prompt_scoring_profile()
 
@@ -284,6 +332,7 @@ def run_interactive_tester() -> None:
         payload = {
             "lat": lat,
             "lon": lon,
+            "previous_crops": previous_crops,
             "selected_crops": selected_crops,
             "profile_name": profile_name,
             "custom_weights": custom_weights,

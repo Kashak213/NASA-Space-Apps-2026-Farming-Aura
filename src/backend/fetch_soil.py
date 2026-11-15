@@ -50,16 +50,16 @@ DEFAULT_SOIL_DATA: dict[str, Any] = {
 OM_TO_OC_FACTOR = 0.58
 
 
-def _build_sda_sql(lat: float, lon: float, max_depth_cm: int = 30) -> str:
+def _build_sda_sql(lat: float, lon: float, max_depth_cm: int = 60) -> str:
     """
     Build a T-SQL query for the USDA SDA endpoint that intersects a WGS84 point
     (lon, lat) with SSURGO map units, picks the dominant soil component, and
-    returns representative topsoil horizon properties (0 to max_depth_cm).
+    returns representative topsoil and subsoil horizon properties (0 to max_depth_cm).
     """
     # Note: WKT point order is (longitude latitude)
     wkt_point = f"point({float(lon):.6f} {float(lat):.6f})"
     return f"""
-    SELECT TOP 5
+    SELECT TOP 12
         mu.mukey,
         mu.muname AS map_unit_name,
         c.cokey,
@@ -159,12 +159,22 @@ def normalize_soil_for_scoring(horizon_rows: list[dict[str, Any]]) -> dict[str, 
         return dict(DEFAULT_SOIL_DATA)
 
     primary = horizon_rows[0]
+    primary_cokey = primary.get("cokey")
+    comp_rows = (
+        [r for r in horizon_rows if r.get("cokey") == primary_cokey]
+        if primary_cokey is not None
+        else list(horizon_rows)
+    )
+    if not comp_rows:
+        comp_rows = list(horizon_rows)
 
-    def _depth_weighted_float(key: str, max_zone_cm: float = 60.0) -> Optional[float]:
+    def _depth_weighted_float(
+        key: str, max_zone_cm: float = 60.0, min_zone_cm: float = 0.0
+    ) -> Optional[float]:
         weighted_sum = 0.0
         total_thickness = 0.0
         fallback_val: Optional[float] = None
-        for row in horizon_rows:
+        for row in comp_rows:
             val = _safe_float(row.get(key))
             if val is None:
                 continue
@@ -173,8 +183,8 @@ def normalize_soil_for_scoring(horizon_rows: list[dict[str, Any]]) -> dict[str, 
             top = _safe_float(row.get("depth_top_cm"))
             bot = _safe_float(row.get("depth_bottom_cm"))
             if top is not None and bot is not None and bot > top:
-                eff_top = max(0.0, min(max_zone_cm, top))
-                eff_bot = max(0.0, min(max_zone_cm, bot))
+                eff_top = max(min_zone_cm, min(max_zone_cm, top))
+                eff_bot = max(min_zone_cm, min(max_zone_cm, bot))
                 thickness = max(0.0, eff_bot - eff_top)
                 if thickness > 0.0:
                     weighted_sum += val * thickness
@@ -184,7 +194,7 @@ def normalize_soil_for_scoring(horizon_rows: list[dict[str, Any]]) -> dict[str, 
         return fallback_val
 
     # Organic matter is concentrated in the upper 0 to 30 cm plough layer
-    om_pct = _depth_weighted_float("organic_matter_pct", max_zone_cm=30.0)
+    om_pct = _depth_weighted_float("organic_matter_pct", max_zone_cm=30.0, min_zone_cm=0.0)
     if om_pct is not None:
         oc_pct = round(min(om_pct * OM_TO_OC_FACTOR, 8.0), 2)
         om_pct = round(om_pct, 2)
@@ -192,23 +202,25 @@ def normalize_soil_for_scoring(horizon_rows: list[dict[str, Any]]) -> dict[str, 
         oc_pct = DEFAULT_SOIL_DATA["organic_carbon_pct"]
         om_pct = DEFAULT_SOIL_DATA["organic_matter_pct"]
 
-    ph = _depth_weighted_float("ph", max_zone_cm=60.0)
-    bulk_density = _depth_weighted_float("bulk_density", max_zone_cm=45.0)
-    cec = _depth_weighted_float("cec", max_zone_cm=60.0)
-    sand_pct = _depth_weighted_float("sand_pct", max_zone_cm=60.0)
-    silt_pct = _depth_weighted_float("silt_pct", max_zone_cm=60.0)
-    clay_pct = _depth_weighted_float("clay_pct", max_zone_cm=60.0)
-    awc = _depth_weighted_float("awc", max_zone_cm=60.0)
+    ph = _depth_weighted_float("ph", max_zone_cm=60.0, min_zone_cm=0.0)
+    bulk_density = _depth_weighted_float("bulk_density", max_zone_cm=30.0, min_zone_cm=0.0)
+    cec = _depth_weighted_float("cec", max_zone_cm=60.0, min_zone_cm=0.0)
+    sand_pct = _depth_weighted_float("sand_pct", max_zone_cm=60.0, min_zone_cm=0.0)
+    silt_pct = _depth_weighted_float("silt_pct", max_zone_cm=60.0, min_zone_cm=0.0)
+    clay_pct = _depth_weighted_float("clay_pct", max_zone_cm=60.0, min_zone_cm=0.0)
+    awc = _depth_weighted_float("awc", max_zone_cm=60.0, min_zone_cm=0.0)
 
-    # Track the highest bulk density in the profile to detect compacted subsoil hardpans
+    # Measure subsoil bulk density (25 to 60 cm) and track the highest horizon density for hardpans
+    subsoil_weighted_bd = _depth_weighted_float("bulk_density", max_zone_cm=60.0, min_zone_cm=25.0)
     bd_values = [
-        v for v in (_safe_float(r.get("bulk_density")) for r in horizon_rows) if v is not None
+        v for v in (_safe_float(r.get("bulk_density")) for r in comp_rows) if v is not None
     ]
-    subsoil_bd = (
-        max(bd_values)
-        if bd_values
-        else (bulk_density or DEFAULT_SOIL_DATA["subsoil_bulk_density"])
-    )
+    if subsoil_weighted_bd is not None and bd_values:
+        subsoil_bd = max(subsoil_weighted_bd, max(bd_values))
+    elif bd_values:
+        subsoil_bd = max(bd_values)
+    else:
+        subsoil_bd = bulk_density or DEFAULT_SOIL_DATA["subsoil_bulk_density"]
 
     # If sand and clay are present but silt is missing, derive silt as 100 - (sand + clay)
     if silt_pct is None and sand_pct is not None and clay_pct is not None:
@@ -240,7 +252,7 @@ def normalize_soil_for_scoring(horizon_rows: list[dict[str, Any]]) -> dict[str, 
 def fetch_usda_soil(
     lat: float,
     lon: float,
-    max_depth_cm: int = 30,
+    max_depth_cm: int = 60,
     use_cache: bool = True,
     fallback_on_error: bool = True,
     timeout: int = 12,
@@ -255,23 +267,29 @@ def fetch_usda_soil(
     lon_r = round(float(lon), 4)
     cache_name = f"usda_soil_{lat_r:.4f}_{lon_r:.4f}_{int(max_depth_cm)}cm.json"
     cache_path = CACHE_DIR / cache_name
+    legacy_cache_path = CACHE_DIR / f"usda_soil_{lat_r:.4f}_{lon_r:.4f}_30cm.json"
 
     raw_payload: Optional[dict[str, Any]] = None
     source = "live"
 
-    if use_cache and cache_path.exists():
-        try:
-            raw_payload = json.loads(cache_path.read_text(encoding="utf-8"))
-            source = "cache"
-        except Exception:
-            raw_payload = None
+    if use_cache:
+        for candidate_path in (cache_path, legacy_cache_path):
+            if candidate_path.exists():
+                try:
+                    loaded = json.loads(candidate_path.read_text(encoding="utf-8"))
+                    if parse_sda_response(loaded):
+                        raw_payload = loaded
+                        source = "cache"
+                        break
+                except Exception:
+                    raw_payload = None
 
     if raw_payload is None:
         try:
             sql_query = _build_sda_sql(lat_r, lon_r, max_depth_cm=max_depth_cm)
             raw_payload = _http_post_sda(sql_query, timeout=timeout)
             source = "live"
-            if use_cache:
+            if use_cache and parse_sda_response(raw_payload or {}):
                 CACHE_DIR.mkdir(parents=True, exist_ok=True)
                 cache_path.write_text(json.dumps(raw_payload, indent=2), encoding="utf-8")
         except Exception as exc:

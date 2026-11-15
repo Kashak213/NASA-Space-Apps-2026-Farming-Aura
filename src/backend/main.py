@@ -28,6 +28,7 @@ if str(BACKEND_DIR) not in sys.path:
 from crops import (
     PRESET_ROTATIONS,
     WOODY_PERENNIAL_IDS,
+    filter_rotations_by_constraints,
     generate_candidate_rotations,
     get_crop_by_id,
     get_crop_by_name,
@@ -108,7 +109,7 @@ def resolve_farmer_crops(
     against our New York crop catalog in crops.py. If the user did not pick
     specific crops, return the full catalog so we can still rank rotations.
     """
-    # Load all 13 New York crops from data/crops.json if a catalog list was not passed in
+    # Load all 17 New York crop groups from data/crops.json if a catalog list was not passed in
     all_crops = catalog if catalog is not None else load_crops()
 
     # Keep a list of matched crop dictionaries and a set of crop IDs so we never add duplicates
@@ -124,7 +125,7 @@ def resolve_farmer_crops(
 
             raw_text = str(item).strip()
 
-            # Try matching by crop ID first (for example "C01" through "C13")
+            # Try matching by crop ID first (for example "C01" through "C17")
             crop_obj = get_crop_by_id(raw_text, all_crops)
 
             # If it was not an ID, try matching by crop name (for example "Soybeans" or "Potatoes")
@@ -166,6 +167,64 @@ def resolve_farmer_crops(
     return matched if matched else all_crops
 
 
+def resolve_previous_crops(
+    previous_crops: Optional[list[str] | str] = None,
+    catalog: Optional[list[dict[str, Any]]] = None,
+    ask_if_missing: bool = False,
+) -> list[dict[str, Any]]:
+    """
+    Resolve the crop or sequence of crops that was already farmed on the field
+    prior to Year 1 (pushed from the frontend or entered in terminal mode).
+    Returns a list of matched crop dictionaries ordered from older seasons to
+    the most recently harvested crop right before Year 1.
+    """
+    all_crops = catalog if catalog is not None else load_crops()
+    raw_items: list[str] = []
+
+    if isinstance(previous_crops, str):
+        raw_items = [part.strip() for part in previous_crops.split(",") if part.strip()]
+    elif isinstance(previous_crops, list):
+        for entry in previous_crops:
+            if entry is not None and str(entry).strip():
+                raw_items.append(str(entry).strip())
+
+    if not raw_items and ask_if_missing and sys.stdin is not None and sys.stdin.isatty():
+        try:
+            user_in = input(
+                "What crop was already farmed on this field last season? "
+                "(Enter crop ID/name like C02 or Field Corn, or press Enter for none): "
+            ).strip()
+            if user_in and user_in.lower() not in ("none", "no", "n/a", "skip"):
+                raw_items = [part.strip() for part in user_in.split(",") if part.strip()]
+        except EOFError:
+            pass
+
+    resolved_prev: list[dict[str, Any]] = []
+    for raw_text in raw_items:
+        if raw_text.lower() in ("none", "no", "n/a", "null"):
+            continue
+        crop_obj = get_crop_by_id(raw_text, all_crops)
+        if crop_obj is None and raw_text.isdigit():
+            idx = int(raw_text)
+            if 1 <= idx <= len(all_crops):
+                crop_obj = all_crops[idx - 1]
+        if crop_obj is None:
+            crop_obj = get_crop_by_name(raw_text, all_crops)
+        if crop_obj is None:
+            crop_obj = next(
+                (
+                    c
+                    for c in all_crops
+                    if str(c.get("crop_type", "")).lower() == raw_text.lower()
+                ),
+                None,
+            )
+        if crop_obj is not None:
+            resolved_prev.append(crop_obj)
+
+    return resolved_prev
+
+
 def build_climate_for_scoring(
     nasa_response: dict[str, Any],
     soil_data: dict[str, Any],
@@ -199,17 +258,20 @@ def build_climate_for_scoring(
     if growing_precip is None:
         growing_precip = round(float(annual_precip) * 0.48, 1)
 
-    t2m_series = raw_params.get("T2M", {})
-    summer_temps = [
-        float(val)
-        for key, val in t2m_series.items()
-        if len(str(key)) == 6 and str(key)[4:6] in ("06", "07", "08")
-    ]
-    summer_temp_c = (
-        round(sum(summer_temps) / len(summer_temps), 2)
-        if summer_temps
-        else float(summary.get("summer_temp_c") or summary.get("t2m_avg_c") or 21.0)
-    )
+    if summary.get("summer_temp_c") is not None:
+        summer_temp_c = round(float(summary["summer_temp_c"]), 2)
+    else:
+        t2m_series = raw_params.get("T2M", {})
+        summer_temps = [
+            float(val)
+            for key, val in t2m_series.items()
+            if len(str(key)) >= 6 and str(key)[4:6] in ("06", "07", "08")
+        ]
+        summer_temp_c = (
+            round(sum(summer_temps) / len(summer_temps), 2)
+            if summer_temps
+            else float(summary.get("t2m_avg_c") or 21.0)
+        )
     growing_temp_c = float(summary.get("growing_season_temp_c") or (summer_temp_c - 2.0))
 
     annual_ratio = float(annual_precip) / max(normal_annual_mm, 1.0)
@@ -252,18 +314,42 @@ def build_climate_for_scoring(
         summary.get("growing_season_wind_m_s") or summary.get("ws2m_avg_m_s") or 3.0
     )
 
+    override_ndvi: Optional[float] = None
+    if sensor_overrides and isinstance(sensor_overrides, dict):
+        if sensor_overrides.get("soil_moisture") is not None:
+            sm_val = float(sensor_overrides["soil_moisture"])
+            if sm_val > 1.0:
+                sm_val = sm_val / 100.0
+            soil_moisture_avg = round(max(0.05, min(0.60, sm_val)), 3)
+            drought_index = round(
+                max(0.05, min(0.90, 1.0 - (soil_moisture_avg / 0.42))),
+                3,
+            )
+        if sensor_overrides.get("air_temp_c") is not None:
+            air_t = round(float(sensor_overrides["air_temp_c"]), 2)
+            growing_temp_c = air_t
+            summer_temp_c = round(max(air_t, summer_temp_c * 0.4 + air_t * 0.6), 2)
+        if sensor_overrides.get("ndvi_avg") is not None:
+            override_ndvi = round(float(sensor_overrides["ndvi_avg"]), 3)
+        if sensor_overrides.get("soil_ph") is not None:
+            soil_data["ph"] = round(float(sensor_overrides["soil_ph"]), 2)
+
     moisture_factor = min(1.0, soil_moisture_avg / 0.34)
     solar_factor = min(1.0, growing_solar / 18.5)
     thermal_factor = max(0.4, min(1.0, (growing_temp_c - 8.0) / 11.0))
-    estimated_ndvi = round(
-        max(
-            0.35,
-            min(
-                0.88,
-                0.25 + 0.58 * (0.45 * moisture_factor + 0.30 * solar_factor + 0.25 * thermal_factor),
+    estimated_ndvi = (
+        override_ndvi
+        if override_ndvi is not None
+        else round(
+            max(
+                0.35,
+                min(
+                    0.88,
+                    0.25 + 0.58 * (0.45 * moisture_factor + 0.30 * solar_factor + 0.25 * thermal_factor),
+                ),
             ),
-        ),
-        3,
+            3,
+        )
     )
 
     climate_dict: dict[str, Any] = {
@@ -291,23 +377,6 @@ def build_climate_for_scoring(
         "precip_anom_trend": float(summary.get("precip_anom_trend") or 0.0),
     }
 
-    if sensor_overrides and isinstance(sensor_overrides, dict):
-        if sensor_overrides.get("soil_moisture") is not None:
-            sm_val = float(sensor_overrides["soil_moisture"])
-            if sm_val > 1.0:
-                sm_val = sm_val / 100.0
-            climate_dict["soil_moisture_avg"] = round(max(0.05, min(0.60, sm_val)), 3)
-            climate_dict["drought_index"] = round(
-                max(0.05, min(0.90, 1.0 - (climate_dict["soil_moisture_avg"] / 0.42))),
-                3,
-            )
-        if sensor_overrides.get("air_temp_c") is not None:
-            climate_dict["growing_season_temp_c"] = round(float(sensor_overrides["air_temp_c"]), 2)
-        if sensor_overrides.get("ndvi_avg") is not None:
-            climate_dict["ndvi_avg"] = round(float(sensor_overrides["ndvi_avg"]), 3)
-        if sensor_overrides.get("soil_ph") is not None:
-            soil_data["ph"] = round(float(sensor_overrides["soil_ph"]), 2)
-
     return climate_dict
 
 
@@ -317,15 +386,19 @@ def build_rotations_for_farmer(
     rotation_length: int = 3,
     row_crop_only: bool = False,
     max_water_demand_mm: Optional[float] = None,
+    previous_crops: Optional[list[dict[str, Any]]] = None,
 ) -> list[list[str]]:
     """
     Create candidate multi-year crop sequences tailored to the crops the farmer
-    selected. If the farmer picked at least 2 crops, we build sequences from
-    their chosen pool plus complementary nitrogen-fixing legumes when needed.
+    selected and what crop was already farmed on the field before Year 1. If the
+    farmer picked at least 2 crops, we build sequences from their chosen pool
+    plus complementary nitrogen-fixing legumes when needed.
     """
     # Clamp rotation length between 2 and 5 years so combinations stay fast and practical
     length = max(2, min(5, int(rotation_length)))
     farmer_ids = [str(c["crop_id"]) for c in farmer_crops]
+    prev_ids = [str(c["crop_id"]) for c in (previous_crops or []) if c.get("crop_id")]
+    last_prev_id = prev_ids[-1].upper() if prev_ids else None
 
     # Attempt 1: Build valid rotations using only the exact crops the farmer selected
     candidates = generate_candidate_rotations(
@@ -333,6 +406,7 @@ def build_rotations_for_farmer(
         length=length,
         row_crop_only=row_crop_only,
         max_water_demand_mm=max_water_demand_mm,
+        previous_crop_ids=prev_ids,
     )
 
     # Attempt 2: Good rotations need at least one nitrogen-fixing legume (like Soybeans or Alfalfa).
@@ -351,6 +425,7 @@ def build_rotations_for_farmer(
             length=length,
             row_crop_only=row_crop_only,
             max_water_demand_mm=max_water_demand_mm,
+            previous_crop_ids=prev_ids,
         )
         # Keep only candidate sequences that contain at least one crop the farmer asked for
         wanted_set = set(farmer_ids)
@@ -360,11 +435,38 @@ def build_rotations_for_farmer(
     annual_farmer_ids = [cid for cid in farmer_ids if cid not in WOODY_PERENNIAL_IDS]
     if not candidates and len(annual_farmer_ids) >= 2:
         perm_len = min(length, len(annual_farmer_ids))
-        candidates = [list(p) for p in itertools.permutations(annual_farmer_ids, perm_len)]
+        raw_perms = [list(p) for p in itertools.permutations(annual_farmer_ids, perm_len)]
+        filtered_perms = filter_rotations_by_constraints(
+            raw_perms,
+            crops=catalog,
+            row_crop_only=row_crop_only,
+            max_water_demand_mm=max_water_demand_mm,
+        )
+        perms_to_use = filtered_perms if filtered_perms else raw_perms
+        if last_prev_id is not None:
+            non_repeating_year1 = [
+                seq for seq in perms_to_use if seq[0].upper() != last_prev_id
+            ]
+            candidates = non_repeating_year1 if non_repeating_year1 else perms_to_use
+        else:
+            candidates = perms_to_use
 
-    # Attempt 4: Fall back to preset New York annual rotations
+    # Attempt 4: Fall back to preset New York annual rotations filtered by constraints
     if not candidates:
-        candidates = list(PRESET_ROTATIONS)
+        filtered_presets = filter_rotations_by_constraints(
+            PRESET_ROTATIONS,
+            crops=catalog,
+            row_crop_only=row_crop_only,
+            max_water_demand_mm=max_water_demand_mm,
+        )
+        presets_to_use = filtered_presets if filtered_presets else list(PRESET_ROTATIONS)
+        if last_prev_id is not None:
+            non_repeating_presets = [
+                seq for seq in presets_to_use if seq[0].upper() != last_prev_id
+            ]
+            candidates = non_repeating_presets if non_repeating_presets else presets_to_use
+        else:
+            candidates = presets_to_use
 
     return candidates
 
@@ -374,6 +476,7 @@ def analyze_location_and_crops(
     lon: float,
     selected_crops: Optional[list[str]] = None,
     crop_types: Optional[list[str]] = None,
+    previous_crops: Optional[list[str] | str] = None,
     profile_name: str = "Balanced",
     custom_weights: Optional[dict[str, float]] = None,
     rotation_length: int = 3,
@@ -384,12 +487,14 @@ def analyze_location_and_crops(
     end_year: int = 2024,
     use_cache: bool = True,
     sensor_overrides: Optional[dict[str, float]] = None,
+    ask_previous_crop: bool = False,
 ) -> dict[str, Any]:
     """
-    Main backend pipeline function. Takes the farmer's GPS coordinates and crop
-    choices from the frontend, fetches NASA POWER weather and USDA SSURGO soil
-    data for that location, scores the farmer's chosen crops, and returns the
-    top-ranked annual crop rotation sequences plus perennial site suitability.
+    Main backend pipeline function. Takes the farmer's GPS coordinates, what crop
+    was already farmed on the field, and crop choices from the frontend, fetches
+    NASA POWER weather and USDA SSURGO soil data for that location, scores the
+    farmer's chosen crops, and returns the top-ranked annual crop rotation
+    sequences plus perennial site suitability.
     """
     lat_f = float(lat)
     lon_f = float(lon)
@@ -420,14 +525,21 @@ def analyze_location_and_crops(
         sensor_overrides=sensor_overrides,
     )
 
-    # Step 2: Convert the crop names, IDs, or crop types from the frontend into crop dictionaries
+    # Step 2: Resolve what crop was already farmed on this field before generating the new rotation
+    previous_crop_objs = resolve_previous_crops(
+        previous_crops=previous_crops,
+        catalog=catalog,
+        ask_if_missing=ask_previous_crop,
+    )
+
+    # Step 3: Convert the crop names, IDs, or crop types from the frontend into crop dictionaries
     farmer_crops = resolve_farmer_crops(
         selected_crops=selected_crops,
         crop_types=crop_types,
         catalog=catalog,
     )
 
-    # Step 3: Score each chosen crop on its own and separate woody perennials into site suitability
+    # Step 4: Score each chosen crop on its own and separate woody perennials into site suitability
     individual_crop_scores: list[dict[str, Any]] = []
     perennial_site_suitability: list[dict[str, Any]] = []
     for crop_obj in farmer_crops:
@@ -437,6 +549,7 @@ def analyze_location_and_crops(
             climate=climate_data,
             profile_name=profile_name,
             custom_weights=custom_weights,
+            previous_crops=previous_crop_objs,
         )
         entry = {
             "crop_id": crop_obj["crop_id"],
@@ -453,7 +566,7 @@ def analyze_location_and_crops(
         if bool(crop_obj.get("is_woody_perennial", False)):
             perennial_site_suitability.append(entry)
 
-    # Step 4: If the farmer entered a specific 2 to 5 crop annual sequence, score their sequence order
+    # Step 5: If the farmer entered a specific 2 to 5 crop annual sequence, score their sequence order
     annual_selected = [c for c in farmer_crops if not bool(c.get("is_woody_perennial", False))]
     user_sequence_score: Optional[dict[str, Any]] = None
     if selected_crops and 2 <= len(annual_selected) <= 5 and len(selected_crops) <= 5:
@@ -463,18 +576,20 @@ def analyze_location_and_crops(
             climate=climate_data,
             profile_name=profile_name,
             custom_weights=custom_weights,
+            previous_crops=previous_crop_objs,
         )
 
-    # Step 5: Generate valid multi-year candidate rotations from the farmer's crop pool
+    # Step 6: Generate valid multi-year candidate rotations tailored to the already-farmed crop and farmer pool
     candidate_sequences = build_rotations_for_farmer(
         farmer_crops=farmer_crops,
         catalog=catalog,
         rotation_length=rotation_length,
         row_crop_only=row_crop_only,
         max_water_demand_mm=max_water_demand_mm,
+        previous_crops=previous_crop_objs,
     )
 
-    # Score every candidate rotation using scoring.py
+    # Score every candidate rotation using scoring.py (incorporating the effect of previous_crop_objs)
     scored_rotations: list[dict[str, Any]] = []
     for seq_ids in candidate_sequences:
         crop_rows = resolve_sequence_crops(seq_ids, catalog)
@@ -486,6 +601,7 @@ def analyze_location_and_crops(
             climate=climate_data,
             profile_name=profile_name,
             custom_weights=custom_weights,
+            previous_crops=previous_crop_objs,
         )
         scored_rotations.append(scored)
 
@@ -493,17 +609,20 @@ def analyze_location_and_crops(
     ranked_rotations = sort_rotations(scored_rotations)
     top_rotations = ranked_rotations[: max(1, int(top_n))]
 
-    # Step 6: Run the #1 winning rotation across all 5 farmer priority profiles so the UI
+    # Step 7: Run the #1 winning rotation across all 5 farmer priority profiles so the UI
     # can show how the score changes under Balanced, Max Yield, Water Conservation, etc.
     top_profile_comparison: dict[str, dict[str, Any]] = {}
     if top_rotations:
         best_ids = [cid.strip() for cid in top_rotations[0]["seq_ids"].split("->")]
         best_crop_rows = resolve_sequence_crops(best_ids, catalog)
         top_profile_comparison = compare_profiles_for_rotation(
-            best_crop_rows, soil_data, climate_data
+            best_crop_rows,
+            soil_data,
+            climate_data,
+            previous_crops=previous_crop_objs,
         )
 
-    # Return one complete dictionary with location, soil, weather, and rotation rankings for the UI
+    # Return one complete dictionary with location, soil, weather, previous crop, and rotation rankings
     return {
         "coordinates": {"lat": round(float(lat), 4), "lon": round(float(lon), 4)},
         "profile_used": profile_name if custom_weights is None else "Custom",
@@ -517,6 +636,14 @@ def analyze_location_and_crops(
             "drainage_score": round(soil_drainage_score(soil_data), 3),
         },
         "climate": climate_data,
+        "previous_crops_matched": [
+            {
+                "crop_id": c["crop_id"],
+                "crop_name": c["crop_name"],
+                "crop_type": c["crop_type"],
+            }
+            for c in previous_crop_objs
+        ],
         "selected_crops_matched": [
             {
                 "crop_id": c["crop_id"],
@@ -563,11 +690,38 @@ def analyze_farm_request(payload: dict[str, Any]) -> dict[str, Any]:
     else:
         crop_types = None
 
+    # Extract what crop was already farmed on the field (pushed from the frontend under any common key)
+    raw_prev = None
+    for prev_key in (
+        "previous_crops",
+        "previous_crop",
+        "previousCropId",
+        "already_farmed_crops",
+        "already_farmed_crop",
+        "already_farmed",
+        "prior_crops",
+        "prior_crop",
+        "last_crop",
+    ):
+        val = payload.get(prev_key)
+        if val is not None and (not isinstance(val, (str, list)) or len(val) > 0):
+            raw_prev = val
+            break
+
+    previous_crops: Optional[list[str] | str]
+    if isinstance(raw_prev, str):
+        previous_crops = [c.strip() for c in raw_prev.split(",") if c.strip()]
+    elif isinstance(raw_prev, list):
+        previous_crops = [str(c).strip() for c in raw_prev if str(c).strip()]
+    else:
+        previous_crops = None
+
     return analyze_location_and_crops(
         lat=float(lat),
         lon=float(lon),
         selected_crops=selected_crops,
         crop_types=crop_types,
+        previous_crops=previous_crops,
         profile_name=str(payload.get("profile_name", payload.get("profile", "Balanced"))),
         custom_weights=payload.get("custom_weights"),
         rotation_length=int(payload.get("rotation_length", payload.get("years", 3))),
@@ -580,6 +734,7 @@ def analyze_farm_request(payload: dict[str, Any]) -> dict[str, Any]:
         top_n=int(payload.get("top_n", 5)),
         use_cache=bool(payload.get("use_cache", True)),
         sensor_overrides=payload.get("sensor_overrides"),
+        ask_previous_crop=bool(payload.get("ask_previous_crop", False)),
     )
 
 
@@ -601,6 +756,14 @@ if FastAPI is not None:
     class AnalyzeRequestModel(BaseModel):  # type: ignore[misc]
         lat: float = Field(..., ge=-90.0, le=90.0, description="Farm latitude in decimal degrees")
         lon: float = Field(..., ge=-180.0, le=180.0, description="Farm longitude in decimal degrees")
+        previous_crop: Optional[str] = Field(
+            default=None,
+            description="Crop ID or crop name that was already farmed on the field last season (e.g. 'C02' or 'Field Corn')",
+        )
+        previous_crops: Optional[list[str]] = Field(
+            default=None,
+            description="Optional list of previously farmed crops ordered from older seasons to most recent",
+        )
         selected_crops: Optional[list[str]] = Field(
             default=None,
             description="List of crop IDs or crop names the farmer wants to grow (e.g. ['C02', 'C03'])",
@@ -672,10 +835,11 @@ else:
 
 if __name__ == "__main__":
     # Run this file directly (python src/backend/main.py) to test a sample frontend request
-    # for a Finger Lakes, NY farm growing Field Corn, Soybeans, Potatoes, and Cabbage
+    # for a Finger Lakes, NY farm where Field Corn was already farmed last season
     sample_frontend_payload = {
         "lat": 42.70,
         "lon": -76.80,
+        "previous_crop": "Field Corn",
         "selected_crops": ["Field Corn", "Soybeans", "Potatoes", "Cabbage"],
         "profile_name": "Balanced",
         "rotation_length": 3,
@@ -686,6 +850,10 @@ if __name__ == "__main__":
     result = analyze_farm_request(sample_frontend_payload)
     print("Coordinates:", result["coordinates"])
     print("Data Sources:", result["data_sources"])
+    print(
+        "Already Farmed Crop(s):",
+        [c["crop_name"] for c in result["previous_crops_matched"]],
+    )
     print("Matched Crops:", [c["crop_name"] for c in result["selected_crops_matched"]])
     print("Soil Map Unit:", result["soil"]["map_unit_name"])
     print("Top Recommended Rotations:")

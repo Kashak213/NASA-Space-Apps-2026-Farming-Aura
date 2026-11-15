@@ -1,11 +1,11 @@
 """
 Crop catalog, lookup helpers, constraint filters, and rotation generator.
 
-Loads the 13 New York farm crop groups (forage hay, field grains, soybeans,
-orchard fruits, grapes, berries, sugar maple, and vegetables) from
-data/crops.json, looks up crop traits by ID or name, filters sequences by
-farmer equipment or water limits, and generates candidate multi-year crop
-rotations for scoring.py.
+Loads the 17 New York farm crop groups (forage hay, field grains, soybeans,
+small grains, cover crops, orchard fruits, grapes, berries, sugar maple, and
+vegetables) from data/crops.json, looks up crop traits by ID or name, filters
+sequences by farmer equipment or water limits, and generates candidate
+multi-year crop rotations for scoring.py.
 """
 
 from __future__ import annotations
@@ -543,22 +543,32 @@ def filter_rotations_by_constraints(
     return valid_sequences
 
 
+def _family_guild(c_obj: dict[str, Any]) -> str:
+    """Group legume and forage_legume into one functional family guild."""
+    ct = str(c_obj.get("crop_type", ""))
+    return "legume" if ct in ("legume", "forage_legume") else ct
+
+
 def generate_candidate_rotations(
     crops: Optional[list[dict[str, Any]]] = None,
     length: int = 3,
     row_crop_only: bool = True,
     max_water_demand_mm: Optional[float] = None,
     excluded_crop_ids: Optional[set[str]] = None,
+    previous_crop_ids: Optional[list[str]] = None,
+    max_candidates: int = 600,
 ) -> list[list[str]]:
     """
     Build valid N-year crop sequences from the crop catalog while skipping bad
     combinations before scoring. Skips planting the same crop or crop family
-    back to back (including when the last year loops back to Year 1), requires
-    at least one nitrogen-fixing legume or cover crop for soil nitrogen, requires
+    back to back (including when the last year loops back to Year 1), avoids
+    repeating the crop that was already farmed right before Year 1, requires at
+    least one nitrogen-fixing legume or cover crop for soil nitrogen, requires
     at least one harvested cash crop for farm income, and caps zero-yield cover
     crops at 1 per rotation.
     """
     catalog = crops if crops is not None else load_crops()
+    full_catalog_map = {str(c["crop_id"]).upper(): c for c in load_crops()}
     excluded = {cid.upper() for cid in (excluded_crop_ids or set())}
     # Woody perennials (orchards, vineyards, berries, sugar maple) stay planted for decades
     # and should never be placed inside an annual crop rotation sequence
@@ -580,17 +590,22 @@ def generate_candidate_rotations(
     crop_ids = [str(c["crop_id"]) for c in usable_crops]
     crop_map = {str(c["crop_id"]): c for c in usable_crops}
 
-    generated: list[list[str]] = []
+    # Check if the farmer specified what crop was already farmed before Year 1
+    cleaned_prev = [str(cid).strip().upper() for cid in (previous_crop_ids or []) if str(cid).strip()]
+    last_prev_id = cleaned_prev[-1] if cleaned_prev else None
+    last_prev_obj = full_catalog_map.get(last_prev_id) if last_prev_id else None
+    last_prev_guild = _family_guild(last_prev_obj) if last_prev_obj else None
+
+    strict_generated: list[list[str]] = []
+    relaxed_prev_family_generated: list[list[str]] = []
+    all_valid_generated: list[list[str]] = []
+
     for combo in itertools.product(crop_ids, repeat=length):
         # Skip if the exact same crop appears two years in a row (including wrap-around)
         if any(combo[i] == combo[(i + 1) % length] for i in range(length)):
             continue
 
         # Skip if the same crop family (like two grains or two legumes in a row) appears back to back
-        def _family_guild(c_obj: dict[str, Any]) -> str:
-            ct = str(c_obj.get("crop_type", ""))
-            return "legume" if ct in ("legume", "forage_legume") else ct
-
         if any(
             _family_guild(crop_map[combo[i]])
             == _family_guild(crop_map[combo[(i + 1) % length]])
@@ -618,6 +633,25 @@ def generate_candidate_rotations(
         if sum(1 for c in c_objs if float(c.get("typical_yield_t_ha", 0.0)) == 0.0) > 1:
             continue
 
-        generated.append(list(combo))
+        seq_list = list(combo)
+        all_valid_generated.append(seq_list)
 
-    return generated
+        # If a previous crop was farmed last season, avoid planting that exact crop in Year 1
+        if last_prev_id is not None and combo[0].upper() == last_prev_id:
+            continue
+
+        relaxed_prev_family_generated.append(seq_list)
+
+        # Also prefer not planting the same functional family in Year 1 right after last season's crop
+        if last_prev_guild is not None and _family_guild(crop_map[combo[0]]) == last_prev_guild:
+            continue
+
+        strict_generated.append(seq_list)
+        if len(strict_generated) >= max_candidates:
+            break
+
+    if strict_generated:
+        return strict_generated[:max_candidates]
+    if relaxed_prev_family_generated:
+        return relaxed_prev_family_generated[:max_candidates]
+    return all_valid_generated[:max_candidates]

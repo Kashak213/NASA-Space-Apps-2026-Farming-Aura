@@ -229,8 +229,8 @@ def wind_stress_score(
     """
     wind_m_s = get_wind_speed_m_s(climate)
 
-    # Wind at or below 2.5 m/s is calm (1.0). Wind up near 8.5 m/s is very strong (0.0).
-    field_wind_safety = 1.0 - clip((wind_m_s - 2.5) / 6.0, 0.0, 1.0)
+    # Wind at or below 1.2 m/s is calm (1.0). Wind up near 7.2 m/s is very strong (0.0).
+    field_wind_safety = 1.0 - clip((wind_m_s - 1.2) / 6.0, 0.0, 1.0)
     if not crop_rows:
         return field_wind_safety
 
@@ -315,18 +315,20 @@ def soil_health_score(
     soil: dict[str, Any],
     crop_rows: Optional[list[dict[str, Any]]] = None,
     climate: Optional[dict[str, Any]] = None,
+    previous_crops: Optional[list[dict[str, Any]]] = None,
 ) -> float:
     """
     Weight 1 (soil_health): Combine the field's baseline soil score with how
     much the crops in the rotation add organic matter, break up packed soil,
-    fit the field's drainage class, and protect topsoil from erosion.
+    fit the field's drainage class, protect topsoil from erosion, and recover
+    from whatever crop was already farmed last season.
     """
     s_base = field_soil_baseline_score(soil)
 
     if climate is not None:
         wind_m_s = get_wind_speed_m_s(climate)
         sand_fraction = clip(float(soil.get("sand_pct", 40.0)) / 100.0, 0.0, 1.0)
-        wind_erosion_penalty = clip((wind_m_s - 4.0) / 8.0, 0.0, 0.12) * sand_fraction
+        wind_erosion_penalty = clip((wind_m_s - 2.2) / 7.0, 0.0, 0.12) * sand_fraction
         s_base = clip(s_base - wind_erosion_penalty, 0.0, 1.0)
 
     if not crop_rows:
@@ -334,6 +336,31 @@ def soil_health_score(
 
     bd = float(soil.get("bulk_density", 1.35))
     compaction_need = clip((bd - 1.15) / 0.45, 0.2, 1.0)
+
+    # Check if the crop farmed right before Year 1 depleted soil organic matter or compacted topsoil
+    prev_list = [c for c in (previous_crops or []) if isinstance(c, dict) and c.get("crop_id")]
+    prev_soil_delta = 0.0
+    if prev_list:
+        last_prev = prev_list[-1]
+        prev_build = float(last_prev.get("soil_building_score", 0.5))
+        prev_heavy = bool(last_prev.get("heavy_pk_feeder", False))
+        year1_crop = crop_rows[0]
+        year1_build = float(year1_crop.get("soil_building_score", 0.5))
+        year1_nfix = float(year1_crop.get("nitrogen_fixation", 0.0))
+        year1_root = float(year1_crop.get("root_depth_m", 1.0))
+
+        if prev_heavy or prev_build <= 0.35:
+            # Field just came out of a heavy feeder like Corn, Potatoes, or Cabbage
+            compaction_need = clip(compaction_need + 0.15, 0.2, 1.0)
+            if year1_build >= 0.75 or year1_nfix >= 0.5:
+                # Reward planting a soil-rebuilding legume or cover crop in Year 1
+                prev_soil_delta = 0.045 + 0.015 * clip(year1_root / 2.0, 0.0, 1.0)
+            elif year1_build <= 0.35:
+                # Penalize planting another soil-depleting crop immediately in Year 1
+                prev_soil_delta = -0.045
+        elif prev_build >= 0.75:
+            # Prior legume or cover crop left organic residue that boosts starting soil condition
+            prev_soil_delta = 0.025
 
     regen_scores: list[float] = []
     for crop in crop_rows:
@@ -348,7 +375,7 @@ def soil_health_score(
         regen_scores.append(crop_regen)
 
     regen_avg = statistics.mean(regen_scores)
-    return clip(0.40 * s_base + 0.60 * regen_avg, 0.0, 1.0)
+    return clip(0.40 * s_base + 0.60 * regen_avg + prev_soil_delta, 0.0, 1.0)
 
 
 def field_water_supply_score(climate: dict[str, Any]) -> float:
@@ -366,9 +393,9 @@ def field_water_supply_score(climate: dict[str, Any]) -> float:
     # Penalize fields where drought got worse from last year to this year
     trend_penalty = clip(float(climate.get("drought_trend", 0.0)) * 1.2, 0.0, 0.20)
 
-    # Strong wind (> 3.5 m/s) speeds up evaporation from topsoil and transpiration from leaves
+    # Moderate to strong wind (> 1.8 m/s) speeds up evaporation from topsoil and transpiration from leaves
     wind_m_s = get_wind_speed_m_s(climate)
-    wind_drying_penalty = clip((wind_m_s - 3.5) / 40.0, 0.0, 0.12)
+    wind_drying_penalty = clip((wind_m_s - 1.8) / 35.0, 0.0, 0.12)
 
     # Intense sunlight (> 18.0 MJ/m^2/day) heats the soil surface and evaporates moisture faster
     solar = get_solar_irradiance(climate)
@@ -518,20 +545,36 @@ def yield_potential_score(
 ) -> float:
     """
     Weight 5 (yield): Normalize each crop's yield against its own regional
-    benchmark yield (benchmark_yield_t_ha) blended with harvestable output scale,
-    then adjust for growing-season sunlight and temperature fit.
+    benchmark yield (benchmark_yield_t_ha) blended with category-scaled harvest
+    output so dry grains and legumes are compared fairly against high-water
+    vegetables, then adjust for growing-season sunlight and temperature fit.
     """
     typical_y = float(crop.get("typical_yield_t_ha", 0.0))
     if typical_y <= 0.0:
         return 0.0
 
+    ctype = str(crop.get("crop_type", "")).lower()
+    category_scale_map = {
+        "legume": 4.2,
+        "forage_legume": 10.5,
+        "grain": 11.5,
+        "oilseed": 3.5,
+        "vegetable": 36.0,
+        "root_veg": 35.0,
+        "orchard": 28.0,
+        "vineyard": 12.5,
+        "berry": 9.5,
+        "agroforestry": 5.0,
+    }
+    cat_scale = category_scale_map.get(ctype, 12.0)
+
     benchmark_y = float(crop.get("benchmark_yield_t_ha", 0.0))
     if benchmark_y > 0.0:
         rel_yield = clip(typical_y / benchmark_y, 0.0, 1.0)
-        tonnage_index = clip(typical_y / 14.0, 0.25, 1.0)
-        base_yield = 0.45 * rel_yield + 0.55 * tonnage_index
+        tonnage_index = clip(typical_y / cat_scale, 0.25, 1.0)
+        base_yield = 0.65 * rel_yield + 0.35 * tonnage_index
     else:
-        base_yield = clip(typical_y / 12.0, 0.0, 1.0)
+        base_yield = clip(typical_y / cat_scale, 0.0, 1.0)
 
     if climate is None:
         return clip(base_yield, 0.0, 1.0)
@@ -543,13 +586,16 @@ def yield_potential_score(
 
 
 def sequence_transition_analysis(
-    crop_rows: list[dict[str, Any]], soil: dict[str, Any]
+    crop_rows: list[dict[str, Any]],
+    soil: dict[str, Any],
+    previous_crops: Optional[list[dict[str, Any]]] = None,
 ) -> dict[str, Any]:
     """
     Check how well each crop in the sequence sets up the next year's crop,
-    including when the final year loops back to Year 1. Penalizes planting the
-    same crop or crop family back to back, repeating root/vegetable disease hosts
-    within 2 years, or running heavy P/K feeders consecutively without recovery.
+    including both the transition from the previously farmed crop into Year 1
+    and the multi-year loop. Penalizes planting the same crop or crop family
+    back to back, repeating root/vegetable disease hosts within 2 years, or
+    running heavy P/K feeders consecutively without soil recovery.
     """
     n = len(crop_rows)
     if n == 0:
@@ -558,13 +604,43 @@ def sequence_transition_analysis(
             "n_carryover_bonus": 0.0,
             "penalty_multiplier": 1.0,
             "repeat_crop_count": 0,
+            "previous_crop_effect": {
+                "has_previous_crop": False,
+                "previous_crop_ids": [],
+                "previous_crop_names": [],
+                "year1_transition": "none",
+                "prev_n_carryover_credit": 0.0,
+                "prev_soil_recovery_bonus": 0.0,
+                "prev_penalty_applied": 0.0,
+            },
         }
+
+    def _guild(c_obj: dict[str, Any]) -> str:
+        ct = str(c_obj.get("crop_type", ""))
+        return "legume" if ct in ("legume", "forage_legume") else ct
+
+    prev_list = [c for c in (previous_crops or []) if isinstance(c, dict) and c.get("crop_id")]
+    prev_ids = [str(c.get("crop_id", "")) for c in prev_list]
+    prev_names = [str(c.get("crop_name", c.get("crop_id", ""))) for c in prev_list]
+
     if n == 1:
+        single_crop = crop_rows[0]
+        prev_repeat = 1 if (prev_list and prev_list[-1].get("crop_id") == single_crop.get("crop_id")) else 0
+        single_pen = 0.65 if prev_repeat else 0.75
         return {
-            "transition_score": 0.3,
+            "transition_score": 0.30,
             "n_carryover_bonus": 0.0,
-            "penalty_multiplier": 0.75,
-            "repeat_crop_count": 1,
+            "penalty_multiplier": single_pen,
+            "repeat_crop_count": 1 + prev_repeat,
+            "previous_crop_effect": {
+                "has_previous_crop": bool(prev_list),
+                "previous_crop_ids": prev_ids,
+                "previous_crop_names": prev_names,
+                "year1_transition": "monoculture_repeat_penalty" if prev_repeat else "single_crop_check",
+                "prev_n_carryover_credit": 0.0,
+                "prev_soil_recovery_bonus": 0.0,
+                "prev_penalty_applied": round(0.75 - single_pen, 3),
+            },
         }
 
     repeat_crop_count = 0
@@ -575,32 +651,27 @@ def sequence_transition_analysis(
     n_credit_total = 0.0
     root_alt_total = 0.0
 
+    # For a 2-year rotation [A, B], step 0 (A->B) and step 1 (B->A) are the same undirected pair
+    pair_steps = 1 if n == 2 else n
+
     for i in range(n):
         curr = crop_rows[i]
         nxt = crop_rows[(i + 1) % n]
-        step_weight = 1.0 - 0.05 * i
 
         curr_type = str(curr.get("crop_type", ""))
         nxt_type = str(nxt.get("crop_type", ""))
-        curr_guild = "legume" if curr_type in ("legume", "forage_legume") else curr_type
-        nxt_guild = "legume" if nxt_type in ("legume", "forage_legume") else nxt_type
+        curr_guild = _guild(curr)
+        nxt_guild = _guild(nxt)
 
-        if curr.get("crop_id") == nxt.get("crop_id"):
-            repeat_crop_count += 1
-        elif curr_guild == nxt_guild:
-            same_type_count += 1
+        if i < pair_steps:
+            if curr.get("crop_id") == nxt.get("crop_id"):
+                repeat_crop_count += 1
+            elif curr_guild == nxt_guild:
+                same_type_count += 1
 
-        if n >= 3:
-            two_ahead = crop_rows[(i + 2) % n]
-            if (
-                curr.get("crop_id") == two_ahead.get("crop_id")
-                and curr_type in ("root_veg", "vegetable")
-            ):
-                disease_window_hits += 1
-
-        if bool(curr.get("heavy_pk_feeder", False)) and bool(nxt.get("heavy_pk_feeder", False)):
-            if float(curr.get("nitrogen_fixation", 0.0)) < 0.5 and float(nxt.get("nitrogen_fixation", 0.0)) < 0.5:
-                heavy_pk_back_to_back += 1
+            if bool(curr.get("heavy_pk_feeder", False)) and bool(nxt.get("heavy_pk_feeder", False)):
+                if float(curr.get("nitrogen_fixation", 0.0)) < 0.5 and float(nxt.get("nitrogen_fixation", 0.0)) < 0.5:
+                    heavy_pk_back_to_back += 1
 
         curr_nfix = float(curr.get("nitrogen_fixation", 0.0))
         nxt_nfix = float(nxt.get("nitrogen_fixation", 0.0))
@@ -609,34 +680,120 @@ def sequence_transition_analysis(
             demand_weight = 1.05 if bool(nxt.get("heavy_pk_feeder", False)) else 0.65
             if curr_type == "cover" and bool(nxt.get("heavy_pk_feeder", False)):
                 demand_weight = 1.20
-            n_credit_total += curr_nfix * demand_weight * step_weight
-        elif curr_nfix >= 0.5 and nxt_nfix >= 0.5:
-            # Planting a cover crop right before a legume (instead of before a grain/vegetable) wastes N credit
-            if curr_type == "cover" and nxt_guild == "legume":
-                redundant_nfix_count += 2
-            elif curr_guild == "legume" and nxt_guild == "legume":
-                redundant_nfix_count += 2
+            n_credit_total += curr_nfix * demand_weight
+        elif curr_nfix >= 0.5 and nxt_nfix >= 0.5 and i < pair_steps:
+            # Back-to-back nitrogen fixers (legume->legume, cover->legume, or legume->cover) waste soil N credit
+            redundant_nfix_count += 2
 
         root_diff = abs(float(curr.get("root_depth_m", 1.0)) - float(nxt.get("root_depth_m", 1.0)))
-        root_alt_total += clip(root_diff / 1.2, 0.0, 1.0) * step_weight
+        root_alt_total += clip(root_diff / 1.2, 0.0, 1.0)
 
+    # Check 2-year soil-borne disease host repeats (planting the same root_veg or vegetable every 2nd year)
+    if n == 2:
+        for c_item in crop_rows:
+            if str(c_item.get("crop_type", "")) in ("root_veg", "vegetable"):
+                disease_window_hits += 1
+    elif n >= 4:
+        gap_steps = 2 if n == 4 else n
+        for i in range(gap_steps):
+            curr = crop_rows[i]
+            two_ahead = crop_rows[(i + 2) % n]
+            if (
+                curr.get("crop_id") == two_ahead.get("crop_id")
+                and str(curr.get("crop_type", "")) in ("root_veg", "vegetable")
+            ):
+                disease_window_hits += 1
+
+    # Evaluate the transition from the previously farmed crop(s) into Year 1 and Year 2
     first_crop = crop_rows[0]
-    oc_deficit = clip((3.0 - float(soil.get("organic_carbon_pct", 2.5))) / 2.0, 0.0, 1.0)
-    year1_readiness = (
-        0.05
-        * (
-            float(first_crop.get("nitrogen_fixation", 0.0))
-            + float(first_crop.get("soil_building_score", 0.5))
+    first_guild = _guild(first_crop)
+    first_nfix = float(first_crop.get("nitrogen_fixation", 0.0))
+    first_heavy = bool(first_crop.get("heavy_pk_feeder", False))
+
+    prev_n_carryover_credit = 0.0
+    prev_soil_recovery_bonus = 0.0
+    prev_penalty = 0.0
+    year1_transition_label = "no_prior_crop_specified"
+
+    if prev_list:
+        last_prev = prev_list[-1]
+        prev_id = str(last_prev.get("crop_id", ""))
+        prev_type = str(last_prev.get("crop_type", ""))
+        prev_guild = _guild(last_prev)
+        prev_nfix = float(last_prev.get("nitrogen_fixation", 0.0))
+        prev_heavy = bool(last_prev.get("heavy_pk_feeder", False))
+        prev_build = float(last_prev.get("soil_building_score", 0.5))
+
+        if prev_id == str(first_crop.get("crop_id", "")):
+            repeat_crop_count += 1
+            prev_penalty += 0.18
+            year1_transition_label = "monoculture_repeat_penalty"
+        elif prev_guild == first_guild:
+            same_type_count += 1
+            prev_penalty += 0.07
+            year1_transition_label = "same_family_penalty"
+        else:
+            year1_transition_label = "clean_family_break"
+
+        if prev_type in ("root_veg", "vegetable") and n >= 2:
+            if str(crop_rows[1].get("crop_id", "")) == prev_id:
+                disease_window_hits += 1
+                prev_penalty += 0.05
+                if year1_transition_label == "clean_family_break":
+                    year1_transition_label = "year2_disease_window_penalty"
+        if len(prev_list) >= 2:
+            two_back = prev_list[-2]
+            if (
+                str(two_back.get("crop_type", "")) in ("root_veg", "vegetable")
+                and str(two_back.get("crop_id", "")) == str(first_crop.get("crop_id", ""))
+            ):
+                disease_window_hits += 1
+                prev_penalty += 0.05
+                year1_transition_label = "year1_disease_window_penalty"
+
+        if prev_heavy and first_heavy and prev_nfix < 0.5 and first_nfix < 0.5:
+            heavy_pk_back_to_back += 1
+            prev_penalty += 0.04
+
+        if prev_nfix >= 0.5 and first_nfix < 0.2:
+            demand_mult = 0.16 if first_heavy else 0.11
+            prev_n_carryover_credit = round(prev_nfix * demand_mult, 3)
+            year1_transition_label = "prior_legume_n_carryover"
+        elif (prev_heavy or prev_build <= 0.35) and prev_nfix < 0.2 and first_nfix >= 0.5:
+            prev_soil_recovery_bonus = round(0.06 + 0.05 * first_nfix, 3)
+            year1_transition_label = "soil_recovery_legume_after_heavy_feeder"
+        elif prev_nfix >= 0.5 and first_nfix >= 0.5:
+            redundant_nfix_count += 1
+            prev_penalty += 0.04
+            if year1_transition_label == "clean_family_break":
+                year1_transition_label = "redundant_n_fixer_penalty"
+
+        prev_root_diff = abs(
+            float(last_prev.get("root_depth_m", 1.0)) - float(first_crop.get("root_depth_m", 1.0))
         )
-        * (0.5 + 0.5 * oc_deficit)
-    )
+        root_alt_score = clip(
+            (root_alt_total + clip(prev_root_diff / 1.2, 0.0, 1.0)) / (n + 1),
+            0.0,
+            1.0,
+        )
+        year1_bonus = prev_n_carryover_credit + prev_soil_recovery_bonus
+    else:
+        oc_deficit = clip((3.0 - float(soil.get("organic_carbon_pct", 2.5))) / 2.0, 0.0, 1.0)
+        year1_bonus = (
+            0.05
+            * (
+                first_nfix
+                + float(first_crop.get("soil_building_score", 0.5))
+            )
+            * (0.5 + 0.5 * oc_deficit)
+        )
+        root_alt_score = clip(root_alt_total / n, 0.0, 1.0)
 
     n_carryover_bonus = clip(
-        n_credit_total / max(n * 0.45, 1.0) + year1_readiness - 0.08 * (redundant_nfix_count / n),
+        n_credit_total / max(n * 0.45, 1.0) + year1_bonus - 0.08 * (redundant_nfix_count / n),
         0.0,
         0.45,
     )
-    root_alt_score = clip(root_alt_total / n, 0.0, 1.0)
 
     repeat_ratio = repeat_crop_count / n
     same_type_ratio = same_type_count / n
@@ -649,15 +806,17 @@ def sequence_transition_analysis(
         - 0.10 * same_type_ratio
         - 0.06 * pk_mining_ratio
         - 0.06 * disease_ratio
-        - 0.05 * redundant_n_ratio,
-        0.60,
+        - 0.05 * redundant_n_ratio
+        - prev_penalty,
+        0.55,
         1.0,
     )
 
     transition_score = clip(
         (
-            0.50 * root_alt_score
-            + 0.50 * clip(n_credit_total / max(n * 0.45, 1.0), 0.0, 1.0)
+            0.45 * root_alt_score
+            + 0.45 * clip((n_credit_total / max(n * 0.45, 1.0)) + year1_bonus, 0.0, 1.0)
+            + 0.10 * (1.0 - clip(prev_penalty * 3.0, 0.0, 1.0))
         )
         * penalty_multiplier,
         0.0,
@@ -669,6 +828,15 @@ def sequence_transition_analysis(
         "n_carryover_bonus": n_carryover_bonus,
         "penalty_multiplier": penalty_multiplier,
         "repeat_crop_count": repeat_crop_count,
+        "previous_crop_effect": {
+            "has_previous_crop": bool(prev_list),
+            "previous_crop_ids": prev_ids,
+            "previous_crop_names": prev_names,
+            "year1_transition": year1_transition_label,
+            "prev_n_carryover_credit": round(prev_n_carryover_credit, 3),
+            "prev_soil_recovery_bonus": round(prev_soil_recovery_bonus, 3),
+            "prev_penalty_applied": round(prev_penalty, 3),
+        },
     }
 
 
@@ -678,11 +846,13 @@ def score_rotation(
     climate: dict[str, Any],
     profile_name: str = "Balanced",
     custom_weights: Optional[dict[str, float]] = None,
+    previous_crops: Optional[list[dict[str, Any]]] = None,
 ) -> dict[str, Any]:
     """
-    Calculate all 7 sub-scores (including wind speed and sunlight intensity effects)
-    for a crop sequence and combine them using the chosen preset profile (or
-    custom weights) plus the repeat-crop penalty multiplier.
+    Calculate all 7 sub-scores (including wind speed, sunlight intensity, and
+    previously farmed crop carry-over effects) for a crop sequence and combine
+    them using the chosen preset profile (or custom weights) plus the
+    repeat-crop penalty multiplier.
     """
     if not crop_rows:
         raise ValueError("crop_rows cannot be empty when scoring a rotation")
@@ -690,13 +860,15 @@ def score_rotation(
     # Get the 7 normalized weights for the active profile
     weights = get_profile_weights(profile_name=profile_name, custom_weights=custom_weights)
 
-    # Analyze crop-to-crop transitions around the multi-year loop
-    trans = sequence_transition_analysis(crop_rows, soil)
+    # Analyze crop-to-crop transitions from the previously farmed crop through the multi-year loop
+    trans = sequence_transition_analysis(crop_rows, soil, previous_crops=previous_crops)
     wind_m_s = get_wind_speed_m_s(climate)
     solar_mj = get_solar_irradiance(climate)
 
-    # 1. Soil health score (includes drainage, hardpan, and wind erosion checks)
-    s_health = soil_health_score(soil, crop_rows, climate=climate)
+    # 1. Soil health score (includes drainage, hardpan, wind erosion, and previous-crop recovery)
+    s_health = soil_health_score(
+        soil, crop_rows, climate=climate, previous_crops=previous_crops
+    )
 
     # 2. Water stress safety score (uses growing-season rain + AWC root-zone storage)
     supply = field_water_supply_score(climate)
@@ -779,39 +951,80 @@ def score_rotation(
         "solar_irradiance_mj_m2_day": round(solar_mj, 2),
         "transition_score": round(trans["transition_score"], 3),
         "penalty_multiplier": round(trans["penalty_multiplier"], 3),
+        "previous_crop_effect": trans["previous_crop_effect"],
         "weights_used": {k: round(v, 3) for k, v in weights.items()},
-        "_raw_sort_key": (total_score, w_stress, n_fix_avg),
+        "_raw_sort_key": (
+            total_score,
+            trans["transition_score"],
+            w_stress,
+            n_fix_avg,
+        ),
     }
 
 
-def sort_rotations(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def sort_rotations(
+    results: list[dict[str, Any]],
+    diversify_crop_sets: bool = True,
+) -> list[dict[str, Any]]:
     """
     Sort scored rotations from highest to lowest using full floating-point
-    precision first, breaking exact ties by water_stress and nitrogen_fixation.
+    precision first, breaking ties by transition_score, water_stress, and
+    nitrogen_fixation. When diversify_crop_sets is True, keeps the best-ordered
+    sequence for each distinct crop combination at the top of the rankings before
+    listing alternative permutations of the same crop set.
     """
     ranked = sorted(
         results,
         key=lambda r: r.get(
             "_raw_sort_key",
-            (r["total_score"], r["water_stress"], r["nitrogen_fixation"]),
+            (
+                r["total_score"],
+                r.get("transition_score", 0.0),
+                r["water_stress"],
+                r["nitrogen_fixation"],
+            ),
         ),
         reverse=True,
     )
     for item in ranked:
         item.pop("_raw_sort_key", None)
-    return ranked
+
+    if not diversify_crop_sets or len(ranked) <= 1:
+        return ranked
+
+    primary_picks: list[dict[str, Any]] = []
+    secondary_permutations: list[dict[str, Any]] = []
+    seen_crop_sets: set[tuple[str, ...]] = set()
+
+    for item in ranked:
+        seq_str = str(item.get("seq_ids", ""))
+        crop_set_key = tuple(sorted(part.strip() for part in seq_str.split("->") if part.strip()))
+        if crop_set_key and crop_set_key not in seen_crop_sets:
+            seen_crop_sets.add(crop_set_key)
+            primary_picks.append(item)
+        else:
+            secondary_permutations.append(item)
+
+    return primary_picks + secondary_permutations
 
 
 def compare_profiles_for_rotation(
     crop_rows: list[dict[str, Any]],
     soil: dict[str, Any],
     climate: dict[str, Any],
+    previous_crops: Optional[list[dict[str, Any]]] = None,
 ) -> dict[str, dict[str, Any]]:
     """
     Score the same crop rotation across all 5 preset profiles so the user or UI
     can see how different farmer priorities change the score.
     """
     return {
-        profile_name: score_rotation(crop_rows, soil, climate, profile_name=profile_name)
+        profile_name: score_rotation(
+            crop_rows,
+            soil,
+            climate,
+            profile_name=profile_name,
+            previous_crops=previous_crops,
+        )
         for profile_name in PROFILES
     }
