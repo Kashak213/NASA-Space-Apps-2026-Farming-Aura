@@ -72,8 +72,6 @@ body {
   padding: 24px 48px;
   position: relative;
   z-index: 20;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.25) 75%, transparent 100%);
-  backdrop-filter: blur(3px);
 }
 
 .brand-block {
