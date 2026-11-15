@@ -8,9 +8,6 @@
   // Opened from a file or Live Server it looks for a backend on this computer.
   // On a public site like GitHub Pages it stays off unless window.FARMING_AURA_API
   // is set to the deployed backend URL before this script loads.
-
-GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
-GEMINI_API_KEY=your_gemini_api_key_here
   const onThisComputer = location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname);
   const sameServer = onThisComputer && location.port === '8000';
   const API_BASE = window.FARMING_AURA_API || (sameServer ? '' : onThisComputer ? 'http://localhost:8000' : null);

@@ -52,6 +52,18 @@ from scoring import (
     sort_rotations,
 )
 
+# Import config helpers for Google Maps and Gemini
+SRC_ROOT = BACKEND_DIR.parent
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
+from config import get_google_maps_api_key
+
+try:
+    from gemini_client import explain_dashboard, gemini_is_configured
+except ImportError:
+    explain_dashboard = None
+    gemini_is_configured = lambda: False
+
 NY_REGIONS_PATH = BACKEND_DIR / "data" / "ny_regions.json"
 
 
@@ -810,6 +822,16 @@ if FastAPI is not None:
     def list_priority_profiles() -> dict[str, Any]:
         """Return the 5 preset farmer priority profiles and their 7 weights for UI sliders."""
         return {"profiles": PROFILES}
+
+    @app.get("/config")
+    def get_public_config() -> dict[str, Any]:
+        """Return public frontend configuration such as Google Maps API key.
+        Never returns GEMINI_API_KEY, which is strictly backend-only."""
+        maps_key = get_google_maps_api_key()
+        return {
+            "google_maps_api_key": maps_key if maps_key else None,
+            "gemini_configured": gemini_is_configured(),
+        }
 
     @app.post("/analyze")
     def analyze_endpoint(request: AnalyzeRequestModel) -> dict[str, Any]:
