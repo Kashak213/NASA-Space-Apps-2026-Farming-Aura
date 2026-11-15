@@ -66,6 +66,92 @@
     return { ...row, crops: row.seqIds.map((id) => CROPS_DATA[id]).filter(Boolean) };
   }
 
+  const MONTH_DAYS_JS = { 1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31 };
+
+  async function fetchDirectNasaUpdate(lat, lon) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const url =
+      `https://power.larc.nasa.gov/api/temporal/monthly/point?parameters=ALLSKY_SFC_SW_DWN,WS2M,PRECTOTCORR,T2M,TS,GWETROOT` +
+      `&community=AG&latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&start=2020&end=2024&format=JSON`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const json = await res.json();
+    const p = (json.properties && json.properties.parameter) || {};
+    const rain = p.PRECTOTCORR || {};
+    const t2m = p.T2M || {};
+    const ts = p.TS || {};
+    const gwet = p.GWETROOT || {};
+
+    const sumMonths = (series, yr, months) => {
+      let tot = 0;
+      let count = 0;
+      for (const m of months) {
+        const v = series[`${yr}${String(m).padStart(2, '0')}`];
+        if (typeof v === 'number' && v > -900) {
+          tot += v * MONTH_DAYS_JS[m];
+          count++;
+        }
+      }
+      return count === months.length ? Math.round(tot) : null;
+    };
+
+    const rain5 = [];
+    const temp5 = [];
+    for (const yr of [2020, 2021, 2022, 2023, 2024]) {
+      const sp = sumMonths(rain, yr, [3, 4, 5]);
+      const su = sumMonths(rain, yr, [6, 7, 8]);
+      if (sp !== null && su !== null) rain5.push(sp + su);
+      const tVals = [6, 7, 8]
+        .map((m) => t2m[`${yr}${String(m).padStart(2, '0')}`])
+        .filter((v) => typeof v === 'number' && v > -900);
+      if (tVals.length) temp5.push(Number((tVals.reduce((a, b) => a + b, 0) / tVals.length).toFixed(1)));
+    }
+
+    const sp23 = sumMonths(rain, 2023, [3, 4, 5]);
+    const su23 = sumMonths(rain, 2023, [6, 7, 8]);
+    const sp24 = sumMonths(rain, 2024, [3, 4, 5]);
+    const su24 = sumMonths(rain, 2024, [6, 7, 8]);
+    const ann24 = sumMonths(rain, 2024, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    if (sp24 === null || su24 === null) return null;
+
+    const gwetVals = [4, 5, 6, 7, 8, 9]
+      .map((m) => gwet[`2024${String(m).padStart(2, '0')}`])
+      .filter((v) => typeof v === 'number' && v > -900);
+    const tsVals = [5, 6, 7, 8, 9]
+      .map((m) => ts[`2024${String(m).padStart(2, '0')}`])
+      .filter((v) => typeof v === 'number' && v > -900);
+    const suTempVals = [6, 7, 8]
+      .map((m) => t2m[`2024${String(m).padStart(2, '0')}`])
+      .filter((v) => typeof v === 'number' && v > -900);
+
+    const moistureAvg = gwetVals.length
+      ? Number((gwetVals.reduce((a, b) => a + b, 0) / gwetVals.length).toFixed(2))
+      : 0.65;
+    const soilTempC = tsVals.length
+      ? Number((tsVals.reduce((a, b) => a + b, 0) / tsVals.length).toFixed(1))
+      : 19.0;
+    const tempSummer = suTempVals.length
+      ? Number((suTempVals.reduce((a, b) => a + b, 0) / suTempVals.length).toFixed(1))
+      : 21.0;
+
+    return {
+      lat: Number(lat.toFixed(4)),
+      lon: Number(lon.toFixed(4)),
+      spring2023Precip: sp23 !== null ? sp23 : sp24,
+      summer2023Precip: su23 !== null ? su23 : su24,
+      spring2024Precip: sp24,
+      summer2024Precip: su24,
+      annualTotalMm: ann24 !== null ? ann24 : Math.round((sp24 + su24) * 1.6),
+      moistureAvg,
+      mapMoisture: moistureAvg,
+      tempSummer,
+      soilTempC,
+      rainSeries2020_2024: rain5.length === 5 ? rain5 : undefined,
+      tempSeries2020_2024: temp5.length === 5 ? temp5 : undefined,
+      nasaSource: 'live'
+    };
+  }
+
   function askBackend(key, request) {
     if (waiting.has(key)) return;
     if (backendDownSince && Date.now() - backendDownSince < RETRY_AFTER_MS) return;
@@ -87,8 +173,25 @@
         // only redraw if the farmer hasn't changed something else in the meantime
         if (JSON.stringify(buildRequest()) === key) renderAll();
       })
-      .catch((err) => {
-        if (!backendDownSince) console.warn('[Farming Aura] backend not reachable, using built-in scoring.', err.message);
+      .catch(async (err) => {
+        if (!backendDownSince) console.warn('[Farming Aura] backend not reachable, querying NASA POWER directly.', err.message);
+        try {
+          const directUpdate = await fetchDirectNasaUpdate(request.lat, request.lon);
+          if (directUpdate) {
+            applyFieldUpdate(request.field_id, directUpdate);
+            const rankedLocal = localRanking();
+            answers.set(key, {
+              nasa_source: 'live',
+              field_update: directUpdate,
+              ranked: rankedLocal.map((r) => ({ ...r, seqIds: r.crops.map((c) => c.id) }))
+            });
+            lastSource = 'live';
+            if (JSON.stringify(buildRequest()) === key) renderAll();
+            return;
+          }
+        } catch (_nasaErr) {
+          // ignore
+        }
         backendDownSince = Date.now();
         const hadBackend = lastSource !== null;
         lastSource = null;
@@ -124,23 +227,21 @@
   let aiEnabled = true; // flips off if the backend says there is no GEMINI_API_KEY
   let aiTimer = null;
 
-  // Same numbers the chart in app.js plots, so the explanation matches what the farmer sees
+  // Same numbers the chart in app.js plots (true 2020-2024 NASA POWER PRECTOTCORR & T2M series)
   function climateSeries(field) {
     const rain2023 = Math.round(field.spring2023Precip + field.summer2023Precip);
     const rain2024 = Math.round(field.spring2024Precip + field.summer2024Precip);
-    const rainStep = Math.round((rain2024 - rain2023) * 0.45);
-    const tempDrift = rain2024 < rain2023 ? 0.35 : -0.2;
-    const t = field.tempSummer;
+    const t = Number(field.tempSummer || 21.0);
     return {
       years: [2020, 2021, 2022, 2023, 2024],
-      rain: [
-        clip(rain2023 - rainStep * 2 + 18, 360, 780),
-        clip(rain2023 - rainStep - 12, 360, 780),
-        clip(rain2023 + 14, 360, 780),
-        rain2023,
-        rain2024
-      ],
-      temp: [3.6, 2.5, 1.8, 0.9, 0].map((k) => Number((t - tempDrift * k).toFixed(1)))
+      rain:
+        Array.isArray(field.rainSeries2020_2024) && field.rainSeries2020_2024.length === 5
+          ? field.rainSeries2020_2024.map((v) => Math.round(Number(v)))
+          : [rain2023, rain2023, rain2023, rain2023, rain2024],
+      temp:
+        Array.isArray(field.tempSeries2020_2024) && field.tempSeries2020_2024.length === 5
+          ? field.tempSeries2020_2024.map((v) => Number(Number(v).toFixed(1)))
+          : [t, t, t, t, t]
     };
   }
 

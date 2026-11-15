@@ -50,14 +50,31 @@ DEFAULT_SOIL_DATA: dict[str, Any] = {
 OM_TO_OC_FACTOR = 0.58
 
 
-def _build_sda_sql(lat: float, lon: float, max_depth_cm: int = 60) -> str:
+def _build_sda_sql(
+    lat: float,
+    lon: float,
+    max_depth_cm: int = 60,
+    buffer_deg: float = 0.0,
+) -> str:
     """
     Build a T-SQL query for the USDA SDA endpoint that intersects a WGS84 point
-    (lon, lat) with SSURGO map units, picks the dominant soil component, and
-    returns representative topsoil and subsoil horizon properties (0 to max_depth_cm).
+    (or small surrounding agricultural buffer polygon when the exact point is
+    paved Urban land / Water) with SSURGO map units, picks the dominant soil
+    component with complete lab horizon measurements, and returns representative
+    topsoil and subsoil horizon properties (0 to max_depth_cm).
     """
-    # Note: WKT point order is (longitude latitude)
-    wkt_point = f"point({float(lon):.6f} {float(lat):.6f})"
+    la = float(lat)
+    lo = float(lon)
+    if buffer_deg > 0.0:
+        d = float(buffer_deg)
+        wkt_geom = (
+            f"polygon(({lo - d:.6f} {la - d:.6f}, {lo + d:.6f} {la - d:.6f}, "
+            f"{lo + d:.6f} {la + d:.6f}, {lo - d:.6f} {la + d:.6f}, {lo - d:.6f} {la - d:.6f}))"
+        )
+    else:
+        # Note: WKT point order is (longitude latitude)
+        wkt_geom = f"point({lo:.6f} {la:.6f})"
+
     return f"""
     SELECT TOP 12
         mu.mukey,
@@ -78,14 +95,17 @@ def _build_sda_sql(lat: float, lon: float, max_depth_cm: int = 60) -> str:
         ch.claytotal_r AS clay_pct,
         ch.awc_r AS awc
     FROM mapunit AS mu
-    INNER JOIN SDA_Get_Mukey_from_intersection_with_WktWgs84('{wkt_point}') AS spatial
+    INNER JOIN SDA_Get_Mukey_from_intersection_with_WktWgs84('{wkt_geom}') AS spatial
         ON mu.mukey = spatial.mukey
     INNER JOIN component AS c
         ON mu.mukey = c.mukey
     INNER JOIN chorizon AS ch
         ON c.cokey = ch.cokey
     WHERE ch.hzdept_r < {int(max_depth_cm)}
-      AND (ch.sandtotal_r IS NOT NULL OR ch.ph1to1h2o_r IS NOT NULL OR ch.om_r IS NOT NULL)
+      AND ch.sandtotal_r IS NOT NULL
+      AND COALESCE(ch.ph1to1h2o_r, ch.ph01mcacl2_r) IS NOT NULL
+      AND ch.om_r IS NOT NULL
+      AND c.compname NOT IN ('Urban land', 'Water', 'Udorthents', 'Dumps', 'Pits', 'Pits, gravel', 'Pits, quarry')
     ORDER BY
          CASE WHEN c.majcompflag = 'Yes' THEN 0 ELSE 1 END,
         c.comppct_r DESC,
@@ -286,8 +306,12 @@ def fetch_usda_soil(
 
     if raw_payload is None:
         try:
-            sql_query = _build_sda_sql(lat_r, lon_r, max_depth_cm=max_depth_cm)
+            sql_query = _build_sda_sql(lat_r, lon_r, max_depth_cm=max_depth_cm, buffer_deg=0.0)
             raw_payload = _http_post_sda(sql_query, timeout=timeout)
+            # If the exact point is paved urban land or water, query a ~2.5 km (0.025 deg) surrounding agricultural buffer
+            if not parse_sda_response(raw_payload or {}):
+                buffered_sql = _build_sda_sql(lat_r, lon_r, max_depth_cm=max_depth_cm, buffer_deg=0.025)
+                raw_payload = _http_post_sda(buffered_sql, timeout=timeout)
             source = "live"
             if use_cache and parse_sda_response(raw_payload or {}):
                 CACHE_DIR.mkdir(parents=True, exist_ok=True)

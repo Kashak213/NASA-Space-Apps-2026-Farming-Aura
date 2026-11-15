@@ -531,42 +531,62 @@ def _build_nasa_field_update(
     soil_data: dict[str, Any],
     climate_data: dict[str, Any],
 ) -> dict[str, Any]:
-    """Build `field_update` from NASA POWER and USDA SSURGO for the 4 KPI squares and charts."""
+    """Build `field_update` from true NASA POWER (2020-2024) and USDA SSURGO measurements."""
     raw_data = nasa_result.get("data", {})
     summary = nasa_result.get("summary", {})
     rain_series = raw_data.get("PRECTOTCORR", {})
     temp_series = raw_data.get("T2M", {})
+    ts_series = raw_data.get("TS", {})
     gwet_series = raw_data.get("GWETROOT", {})
+
+    # True 5-year (2020-2024) growing-season rainfall (Mar-Aug, mm) and summer air temp (Jun-Aug, C) from NASA POWER
+    rain_5yr: list[int] = []
+    temp_5yr: list[float] = []
+    for yr in (2020, 2021, 2022, 2023, 2024):
+        sp_yr = _season_precip_mm(rain_series, yr, (3, 4, 5))
+        su_yr = _season_precip_mm(rain_series, yr, (6, 7, 8))
+        if sp_yr is not None and su_yr is not None:
+            rain_5yr.append(sp_yr + su_yr)
+        t_vals = [float(temp_series[f"{yr}{m:02d}"]) for m in (6, 7, 8) if f"{yr}{m:02d}" in temp_series]
+        if t_vals:
+            temp_5yr.append(round(sum(t_vals) / len(t_vals), 1))
 
     sp23 = _season_precip_mm(rain_series, 2023, (3, 4, 5))
     su23 = _season_precip_mm(rain_series, 2023, (6, 7, 8))
     sp24 = _season_precip_mm(rain_series, 2024, (3, 4, 5))
     su24 = _season_precip_mm(rain_series, 2024, (6, 7, 8))
+    ann_2024 = _season_precip_mm(rain_series, 2024, (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))
 
     growing_mm = float(summary.get("growing_season_precip_mm") or climate_data.get("growing_season_precip_mm") or 530.0)
-    annual_total_mm = round(
-        float(summary.get("estimated_annual_precip_mm") or climate_data.get("annual_precip_mm") or (growing_mm * 1.85))
+    annual_total_mm = (
+        ann_2024
+        if ann_2024 is not None
+        else round(float(summary.get("estimated_annual_precip_mm") or climate_data.get("annual_precip_mm") or 950.0))
     )
 
     if sp24 is None or su24 is None:
-        sp24 = round(growing_mm * 0.56)
-        su24 = round(growing_mm * 0.44)
+        sp24 = round(growing_mm * 0.50)
+        su24 = round(growing_mm * 0.50)
     if sp23 is None or su23 is None:
-        sp23 = round(sp24 * 1.04)
-        su23 = round(su24 * 1.04)
+        sp23 = sp24
+        su23 = su24
 
     summer_24_vals = [float(temp_series[f"2024{m:02d}"]) for m in (6, 7, 8) if f"2024{m:02d}" in temp_series]
     if summer_24_vals:
         temp_summer = round(sum(summer_24_vals) / len(summer_24_vals), 1)
     else:
-        temp_summer = round(float(climate_data.get("summer_temp_c") or summary.get("summer_temp_c") or 24.5), 1)
+        temp_summer = round(float(climate_data.get("summer_temp_c") or summary.get("summer_temp_c") or 21.0), 1)
 
-    growing_temp = float(
-        summary.get("growing_season_temp_c") or climate_data.get("growing_season_temp_c") or (temp_summer - 2.2)
-    )
-    solar_mj = float(summary.get("growing_season_solar_mj_m2_day") or summary.get("allsky_sfc_sw_dwn_avg") or 17.5)
-    soil_temp_c = round(max(4.0, min(34.0, growing_temp + (solar_mj - 17.0) * 0.35)), 1)
+    # True NASA POWER Earth Skin / Surface Soil Temperature (TS, May-Sep 2024 mean)
+    ts_24_vals = [float(ts_series[f"2024{m:02d}"]) for m in (5, 6, 7, 8, 9) if f"2024{m:02d}" in ts_series]
+    if ts_24_vals:
+        soil_temp_c = round(sum(ts_24_vals) / len(ts_24_vals), 1)
+    elif summary.get("growing_season_ts_c") is not None:
+        soil_temp_c = round(float(summary["growing_season_ts_c"]), 1)
+    else:
+        soil_temp_c = round(float(summary.get("growing_season_temp_c") or temp_summer), 1)
 
+    # True NASA POWER Root-Zone Soil Wetness (GWETROOT, Apr-Sep 2024 mean)
     gwet_24_vals = [float(gwet_series[f"2024{m:02d}"]) for m in (4, 5, 6, 7, 8, 9) if f"2024{m:02d}" in gwet_series]
     if gwet_24_vals:
         moisture_avg = round(sum(gwet_24_vals) / len(gwet_24_vals), 2)
@@ -581,20 +601,11 @@ def _build_nasa_field_update(
             2,
         )
 
-    oc = float(soil_data.get("organic_carbon_pct", 2.5))
-    ph = float(soil_data.get("ph", 6.5))
-    if usda_result.get("source") == "fallback":
-        oc = round(max(1.2, min(4.8, 1.6 + moisture_avg * 3.2 - max(0.0, temp_summer - 22.0) * 0.08)), 1)
-        ph = round(max(5.4, min(7.8, 7.2 - (annual_total_mm / 1000.0) * 0.75)), 1)
-        soil_data["organic_carbon_pct"] = oc
-        soil_data["ph"] = ph
-    else:
-        oc = round(oc, 1)
-        ph = round(ph, 1)
-
+    oc = round(float(soil_data.get("organic_carbon_pct", 2.5)), 2)
+    ph = round(float(soil_data.get("ph", 6.5)), 2)
     baseline_soil = round(float(field_soil_baseline_score(soil_data)), 2)
 
-    return {
+    out: dict[str, Any] = {
         "lat": round(lat, 4),
         "lon": round(lon, 4),
         "oc": oc,
@@ -602,7 +613,7 @@ def _build_nasa_field_update(
         "clay": round(float(soil_data.get("clay_pct", 25.0)), 1),
         "sand": round(float(soil_data.get("sand_pct", 40.0)), 1),
         "bd": round(float(soil_data.get("bulk_density", 1.35)), 2),
-        "cec": round(float(soil_data.get("cec", 20.0)), 1),
+        "cec": round(float(soil_data.get("cec", 20.0)), 2),
         "spring2023Precip": sp23,
         "summer2023Precip": su23,
         "spring2024Precip": sp24,
@@ -613,10 +624,16 @@ def _build_nasa_field_update(
         "tempSummer": temp_summer,
         "soilTempC": soil_temp_c,
         "mapSoilScore": baseline_soil,
-        "soilMapUnit": str(soil_data.get("map_unit_name") or "Local Topsoil"),
+        "soilMapUnit": str(soil_data.get("map_unit_name") or "USDA Soil Unit"),
+        "drainageClass": str(soil_data.get("drainage_class") or "Well drained"),
         "nasaSource": str(nasa_result.get("source", "live")),
         "usdaSource": str(usda_result.get("source", "live")),
     }
+    if len(rain_5yr) == 5:
+        out["rainSeries2020_2024"] = rain_5yr
+    if len(temp_5yr) == 5:
+        out["tempSeries2020_2024"] = temp_5yr
+    return out
 
 
 def _format_ranked_for_frontend(
@@ -691,7 +708,7 @@ def analyze_location_and_crops(
     row_crop_only: bool = True,
     max_water_demand_mm: Optional[float] = None,
     top_n: int = 5,
-    start_year: int = 2023,
+    start_year: int = 2020,
     end_year: int = 2024,
     use_cache: bool = True,
     sensor_overrides: Optional[dict[str, float]] = None,
