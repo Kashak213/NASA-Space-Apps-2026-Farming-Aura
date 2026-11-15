@@ -2,30 +2,20 @@
 # Requirements for the Nov 14-15 hackathon build
 # Install with: pip install -r requirements.txt
 
+# Backend Web API and Validation
+fastapi>=0.111.0       # HTTP REST backend for farm rotation analysis
+uvicorn>=0.30.0        # ASGI server for FastAPI
+pydantic>=2.7.0        # Request payload and coordinate checks
+requests>=2.31.0       # REST calls for NASA POWER and USDA SSURGO APIs
+python-dotenv>=1.0.0   # Local .env configuration
+
 # Core Data Science
 pandas>=2.2.0          # DataFrames and time-series data
 numpy>=1.26.0          # Array math
-scipy>=1.13.0          # Stats functions
-
-# Machine Learning (Recommendation Engine)
-scikit-learn>=1.5.0    # RandomForest, KMeans, NearestNeighbors
-
-# Geospatial Data
-geopandas>=0.14.0      # Map shapes and field boundaries
-rasterio>=1.3.0        # GeoTIFF rasters for MODIS and SMAP
-xarray>=2024.2.0       # NetCDF climate arrays
-pyproj>=3.6.0          # Lat/lon coordinate conversions
-
-# NASA Data Access
-earthaccess>=0.9.0     # NASA Earthdata API (SMAP, MODIS, GPM)
-requests>=2.31.0       # REST calls for NASA POWER API
 
 # Dashboard and Plots
 streamlit>=1.36.0      # Web app UI
 plotly>=5.22.0         # Interactive time-series charts
 folium>=0.17.0         # Interactive farm maps
-matplotlib>=3.9.0      # Basic static plots
+matplotlib>=3.9.0      # Static plots
 
-# Utilities
-python-dotenv>=1.0.0   # Local .env API keys
-pydantic>=2.7.0        # Input data checks

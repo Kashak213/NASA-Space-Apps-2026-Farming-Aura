@@ -21,3 +21,7 @@ ENV/
 .vscode/
 .idea/
 
+# Internal AI handoff notes
+AI_BRIEFING.md
+
+

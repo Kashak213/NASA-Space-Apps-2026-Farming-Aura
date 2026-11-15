@@ -127,10 +127,10 @@ def get_profile_weights(
 def get_wind_speed_m_s(climate: dict[str, Any]) -> float:
     """
     Read the 2-meter wind speed (in m/s) from either a NASA POWER summary dict
-    or a standard climate dict. Defaults to 3.0 m/s (a gentle breeze) if not provided.
+    or a standard climate dict, preferring growing-season wind when available.
+    Defaults to 3.0 m/s (a gentle breeze) if not provided.
     """
-    # Check each possible key name used by nasa_client.py or mock climate files
-    for key in ("ws2m_avg_m_s", "WS2M", "wind_speed_m_s"):
+    for key in ("growing_season_wind_m_s", "ws2m_avg_m_s", "WS2M", "wind_speed_m_s"):
         if climate.get(key) is not None:
             return float(climate[key])
     return 3.0
@@ -138,15 +138,84 @@ def get_wind_speed_m_s(climate: dict[str, Any]) -> float:
 
 def get_solar_irradiance(climate: dict[str, Any]) -> float:
     """
-    Read sunlight intensity (All Sky Surface Shortwave Downward Irradiance, in
-    MJ/m^2/day for the NASA POWER AG community) from a climate dictionary.
-    Defaults to 14.0 MJ/m^2/day (a normal temperate farming average) if missing.
+    Read growing-season sunlight intensity (All Sky Surface Shortwave Downward
+    Irradiance, in MJ/m^2/day for the NASA POWER AG community) from a climate
+    dictionary so winter snow months do not distort summer crop photosynthesis.
+    Defaults to 17.5 MJ/m^2/day (a normal temperate growing-season average) if missing.
     """
-    # Check the key names returned by nasa_client.py or custom climate inputs
-    for key in ("allsky_sfc_sw_dwn_avg", "ALLSKY_SFC_SW_DWN", "solar_irradiance_mj_m2_day"):
+    for key in (
+        "growing_season_solar_mj_m2_day",
+        "allsky_sfc_sw_dwn_avg",
+        "ALLSKY_SFC_SW_DWN",
+        "solar_irradiance_mj_m2_day",
+    ):
         if climate.get(key) is not None:
             return float(climate[key])
-    return 14.0
+    return 17.5
+
+
+def crop_temperature_fit(crop: dict[str, Any], climate: Optional[dict[str, Any]] = None) -> float:
+    """
+    Score how well the field's May-September growing-season temperature matches
+    the crop's optimal temperature window [optimal_temp_min_c, optimal_temp_max_c].
+    Any temperature inside the optimal plateau scores 1.0, tapering off outside.
+    """
+    if not climate:
+        return 1.0
+    field_temp = climate.get("growing_season_temp_c")
+    if field_temp is None:
+        if climate.get("summer_temp_c") is not None:
+            field_temp = float(climate["summer_temp_c"]) - 2.0
+        elif climate.get("t2m_avg_c") is not None:
+            field_temp = float(climate["t2m_avg_c"]) + 7.5
+        else:
+            return 1.0
+
+    t_val = float(field_temp)
+    t_min = float(crop.get("optimal_temp_min_c", 13.0))
+    t_max = float(crop.get("optimal_temp_max_c", 25.0))
+    if t_min <= t_val <= t_max:
+        return 1.0
+    dist = (t_min - t_val) if t_val < t_min else (t_val - t_max)
+    return clip(1.0 - dist / 6.0, 0.0, 1.0)
+
+
+def soil_drainage_score(
+    soil: dict[str, Any], crop: Optional[dict[str, Any]] = None
+) -> float:
+    """
+    Evaluate field drainage quality from USDA SSURGO drainage_class and subsoil
+    bulk density (hardpan/fragipan indicator). When a crop is provided, penalize
+    deep-rooted or rot-sensitive crops on poorly drained or hardpan soils.
+    """
+    raw_class = str(soil.get("drainage_class", "Well drained")).strip().lower()
+    drainage_map = {
+        "well drained": 1.00,
+        "moderately well drained": 0.88,
+        "somewhat excessively drained": 0.86,
+        "excessively drained": 0.74,
+        "somewhat poorly drained": 0.58,
+        "poorly drained": 0.32,
+        "very poorly drained": 0.15,
+    }
+    base_drain = drainage_map.get(raw_class, 0.85)
+
+    subsoil_bd = float(soil.get("subsoil_bulk_density", soil.get("bulk_density", 1.35)))
+    hardpan_penalty = clip((subsoil_bd - 1.60) / 0.35, 0.0, 0.25)
+    field_drain = clip(base_drain - hardpan_penalty, 0.10, 1.0)
+
+    if crop is None:
+        return field_drain
+
+    wetness_deficit = max(0.0, 0.90 - field_drain)
+    if wetness_deficit <= 0.0:
+        return 1.0
+
+    tol = float(crop.get("drainage_tolerance", 0.55))
+    root_m = float(crop.get("root_depth_m", 1.0))
+    deep_root_exposure = clip((root_m - 1.2) / 1.8, 0.0, 0.30)
+    vulnerability = clip((1.0 - tol) + deep_root_exposure, 0.10, 1.0)
+    return clip(1.0 - wetness_deficit * vulnerability * 1.15, 0.15, 1.0)
 
 
 def wind_stress_score(
@@ -169,77 +238,76 @@ def wind_stress_score(
     crop_wind_buffers: list[float] = []
     for crop in crop_rows:
         soil_hold = float(crop.get("soil_building_score", 0.5))
-        drought_hardiness = float(crop.get("drought_tolerance", 0.5))
-        crop_wind_buffers.append(0.50 * soil_hold + 0.50 * drought_hardiness)
+        root_anchor = clip(float(crop.get("root_depth_m", 1.0)) / 2.0, 0.2, 1.0)
+        crop_wind_buffers.append(0.55 * soil_hold + 0.45 * root_anchor)
 
     crop_buffer_avg = statistics.mean(crop_wind_buffers)
-    # Blend field wind safety (70%) with how well the chosen crops handle wind (30%)
-    return clip(0.70 * field_wind_safety + 0.30 * crop_buffer_avg, 0.0, 1.0)
+    return clip(0.65 * field_wind_safety + 0.35 * crop_buffer_avg, 0.0, 1.0)
 
 
 def sunlight_suitability_score(
     climate: dict[str, Any], crop_rows: Optional[list[dict[str, Any]]] = None
 ) -> float:
     """
-    Calculate a 0.0 to 1.0 sunlight suitability score from NASA POWER shortwave
-    irradiance (ALLSKY_SFC_SW_DWN, in MJ/m^2/day). Plants need sunlight for
-    photosynthesis, where 13 to 20 MJ/m^2/day is a strong growing range. Very low
-    sunlight slows down high-yield crops like corn, while extreme sunlight (> 22)
-    increases leaf heating and water loss unless crops are drought tolerant.
+    Calculate a 0.0 to 1.0 sunlight suitability score from growing-season NASA POWER
+    shortwave irradiance (ALLSKY_SFC_SW_DWN, in MJ/m^2/day).
     """
     solar = get_solar_irradiance(climate)
 
-    # Map sunlight intensity: 16.5 MJ/m^2/day is the sweet spot (1.0), dropping off if
-    # it is super cloudy (< 8 MJ/m^2/day) or scorching (> 25 MJ/m^2/day)
-    field_light_score = 1.0 - clip(abs(solar - 16.5) / 10.0, 0.0, 1.0)
+    # 17.5 MJ/m^2/day is the growing-season sweet spot (1.0)
+    field_light_score = 1.0 - clip(abs(solar - 17.5) / 10.0, 0.0, 1.0)
     if not crop_rows:
         return field_light_score
 
     crop_light_fits: list[float] = []
     for crop in crop_rows:
-        # High-yield cash crops (like corn at 10.5 t/ha) crave stronger sunlight (~18 MJ/m^2/day),
-        # while cover crops and cool-season legumes do fine around 13 MJ/m^2/day
-        yield_norm = clip(float(crop.get("typical_yield_t_ha", 0.0)) / 10.5, 0.0, 1.0)
-        ideal_solar = 13.0 + 5.0 * yield_norm
-        crop_fit = 1.0 - clip(abs(solar - ideal_solar) / 9.0, 0.0, 1.0)
+        ctype = str(crop.get("crop_type", "")).lower()
+        if ctype in ("grain", "vegetable", "vineyard", "orchard"):
+            ideal_solar = 18.5
+        elif ctype in ("legume", "forage_legume", "root_veg", "berry"):
+            ideal_solar = 16.5
+        else:
+            ideal_solar = 14.5
+        crop_fit = 1.0 - clip(abs(solar - ideal_solar) / 8.5, 0.0, 1.0)
         crop_light_fits.append(crop_fit)
 
-    return clip(0.60 * field_light_score + 0.40 * statistics.mean(crop_light_fits), 0.0, 1.0)
+    return clip(0.50 * field_light_score + 0.50 * statistics.mean(crop_light_fits), 0.0, 1.0)
 
 
 def field_soil_baseline_score(soil: dict[str, Any]) -> float:
     """
     Score the starting soil quality of a field from 0.0 to 1.0 using organic
-    carbon, pH, bulk density, CEC, and how close the sand/clay mix is to loam.
+    carbon, pH, bulk density, CEC, drainage class, and sand/clay loam balance.
     """
-    # Organic carbon: 1% maps to 0.0 (depleted dirt) and 5% maps to 1.0 (rich dark topsoil)
     oc = float(soil.get("organic_carbon_pct", 2.5))
     oc_score = clip((oc - 1.0) / 4.0, 0.0, 1.0)
 
-    # Soil pH: 6.5 is ideal for root nutrient uptake in most farm crops
     ph = float(soil.get("ph", 6.5))
-    ph_score = 1.0 - min(abs(ph - 6.5) / 2.0, 1.0)
+    if 6.0 <= ph <= 7.0:
+        ph_score = 1.0
+    else:
+        ph_dist = (6.0 - ph) if ph < 6.0 else (ph - 7.0)
+        ph_score = clip(1.0 - ph_dist / 1.8, 0.0, 1.0)
 
-    # Bulk density: lower numbers mean looser soil that roots and water can move through easily
     bd = float(soil.get("bulk_density", 1.35))
     bd_score = clip((1.7 - bd) / 0.6, 0.0, 1.0)
 
-    # Cation exchange capacity (CEC): higher CEC means clay and organic matter hold onto nutrients better
     cec = float(soil.get("cec", 20.0))
-    cec_score = clip(cec / 40.0, 0.0, 1.0)
+    cec_score = clip(cec / 35.0, 0.0, 1.0)
 
-    # Loam soil usually sits around 40% sand and 25% clay
     sand = float(soil.get("sand_pct", 40.0))
     clay = float(soil.get("clay_pct", 25.0))
     texture_score = 1.0 - clip((abs(sand - 40.0) + abs(clay - 25.0)) / 60.0, 0.0, 1.0)
 
-    # Combine all 5 soil lab metrics into one baseline soil score
+    drain_score = soil_drainage_score(soil)
+
     return (
-        0.25 * oc_score
-        + 0.20 * ph_score
-        + 0.25 * bd_score
-        + 0.15 * cec_score
-        + 0.15 * texture_score
+        0.22 * oc_score
+        + 0.18 * ph_score
+        + 0.20 * bd_score
+        + 0.14 * cec_score
+        + 0.12 * texture_score
+        + 0.14 * drain_score
     )
 
 
@@ -251,37 +319,36 @@ def soil_health_score(
     """
     Weight 1 (soil_health): Combine the field's baseline soil score with how
     much the crops in the rotation add organic matter, break up packed soil,
-    and protect topsoil from blowing away on windy fields.
+    fit the field's drainage class, and protect topsoil from erosion.
     """
     s_base = field_soil_baseline_score(soil)
 
-    # If climate data is passed, check if strong winds risk blowing away dry sandy topsoil
     if climate is not None:
         wind_m_s = get_wind_speed_m_s(climate)
         sand_fraction = clip(float(soil.get("sand_pct", 40.0)) / 100.0, 0.0, 1.0)
-        # Wind above 4.0 m/s slightly lowers baseline soil score on sandy fields due to wind erosion risk
         wind_erosion_penalty = clip((wind_m_s - 4.0) / 8.0, 0.0, 0.12) * sand_fraction
         s_base = clip(s_base - wind_erosion_penalty, 0.0, 1.0)
 
     if not crop_rows:
         return s_base
 
-    # Packed fields (high bulk density) benefit more from deep-rooted crops that open up soil channels
     bd = float(soil.get("bulk_density", 1.35))
     compaction_need = clip((bd - 1.15) / 0.45, 0.2, 1.0)
 
     regen_scores: list[float] = []
     for crop in crop_rows:
         build = float(crop.get("soil_building_score", 0.5))
-        root_norm = clip(float(crop.get("root_depth_m", 1.0)) / 2.5, 0.0, 1.0)
-        regen_scores.append(
-            0.65 * build
-            + 0.35 * (root_norm * compaction_need + build * (1.0 - compaction_need))
+        root_norm = clip(float(crop.get("root_depth_m", 1.0)) / 2.2, 0.0, 1.0)
+        drain_fit = soil_drainage_score(soil, crop)
+        crop_regen = (
+            0.55 * build
+            + 0.25 * (root_norm * compaction_need + build * (1.0 - compaction_need))
+            + 0.20 * drain_fit
         )
+        regen_scores.append(crop_regen)
 
     regen_avg = statistics.mean(regen_scores)
-    # Blend starting soil quality (65%) with how much the rotation rebuilds the soil (35%)
-    return clip(0.65 * s_base + 0.35 * regen_avg, 0.0, 1.0)
+    return clip(0.40 * s_base + 0.60 * regen_avg, 0.0, 1.0)
 
 
 def field_water_supply_score(climate: dict[str, Any]) -> float:
@@ -329,33 +396,37 @@ def water_stress_score(
     crop_demand_mm: Optional[float] = None,
     wind_speed_m_s: Optional[float] = None,
     solar_irradiance: Optional[float] = None,
+    growing_precip_mm: Optional[float] = None,
+    soil_awc: Optional[float] = None,
 ) -> float:
     """
-    Weight 2 (water_stress): Score how safely a crop avoids running out of water.
-    Dry, windy, or intensely sunny fields penalize thirsty crops, especially when
-    yearly rain is below crop demand.
+    Weight 2 (water_stress): Score how safely a crop avoids running out of water
+    during the active growing season. Uses May-September rainfall plus stored
+    root-zone soil moisture rather than full-year snowmelt totals.
     """
-    # If wind is strong (> 3.5 m/s) or sunlight is intense (> 18 MJ/m^2/day), plants
-    # transpire more water through their leaf stomata, nudging up effective water demand
     effective_demand_norm = demand_norm
     if wind_speed_m_s is not None and wind_speed_m_s > 3.5:
         wind_transpiration_bump = clip((wind_speed_m_s - 3.5) * 0.03, 0.0, 0.15)
         effective_demand_norm = clip(effective_demand_norm + wind_transpiration_bump, 0.0, 1.0)
 
-    if solar_irradiance is not None and solar_irradiance > 18.0:
-        solar_transpiration_bump = clip((solar_irradiance - 18.0) * 0.015, 0.0, 0.10)
+    if solar_irradiance is not None and solar_irradiance > 18.5:
+        solar_transpiration_bump = clip((solar_irradiance - 18.5) * 0.015, 0.0, 0.10)
         effective_demand_norm = clip(effective_demand_norm + solar_transpiration_bump, 0.0, 1.0)
 
-    # Wet fields (supply near 1.0) score high for any crop, while dry fields penalize high-demand crops
     base_stress = 1.0 - (1.0 - supply) * effective_demand_norm
-    if annual_precip_mm is None or crop_demand_mm is None:
+    if (annual_precip_mm is None and growing_precip_mm is None) or crop_demand_mm is None:
         return clip(base_stress, 0.0, 1.0)
 
-    # Check if yearly rainfall covers the crop's water need with a 15% safety buffer
+    if growing_precip_mm is not None:
+        stored_root_water_mm = float(soil_awc or 0.18) * 600.0
+        usable_water_mm = float(growing_precip_mm) + stored_root_water_mm
+    else:
+        usable_water_mm = float(annual_precip_mm or 900.0) * 0.62
+
     precip_adequacy = clip(
-        float(annual_precip_mm) / max(float(crop_demand_mm) * 1.15, 1.0), 0.0, 1.0
+        usable_water_mm / max(float(crop_demand_mm) * 1.10, 1.0), 0.0, 1.0
     )
-    return clip(0.75 * base_stress + 0.25 * precip_adequacy, 0.0, 1.0)
+    return clip(0.65 * base_stress + 0.35 * precip_adequacy, 0.0, 1.0)
 
 
 def climate_resilience_score(
@@ -363,29 +434,24 @@ def climate_resilience_score(
 ) -> float:
     """
     Weight 3 (climate_res): Score how well the field and rotation handle weather
-    swings using rain anomalies, NDVI plant health, summer heat, wind stress (WS2M),
-    sunlight suitability (ALLSKY_SFC_SW_DWN), and crop family diversity.
+    swings using rain anomalies, NDVI plant health, summer heat, wind stress,
+    sunlight suitability, crop temperature fit, and functional crop family diversity.
     """
-    # Map rainfall anomaly from [-40%, +20%] onto [0.0, 1.0]
     anomaly = float(climate.get("anomaly_precip_pct", 0.0))
     anomaly_score = clip((anomaly + 40.0) / 60.0, 0.0, 1.0)
 
-    # Map satellite NDVI plant greenness onto [0.0, 1.0]
     ndvi_score = clip(float(climate.get("ndvi_avg", 0.70)) / 0.9, 0.0, 1.0)
 
-    # Penalize fields where rain anomalies are dropping fast, summers are hot, or winds are high
     anom_trend_penalty = clip(
         -float(climate.get("precip_anom_trend", 0.0)) / 40.0, 0.0, 0.25
     )
     summer_heat_penalty = clip(
-        (float(climate.get("summer_temp_c", 24.0)) - 24.5) / 8.0, 0.0, 0.15
+        (float(climate.get("summer_temp_c", 22.0)) - 24.5) / 8.0, 0.0, 0.15
     )
-    wind_m_s = get_wind_speed_m_s(climate)
-    wind_lodging_penalty = clip((wind_m_s - 4.0) / 25.0, 0.0, 0.12)
 
     c_base = clip(
         (anomaly_score + ndvi_score) / 2.0
-        - 0.5 * (anom_trend_penalty + summer_heat_penalty + wind_lodging_penalty),
+        - 0.5 * (anom_trend_penalty + summer_heat_penalty),
         0.0,
         1.0,
     )
@@ -393,66 +459,87 @@ def climate_resilience_score(
     if not crop_rows:
         return c_base
 
-    # Mixing different crop families (grain, legume, oilseed, cover) spreads out weather and wind risk
     unique_types = len({c.get("crop_type", "") for c in crop_rows})
     diversity_score = clip(unique_types / min(len(crop_rows), 3), 0.0, 1.0)
-    drought_hedge = statistics.mean([float(c.get("drought_tolerance", 0.5)) for c in crop_rows])
+    temp_fit_avg = statistics.mean([crop_temperature_fit(c, climate) for c in crop_rows])
     w_safety = wind_stress_score(climate, crop_rows)
     sun_fit = sunlight_suitability_score(climate, crop_rows)
 
-    # Combine crop diversity (40%), drought hardiness (30%), wind safety (15%), and sunlight fit (15%)
     c_buffer = (
         0.40 * diversity_score
-        + 0.30 * drought_hedge
-        + 0.15 * w_safety
+        + 0.25 * temp_fit_avg
+        + 0.20 * w_safety
         + 0.15 * sun_fit
     )
 
-    return clip(0.65 * c_base + 0.35 * c_buffer, 0.0, 1.0)
+    return clip(0.40 * c_base + 0.60 * c_buffer, 0.0, 1.0)
 
 
-def soil_compatibility_score(soil: dict[str, Any], crop: dict[str, Any]) -> float:
+def soil_compatibility_score(
+    soil: dict[str, Any],
+    crop: dict[str, Any],
+    climate: Optional[dict[str, Any]] = None,
+) -> float:
     """
-    Weight 7 base (soil_compat): Check how closely a crop's preferred pH and
-    clay percentage match the field's actual soil pH and clay percentage.
+    Weight 7 base (soil_compat): Check how closely a crop's optimal pH window,
+    clay texture window, drainage tolerance, and temperature range match the field.
+    Any field value inside [optimal_min, optimal_max] scores a full 1.0 plateau.
     """
-    # Compare field pH against the center of the crop's ideal pH window
     ph = float(soil.get("ph", 6.5))
     ph_min = float(crop.get("optimal_ph_min", 5.8))
     ph_max = float(crop.get("optimal_ph_max", 7.0))
-    ph_center = (ph_max + ph_min) / 2.0
-    ph_half = (ph_max - ph_min) / 2.0 + 0.5
-    ph_score = max(0.0, 1.0 - abs(ph - ph_center) / ph_half)
+    if ph_min <= ph <= ph_max:
+        ph_score = 1.0
+    else:
+        ph_dist = (ph_min - ph) if ph < ph_min else (ph - ph_max)
+        ph_score = clip(1.0 - ph_dist / 1.5, 0.0, 1.0)
 
-    # Compare field clay % against the center of the crop's ideal clay window
     clay = float(soil.get("clay_pct", 25.0))
     clay_min = float(crop.get("optimal_clay_min", 15.0))
     clay_max = float(crop.get("optimal_clay_max", 40.0))
-    clay_center = (clay_max + clay_min) / 2.0
-    clay_half = (clay_max - clay_min) / 2.0 + 5.0
-    clay_score = max(0.0, 1.0 - abs(clay - clay_center) / clay_half)
+    if clay_min <= clay <= clay_max:
+        clay_score = 1.0
+    else:
+        clay_dist = (clay_min - clay) if clay < clay_min else (clay - clay_max)
+        clay_score = clip(1.0 - clay_dist / 15.0, 0.0, 1.0)
 
-    # Average the pH match and clay match into a single compatibility score
-    return (ph_score + clay_score) / 2.0
+    drain_score = soil_drainage_score(soil, crop)
+    temp_score = crop_temperature_fit(crop, climate)
+
+    return clip(
+        0.45 * ph_score + 0.20 * clay_score + 0.20 * drain_score + 0.15 * temp_score,
+        0.0,
+        1.0,
+    )
 
 
 def yield_potential_score(
     crop: dict[str, Any], climate: Optional[dict[str, Any]] = None
 ) -> float:
     """
-    Weight 5 (yield): Divide a crop's typical yield (t/ha) by 12.0 t/ha, and
-    adjust for sunlight intensity (ALLSKY_SFC_SW_DWN) since photosynthesis
-    depends on solar radiation to build grain biomass.
+    Weight 5 (yield): Normalize each crop's yield against its own regional
+    benchmark yield (benchmark_yield_t_ha) blended with harvestable output scale,
+    then adjust for growing-season sunlight and temperature fit.
     """
-    base_yield = clip(float(crop.get("typical_yield_t_ha", 0.0)) / 12.0, 0.0, 1.0)
-    if climate is None or base_yield == 0.0:
-        return base_yield
+    typical_y = float(crop.get("typical_yield_t_ha", 0.0))
+    if typical_y <= 0.0:
+        return 0.0
 
-    # Sunlight around 14 to 20 MJ/m^2/day supports full photosynthesis (multiplier up to 1.06),
-    # while dim/cloudy conditions (< 11 MJ/m^2/day) slightly trim yield potential (down to 0.90)
+    benchmark_y = float(crop.get("benchmark_yield_t_ha", 0.0))
+    if benchmark_y > 0.0:
+        rel_yield = clip(typical_y / benchmark_y, 0.0, 1.0)
+        tonnage_index = clip(typical_y / 14.0, 0.25, 1.0)
+        base_yield = 0.45 * rel_yield + 0.55 * tonnage_index
+    else:
+        base_yield = clip(typical_y / 12.0, 0.0, 1.0)
+
+    if climate is None:
+        return clip(base_yield, 0.0, 1.0)
+
     solar = get_solar_irradiance(climate)
-    solar_factor = clip(0.90 + (solar - 10.0) * 0.016, 0.88, 1.06)
-    return clip(base_yield * solar_factor, 0.0, 1.0)
+    solar_factor = clip(0.92 + (solar - 14.0) * 0.018, 0.88, 1.06)
+    temp_factor = 0.85 + 0.15 * crop_temperature_fit(crop, climate)
+    return clip(base_yield * solar_factor * temp_factor, 0.0, 1.0)
 
 
 def sequence_transition_analysis(
@@ -461,8 +548,8 @@ def sequence_transition_analysis(
     """
     Check how well each crop in the sequence sets up the next year's crop,
     including when the final year loops back to Year 1. Penalizes planting the
-    same crop or crop family twice in a row (which builds up pests) and rewards
-    legume-to-grain nitrogen carry-over and alternating root depths.
+    same crop or crop family back to back, repeating root/vegetable disease hosts
+    within 2 years, or running heavy P/K feeders consecutively without recovery.
     """
     n = len(crop_rows)
     if n == 0:
@@ -473,7 +560,6 @@ def sequence_transition_analysis(
             "repeat_crop_count": 0,
         }
     if n == 1:
-        # A 1-crop rotation is a monoculture, so it gets a 0.75 repeat penalty right away
         return {
             "transition_score": 0.3,
             "n_carryover_bonus": 0.0,
@@ -483,38 +569,61 @@ def sequence_transition_analysis(
 
     repeat_crop_count = 0
     same_type_count = 0
+    redundant_nfix_count = 0
+    disease_window_hits = 0
+    heavy_pk_back_to_back = 0
     n_credit_total = 0.0
     root_alt_total = 0.0
 
-    # Walk through each year i and compare it to the following year (i + 1) % n
     for i in range(n):
         curr = crop_rows[i]
         nxt = crop_rows[(i + 1) % n]
-        # Give slightly higher weight to earlier transitions in the rotation
-        step_weight = 1.0 - 0.06 * i
+        step_weight = 1.0 - 0.05 * i
 
-        # Check if the exact same crop or the same crop family is planted two years in a row
+        curr_type = str(curr.get("crop_type", ""))
+        nxt_type = str(nxt.get("crop_type", ""))
+        curr_guild = "legume" if curr_type in ("legume", "forage_legume") else curr_type
+        nxt_guild = "legume" if nxt_type in ("legume", "forage_legume") else nxt_type
+
         if curr.get("crop_id") == nxt.get("crop_id"):
             repeat_crop_count += 1
-        elif curr.get("crop_type") == nxt.get("crop_type"):
+        elif curr_guild == nxt_guild:
             same_type_count += 1
 
-        # Legumes fix nitrogen in root nodules, leaving extra soil N for a following grain crop
+        if n >= 3:
+            two_ahead = crop_rows[(i + 2) % n]
+            if (
+                curr.get("crop_id") == two_ahead.get("crop_id")
+                and curr_type in ("root_veg", "vegetable")
+            ):
+                disease_window_hits += 1
+
+        if bool(curr.get("heavy_pk_feeder", False)) and bool(nxt.get("heavy_pk_feeder", False)):
+            if float(curr.get("nitrogen_fixation", 0.0)) < 0.5 and float(nxt.get("nitrogen_fixation", 0.0)) < 0.5:
+                heavy_pk_back_to_back += 1
+
         curr_nfix = float(curr.get("nitrogen_fixation", 0.0))
         nxt_nfix = float(nxt.get("nitrogen_fixation", 0.0))
-        if curr_nfix >= 0.5 and nxt_nfix == 0.0:
-            demand_weight = clip(float(nxt.get("typical_yield_t_ha", 5.0)) / 10.5, 0.3, 1.0)
+        if curr_nfix >= 0.5 and nxt_nfix < 0.2:
+            # High-demand grains and brassicas/potatoes make the best use of legume or cover-crop N carry-over
+            demand_weight = 1.05 if bool(nxt.get("heavy_pk_feeder", False)) else 0.65
+            if curr_type == "cover" and bool(nxt.get("heavy_pk_feeder", False)):
+                demand_weight = 1.20
             n_credit_total += curr_nfix * demand_weight * step_weight
+        elif curr_nfix >= 0.5 and nxt_nfix >= 0.5:
+            # Planting a cover crop right before a legume (instead of before a grain/vegetable) wastes N credit
+            if curr_type == "cover" and nxt_guild == "legume":
+                redundant_nfix_count += 2
+            elif curr_guild == "legume" and nxt_guild == "legume":
+                redundant_nfix_count += 2
 
-        # Alternating shallow and deep roots pulls water and nutrients from different soil layers
         root_diff = abs(float(curr.get("root_depth_m", 1.0)) - float(nxt.get("root_depth_m", 1.0)))
-        root_alt_total += clip(root_diff / 1.5, 0.0, 1.0) * step_weight
+        root_alt_total += clip(root_diff / 1.2, 0.0, 1.0) * step_weight
 
-    # Starting Year 1 with a legume or cover crop helps extra on low-carbon fields
     first_crop = crop_rows[0]
     oc_deficit = clip((3.0 - float(soil.get("organic_carbon_pct", 2.5))) / 2.0, 0.0, 1.0)
     year1_readiness = (
-        0.04
+        0.05
         * (
             float(first_crop.get("nitrogen_fixation", 0.0))
             + float(first_crop.get("soil_building_score", 0.5))
@@ -522,21 +631,33 @@ def sequence_transition_analysis(
         * (0.5 + 0.5 * oc_deficit)
     )
 
-    n_carryover_bonus = clip(n_credit_total / n + year1_readiness, 0.0, 0.25)
+    n_carryover_bonus = clip(
+        n_credit_total / max(n * 0.45, 1.0) + year1_readiness - 0.08 * (redundant_nfix_count / n),
+        0.0,
+        0.45,
+    )
     root_alt_score = clip(root_alt_total / n, 0.0, 1.0)
 
-    # Lower the penalty multiplier if the rotation repeats the same crop or crop family back to back
     repeat_ratio = repeat_crop_count / n
     same_type_ratio = same_type_count / n
+    pk_mining_ratio = heavy_pk_back_to_back / n
+    disease_ratio = disease_window_hits / n
+    redundant_n_ratio = redundant_nfix_count / n
     penalty_multiplier = clip(
-        1.0 - 0.35 * repeat_ratio - 0.08 * same_type_ratio, 0.65, 1.0
+        1.0
+        - 0.35 * repeat_ratio
+        - 0.10 * same_type_ratio
+        - 0.06 * pk_mining_ratio
+        - 0.06 * disease_ratio
+        - 0.05 * redundant_n_ratio,
+        0.60,
+        1.0,
     )
 
-    # Combine root alternation and nitrogen carry-over into a single transition score
     transition_score = clip(
         (
             0.50 * root_alt_score
-            + 0.50 * clip(n_credit_total / max(n * 0.5, 1.0), 0.0, 1.0)
+            + 0.50 * clip(n_credit_total / max(n * 0.45, 1.0), 0.0, 1.0)
         )
         * penalty_multiplier,
         0.0,
@@ -574,12 +695,14 @@ def score_rotation(
     wind_m_s = get_wind_speed_m_s(climate)
     solar_mj = get_solar_irradiance(climate)
 
-    # 1. Soil health score (includes wind erosion check on sandy soil)
+    # 1. Soil health score (includes drainage, hardpan, and wind erosion checks)
     s_health = soil_health_score(soil, crop_rows, climate=climate)
 
-    # 2. Water stress safety score (includes wind and sunlight drying effects)
+    # 2. Water stress safety score (uses growing-season rain + AWC root-zone storage)
     supply = field_water_supply_score(climate)
     annual_precip = climate.get("annual_precip_mm") or climate.get("estimated_annual_precip_mm")
+    growing_precip = climate.get("growing_season_precip_mm")
+    soil_awc = soil.get("awc", 0.18)
     w_stress = statistics.mean(
         [
             water_stress_score(
@@ -589,31 +712,36 @@ def score_rotation(
                 float(c.get("water_demand_mm", 400.0)),
                 wind_speed_m_s=wind_m_s,
                 solar_irradiance=solar_mj,
+                growing_precip_mm=growing_precip,
+                soil_awc=soil_awc,
             )
             for c in crop_rows
         ]
     )
 
-    # 3. Climate resilience score (includes wind lodging penalty, wind safety, and sunlight fit)
+    # 3. Climate resilience score (includes crop diversity, thermal fit, wind safety, and sunlight fit)
     c_res = climate_resilience_score(climate, crop_rows)
 
     # 4. Nitrogen fixation score (including legume-to-grain carry-over credit)
     n_fix_raw = statistics.mean([float(c.get("nitrogen_fixation", 0.0)) for c in crop_rows])
-    n_fix_avg = clip(0.85 * n_fix_raw + 0.60 * trans["n_carryover_bonus"], 0.0, 1.0)
+    n_fix_avg = clip(0.85 * n_fix_raw + 0.95 * trans["n_carryover_bonus"], 0.0, 1.0)
 
-    # 5. Yield potential score (adjusted for sunlight photosynthesis intensity)
+    # 5. Yield potential score (normalized against crop benchmark yield + sunlight and temperature)
     yield_avg = statistics.mean([yield_potential_score(c, climate=climate) for c in crop_rows])
 
     # 6. Drought tolerance score
     drought_tol_avg = statistics.mean([float(c.get("drought_tolerance", 0.5)) for c in crop_rows])
 
-    # 7. Soil compatibility score (pH/clay fit blended with sequence transition score)
-    base_compat = statistics.mean([soil_compatibility_score(soil, c) for c in crop_rows])
-    soil_compat_avg = clip(0.80 * base_compat + 0.20 * trans["transition_score"], 0.0, 1.0)
+    # 7. Soil compatibility score (plateau pH/clay fit + drainage + temperature + sequence transition)
+    base_compat = statistics.mean(
+        [soil_compatibility_score(soil, c, climate=climate) for c in crop_rows]
+    )
+    soil_compat_avg = clip(0.75 * base_compat + 0.25 * trans["transition_score"], 0.0, 1.0)
 
-    # Standalone wind and sunlight scores so the UI or API can show them directly
+    # Standalone wind, sunlight, and drainage scores so the UI or API can show them directly
     w_safety = wind_stress_score(climate, crop_rows)
     sun_score = sunlight_suitability_score(climate, crop_rows)
+    drain_fit_avg = statistics.mean([soil_drainage_score(soil, c) for c in crop_rows])
 
     # Multiply each of the 7 sub-scores by its profile weight
     weighted_sum = (
@@ -644,6 +772,7 @@ def score_rotation(
         "yield_potential": round(yield_avg, 3),
         "drought_tolerance": round(drought_tol_avg, 3),
         "soil_compatibility": round(soil_compat_avg, 3),
+        "drainage_suitability": round(drain_fit_avg, 3),
         "wind_safety": round(w_safety, 3),
         "wind_speed_m_s": round(wind_m_s, 2),
         "sunlight_score": round(sun_score, 3),
@@ -651,19 +780,26 @@ def score_rotation(
         "transition_score": round(trans["transition_score"], 3),
         "penalty_multiplier": round(trans["penalty_multiplier"], 3),
         "weights_used": {k: round(v, 3) for k, v in weights.items()},
+        "_raw_sort_key": (total_score, w_stress, n_fix_avg),
     }
 
 
 def sort_rotations(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
-    Sort scored rotations from highest to lowest. Ties on total_score are broken
-    by water_stress first (drought safety) and nitrogen_fixation second.
+    Sort scored rotations from highest to lowest using full floating-point
+    precision first, breaking exact ties by water_stress and nitrogen_fixation.
     """
-    return sorted(
+    ranked = sorted(
         results,
-        key=lambda r: (r["total_score"], r["water_stress"], r["nitrogen_fixation"]),
+        key=lambda r: r.get(
+            "_raw_sort_key",
+            (r["total_score"], r["water_stress"], r["nitrogen_fixation"]),
+        ),
         reverse=True,
     )
+    for item in ranked:
+        item.pop("_raw_sort_key", None)
+    return ranked
 
 
 def compare_profiles_for_rotation(

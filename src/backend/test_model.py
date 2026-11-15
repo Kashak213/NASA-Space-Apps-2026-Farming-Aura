@@ -22,7 +22,12 @@ from main import analyze_farm_request
 from scoring import PROFILES, WEIGHT_KEYS
 
 
-def prompt_float(prompt_text: str, default_val: float) -> float:
+def prompt_float(
+    prompt_text: str,
+    default_val: float,
+    min_val: Optional[float] = None,
+    max_val: Optional[float] = None,
+) -> float:
     """
     Ask the user to type a decimal number (like latitude or longitude).
     If the user just presses Enter, return default_val.
@@ -32,7 +37,14 @@ def prompt_float(prompt_text: str, default_val: float) -> float:
         if not raw:
             return default_val
         try:
-            return float(raw)
+            val = float(raw)
+            if min_val is not None and val < min_val:
+                print(f"  -> Value must be at least {min_val}.")
+                continue
+            if max_val is not None and val > max_val:
+                print(f"  -> Value must be at most {max_val}.")
+                continue
+            return val
         except ValueError:
             print("  -> Please enter a valid number (for example 42.70 or -76.80).")
 
@@ -173,33 +185,34 @@ def display_results(result: dict[str, Any]) -> None:
     print("=" * 74)
 
     # 1. Print NASA POWER weather summary and USDA SSURGO soil summary
-    print(f"\n  [1] NASA POWER Weather Data (source: {sources['nasa_power']})")
+    print(f"\n  [1] NASA POWER Weather Data (source: {sources['nasa_power']}, region: {climate.get('region_matched', 'NY')})")
     print(
-        f"      Sunlight (ALLSKY_SFC_SW_DWN): {climate['allsky_sfc_sw_dwn_avg']} MJ/m^2/day\n"
-        f"      Wind Speed at 2m (WS2M):      {climate['ws2m_avg_m_s']} m/s\n"
-        f"      Est. Annual Precipitation:    {climate['annual_precip_mm']} mm/year\n"
-        f"      Avg Temp / Summer Temp:       {climate['t2m_avg_c']} C / {climate['summer_temp_c']} C\n"
-        f"      Estimated Drought Index:      {climate['drought_index']} (Soil Moisture: {climate['soil_moisture_avg']})"
+        f"      Growing-Season Sunlight:      {climate.get('growing_season_solar_mj_m2_day', climate['allsky_sfc_sw_dwn_avg'])} MJ/m^2/day (Annual: {climate['allsky_sfc_sw_dwn_avg']})\n"
+        f"      Wind Speed at 2m (WS2M):      {climate.get('growing_season_wind_m_s', climate['ws2m_avg_m_s'])} m/s\n"
+        f"      Precipitation (Grow / Year):  {climate.get('growing_season_precip_mm')} mm (May-Sep) / {climate['annual_precip_mm']} mm/year\n"
+        f"      Temp (Growing / Summer):      {climate.get('growing_season_temp_c')} C / {climate['summer_temp_c']} C\n"
+        f"      Root-Zone Wetness & Drought:  GWETROOT={climate.get('growing_season_gwetroot')} | Moisture={climate['soil_moisture_avg']} | Drought={climate['drought_index']}\n"
+        f"      2023->2024 Climate Trends:    Rain Trend={climate.get('precip_anom_trend')}% | Drought Trend={climate.get('drought_trend')}"
     )
 
     print(f"\n  [2] USDA SSURGO Soil Data (source: {sources['usda_soil']})")
     print(
         f"      Map Unit Name:      {soil['map_unit_name']} ({soil['drainage_class']})\n"
         f"      Organic Carbon:     {soil['organic_carbon_pct']}% (Organic Matter: {soil['organic_matter_pct']}%)\n"
-        f"      Soil pH:            {soil['ph']} | Bulk Density: {soil['bulk_density']} g/cm3 | CEC: {soil['cec']}\n"
+        f"      Soil pH:            {soil['ph']} | Topsoil BD: {soil['bulk_density']} g/cm3 | Subsoil BD: {soil.get('subsoil_bulk_density')} g/cm3 | CEC: {soil['cec']}\n"
         f"      Texture (S/Si/C):   {soil['sand_pct']}% Sand / {soil['silt_pct']}% Silt / {soil['clay_pct']}% Clay\n"
-        f"      Baseline Soil Score: {soil['baseline_soil_score']}"
+        f"      Baseline Soil Score: {soil['baseline_soil_score']} (Drainage Score: {soil.get('drainage_score')})"
     )
 
     # 2. Print individual crop suitability scores for the user's selected crops
     print("\n  [3] Individual Crop Suitability on This Field:")
-    print(f"      {'ID':<5} {'Crop Name':<35} {'SoilFit':>8} {'Water':>8} {'Yield':>8} {'Drought':>8}")
-    print(f"      {'-' * 5} {'-' * 35} {'-' * 8} {'-' * 8} {'-' * 8} {'-' * 8}")
+    print(f"      {'ID':<5} {'Crop Name':<42} {'SoilFit':>8} {'Drain':>7} {'Water':>7} {'Yield':>7}")
+    print(f"      {'-' * 5} {'-' * 42} {'-' * 8} {'-' * 7} {'-' * 7} {'-' * 7}")
     for item in result["individual_crop_suitability"]:
         print(
-            f"      {item['crop_id']:<5} {item['crop_name'][:35]:<35} "
-            f"{item['soil_compatibility']:>8.3f} {item['water_stress']:>8.3f} "
-            f"{item['yield_potential']:>8.3f} {item['drought_tolerance']:>8.3f}"
+            f"      {item['crop_id']:<5} {item['crop_name'][:42]:<42} "
+            f"{item['soil_compatibility']:>8.3f} {item.get('drainage_suitability', 0.85):>7.3f} "
+            f"{item['water_stress']:>7.3f} {item['yield_potential']:>7.3f}"
         )
 
     # 3. If the user entered 2+ specific crops, show the score for their exact sequence order
@@ -255,8 +268,8 @@ def run_interactive_tester() -> None:
         print("  STEP 1: ENTER FARM COORDINATES (LATITUDE & LONGITUDE)")
         print("  (Examples: Finger Lakes NY = 42.70, -76.80 | Hudson Valley NY = 41.75, -74.08)")
         print("=" * 74)
-        lat = prompt_float("  Enter Latitude ", 42.70)
-        lon = prompt_float("  Enter Longitude", -76.80)
+        lat = prompt_float("  Enter Latitude ", 42.70, min_val=-90.0, max_val=90.0)
+        lon = prompt_float("  Enter Longitude", -76.80, min_val=-180.0, max_val=180.0)
 
         selected_crops = prompt_crops(catalog)
         profile_name, custom_weights = prompt_scoring_profile()

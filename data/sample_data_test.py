@@ -26,6 +26,8 @@ If two rotations tie on total_score, we break ties using water_stress first
 and nitrogen_fixation second.
 """
 
+from __future__ import annotations
+
 import csv
 import itertools
 import math
