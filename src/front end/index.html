@@ -358,32 +358,30 @@
 
           <div class="sidebar-section-label">FIELD SETTINGS</div>
 
-          <!-- Input 1A: Type how many fields there are -->
+          <!-- Dropdown 1: Previous crop planted -->
           <div class="sidebar-control-group">
-            <label class="sidebar-label" for="sidebar-field-count-input">How many fields?</label>
-            <input
-              id="sidebar-field-count-input"
-              type="number"
-              min="1"
-              value="8"
-              class="field-count-input"
-              placeholder="Type number of fields..."
-            />
-          </div>
-
-          <!-- Dropdown 1B: Pick between the fields -->
-          <div class="sidebar-control-group">
-            <label class="sidebar-label">Pick field</label>
-            <button type="button" id="sidebar-field-trigger" class="custom-select-trigger">
-              <span id="sidebar-field-label">Field 1 (F001)</span>
+            <label class="sidebar-label">Previous crop planted</label>
+            <button type="button" id="sidebar-prev-crop-trigger" class="custom-select-trigger">
+              <span id="sidebar-prev-crop-label">Field Corn (Silage &amp; Grain)</span>
               <span class="custom-select-chevron">&#8964;</span>
             </button>
-            <div id="sidebar-field-menu" class="field-dropdown-menu">
-              <div id="sidebar-field-options-list" class="field-options-scroll"></div>
-              <button type="button" id="field-custom-map-btn" class="field-custom-map-btn">
-                Choose custom map location<br />&rarr;
-              </button>
-              <button type="button" id="field-menu-close-btn" class="field-close-btn">Close</button>
+            <div id="sidebar-prev-crop-menu" class="cream-popover-menu crops-popover-menu">
+              <div class="cream-popover-title">What was the previous crop planted?</div>
+              <div id="sidebar-prev-crop-list" class="crop-multiselect-list">
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C01">Hay &amp; Alfalfa (Haylage)</button>
+                <button type="button" class="cream-option-btn active-option" data-prev-crop-option="C02">Field Corn (Silage &amp; Grain)</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C03">Soybeans &amp; Small Grains</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C04">Apples</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C05">Grapes (Juice &amp; Wine)</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C06">Cherries, Peaches, Pears &amp; Plums</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C07">Berries</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C08">Sugar Maple (Maple Syrup)</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C09">Cabbage</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C10">Onions</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C11">Potatoes</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C12">Sweet Corn, Snap Beans &amp; Green Peas</button>
+                <button type="button" class="cream-option-btn" data-prev-crop-option="C13">Beets, Carrots, Squash &amp; Pumpkins</button>
+              </div>
             </div>
           </div>
 
@@ -694,23 +692,59 @@
         <!-- TAB 2: FIELD MAP & CLIMATE -->
         <section id="tab-panel-map" class="dash-tab-panel">
           <div class="map-climate-top-grid">
-            <div>
-              <div class="satellite-map-container">
+            <div class="white-panel-card map-builder-card">
+              <div class="map-builder-header">
+                <div>
+                  <h3 class="panel-serif-heading green-heading" style="margin-bottom: 4px;">Field map &amp; border planner</h3>
+                  <div class="water-demand-sub" style="margin-bottom: 0;">
+                    Type how many fields there are to generate square field borders, or click &amp; drag on the map to draw custom borders (API key placeholder for backend integration).
+                  </div>
+                </div>
+                <span class="map-api-badge">API Placeholder · Ready for Backend Key</span>
+              </div>
+
+              <div class="map-controls-bar">
+                <div class="map-control-field">
+                  <label class="map-control-label" for="map-field-count-input">How many fields?</label>
+                  <input
+                    id="map-field-count-input"
+                    type="number"
+                    min="1"
+                    value="8"
+                    class="map-field-count-input"
+                    placeholder="Number of fields..."
+                  />
+                </div>
+
+                <div class="map-control-field">
+                  <label class="map-control-label" for="map-active-field-select">Active field</label>
+                  <select id="map-active-field-select" class="map-active-field-select"></select>
+                </div>
+
+                <div class="map-control-actions">
+                  <button type="button" id="map-draw-mode-btn" class="map-action-btn">
+                    Draw border on map
+                  </button>
+                  <button type="button" id="map-reset-grid-btn" class="map-action-btn secondary-map-btn">
+                    Auto-arrange squares
+                  </button>
+                </div>
+              </div>
+
+              <div id="map-draw-hint" class="map-draw-hint">
+                Click any square border (F001, F002, ...) to inspect that field, or click "Draw border on map" and drag across the satellite view to draw a square border for the active field.
+              </div>
+
+              <div id="satellite-map-canvas" class="satellite-map-container">
                 <img
                   src="assets/field-health-map.jpg"
-                  alt="Field health map showing F001 through F008"
+                  alt="Satellite field map placeholder"
                   class="satellite-map-img"
+                  draggable="false"
                 />
-                <!-- Interactive clickable hotspots mapped to F001-F008 badges -->
-                <button type="button" class="field-hotspot active-hotspot" data-field="F001" title="Select Field F001" style="left: 15.5%; top: 21%; width: 14.5%; height: 13.5%;"></button>
-                <button type="button" class="field-hotspot" data-field="F002" title="Select Field F002" style="left: 43%; top: 18.5%; width: 16.5%; height: 13.5%;"></button>
-                <button type="button" class="field-hotspot" data-field="F003" title="Select Field F003" style="left: 72%; top: 16%; width: 14%; height: 13.5%;"></button>
-                <button type="button" class="field-hotspot" data-field="F004" title="Select Field F004" style="left: 11%; top: 43.5%; width: 18.5%; height: 13.5%;"></button>
-                <button type="button" class="field-hotspot" data-field="F005" title="Select Field F005" style="left: 68%; top: 39%; width: 16.5%; height: 13.5%;"></button>
-                <button type="button" class="field-hotspot" data-field="F006" title="Select Field F006" style="left: 13.5%; top: 67%; width: 14%; height: 13.5%;"></button>
-                <button type="button" class="field-hotspot" data-field="F007" title="Select Field F007" style="left: 39%; top: 65%; width: 17%; height: 13.5%;"></button>
-                <button type="button" class="field-hotspot" data-field="F008" title="Select Field F008" style="left: 67.5%; top: 62.5%; width: 14%; height: 13.5%;"></button>
+                <div id="map-borders-layer" class="map-borders-layer"></div>
               </div>
+
               <div class="map-caption-meta">
                 <div id="map-selected-field-meta">Selected field: F001 • simulated field readings</div>
                 <div id="map-rotation-preview-meta">Rotation preview: Soybeans &amp; Small Grains &rarr; Field Corn (Silage &amp; Grain) &rarr; Hay &amp; Alfalfa (Haylage)</div>

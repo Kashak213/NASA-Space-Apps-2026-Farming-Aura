@@ -1595,48 +1595,192 @@ body {
   margin-bottom: 20px;
 }
 
+.map-builder-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.map-builder-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.map-api-badge {
+  background-color: #eef4ef;
+  color: #183925;
+  border: 1px solid #c6d8c9;
+  border-radius: 2px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.map-controls-bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  background-color: #f6f8f5;
+  border: 1px solid #dde6de;
+  border-radius: 2px;
+  padding: 12px 14px;
+}
+
+.map-control-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.map-control-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #183925;
+}
+
+.map-field-count-input,
+.map-active-field-select {
+  height: 36px;
+  border: 1px solid #b8c9bc;
+  border-radius: 2px;
+  background-color: #ffffff;
+  color: #183925;
+  padding: 0 10px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  outline: none;
+}
+
+.map-field-count-input {
+  width: 135px;
+}
+
+.map-active-field-select {
+  min-width: 155px;
+  cursor: pointer;
+}
+
+.map-control-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.map-action-btn {
+  height: 36px;
+  background-color: #183925;
+  color: #ffffff;
+  border: 1px solid #183925;
+  border-radius: 2px;
+  padding: 0 14px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.map-action-btn:hover,
+.map-action-btn.active-draw-mode {
+  background-color: #8f4419;
+  border-color: #8f4419;
+  color: #ffffff;
+}
+
+.map-action-btn.secondary-map-btn {
+  background-color: #ffffff;
+  color: #183925;
+  border: 1px solid #183925;
+}
+
+.map-action-btn.secondary-map-btn:hover {
+  background-color: #eef4ef;
+  color: #183925;
+}
+
+.map-draw-hint {
+  font-size: 12.5px;
+  color: #485b4e;
+  background-color: #faf9f5;
+  border-left: 3px solid #8f4419;
+  padding: 8px 12px;
+  border-radius: 2px;
+}
+
 .satellite-map-container {
   position: relative;
   width: 100%;
   border-radius: 3px;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
   background-color: #1c2c1c;
+  user-select: none;
+}
+
+.satellite-map-container.drawing-cursor {
+  cursor: crosshair;
 }
 
 .satellite-map-img {
   width: 100%;
   height: auto;
   display: block;
+  pointer-events: none;
 }
 
-/* Interactive hotspot overlays positioned over the 8 fields in field-health-map.jpg */
-.field-hotspot {
+.map-borders-layer {
   position: absolute;
-  border: 2px solid transparent;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0);
+  inset: 0;
+}
+
+.field-border-square {
+  position: absolute;
+  border: 2px solid rgba(255, 255, 255, 0.88);
+  background-color: rgba(24, 57, 37, 0.34);
+  border-radius: 2px;
+  color: #ffffff;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+  padding: 2px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.field-hotspot:hover {
-  border-color: rgba(255, 255, 255, 0.85);
-  box-shadow: 0 0 16px rgba(255, 255, 255, 0.45);
-  transform: scale(1.03);
-}
-
-.field-hotspot.active-hotspot {
+.field-border-square:hover {
+  background-color: rgba(189, 101, 51, 0.48);
   border-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.55), 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.field-border-square.active-border-square {
+  border: 2.5px solid #ffdfb3;
+  background-color: rgba(143, 68, 25, 0.58);
+  box-shadow: 0 0 0 2px rgba(24, 57, 37, 0.75);
+  z-index: 4;
 }
 
 .map-caption-meta {
-  margin-top: 10px;
-  font-size: 13.5px;
+  margin-top: 4px;
+  font-size: 13px;
   font-weight: 600;
-  color: #ffffff;
-  line-height: 1.65;
+  color: #183925;
+  line-height: 1.6;
 }
 
 /* Crop water demand card */

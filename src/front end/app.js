@@ -361,9 +361,12 @@ const appState = {
   currentView: 'landing-view',
   activeTab: 'rotations',
   selectedCity: 'Albany',
+  previousCropId: 'C02',
   fieldCount: 8,
   selectedFieldNumber: 1,
   selectedFieldId: 'F001',
+  customFieldBorders: {},
+  drawBorderMode: false,
   selectedProfile: 'Balanced',
   selectedCrops: ['C01', 'C02', 'C03'],
   maxWaterDemand: 550,
@@ -633,10 +636,27 @@ function getRankedRotations() {
       selectionBonus = matchCount * 0.05;
     }
 
+    // Factor in what the previous crop planted was so Year 01 does not repeat it
+    const prevCrop = CROPS_DATA[appState.previousCropId];
+    const year1Crop = CROPS_DATA[seq[0]];
+    let prevCropDelta = 0;
+    if (prevCrop && year1Crop) {
+      if (prevCrop.id === year1Crop.id) {
+        prevCropDelta = -0.08;
+      } else if (prevCrop.nFix === 0.0 && year1Crop.nFix >= 0.5) {
+        prevCropDelta = 0.04;
+      } else if (prevCrop.type !== year1Crop.type) {
+        prevCropDelta = 0.02;
+      }
+    }
+
+    const adjustedTotal = clip(base.totalScore + prevCropDelta * 0.5, 0, 1);
+
     return {
       ...base,
+      totalScore: adjustedTotal,
       matchCount,
-      sortScore: base.totalScore + selectionBonus
+      sortScore: adjustedTotal + selectionBonus + prevCropDelta
     };
   });
 
@@ -835,39 +855,120 @@ function setFieldCount(count) {
   }
 }
 
-// Populate the single field picker dropdown menu with options F001..F{fieldCount}
-function renderFieldPickerOptions() {
-  const listContainer = document.getElementById('sidebar-field-options-list');
-  const triggerLabel = document.getElementById('sidebar-field-label');
-  const countInput = document.getElementById('sidebar-field-count-input');
+// Default 8 field border rectangles on the satellite map (percentages)
+const DEFAULT_EIGHT_BORDERS = [
+  { left: 14.5, top: 18.0, width: 16.0, height: 16.0 },
+  { left: 42.0, top: 16.5, width: 17.0, height: 16.0 },
+  { left: 70.5, top: 15.0, width: 15.5, height: 16.0 },
+  { left: 11.0, top: 42.0, width: 18.5, height: 16.0 },
+  { left: 67.5, top: 38.5, width: 17.0, height: 16.0 },
+  { left: 13.0, top: 65.5, width: 15.5, height: 16.0 },
+  { left: 39.0, top: 64.0, width: 17.5, height: 16.0 },
+  { left: 67.0, top: 61.5, width: 15.5, height: 16.0 }
+];
+
+// Compute an automatic square border position on the map for field 1..totalFields
+function computeAutoFieldBorder(fieldNum, totalFields) {
+  if (totalFields === 8 && fieldNum >= 1 && fieldNum <= 8) {
+    return { ...DEFAULT_EIGHT_BORDERS[fieldNum - 1] };
+  }
+  const visibleCount = Math.min(totalFields, 64);
+  const idx = (fieldNum - 1) % visibleCount;
+  const cols = Math.ceil(Math.sqrt(visibleCount * 1.35));
+  const rows = Math.ceil(visibleCount / cols);
+  const padX = 6;
+  const padY = 8;
+  const gapX = 2.2;
+  const gapY = 2.8;
+  const availW = 100 - padX * 2 - gapX * Math.max(0, cols - 1);
+  const availH = 100 - padY * 2 - gapY * Math.max(0, rows - 1);
+  const cellW = Math.max(6, availW / cols);
+  const cellH = Math.max(7, availH / rows);
+  const c = idx % cols;
+  const r = Math.floor(idx / cols);
+  return {
+    left: Number((padX + c * (cellW + gapX)).toFixed(2)),
+    top: Number((padY + r * (cellH + gapY)).toFixed(2)),
+    width: Number(cellW.toFixed(2)),
+    height: Number(cellH.toFixed(2))
+  };
+}
+
+// Render the field count input, active field selector, and square field borders on the Tab 2 satellite map
+function renderMapFieldBorders() {
+  const countInput = document.getElementById('map-field-count-input');
+  const activeSelect = document.getElementById('map-active-field-select');
+  const bordersLayer = document.getElementById('map-borders-layer');
+  const mapCanvas = document.getElementById('satellite-map-canvas');
+  const drawModeBtn = document.getElementById('map-draw-mode-btn');
+  const drawHint = document.getElementById('map-draw-hint');
 
   if (countInput && document.activeElement !== countInput) {
     countInput.value = String(appState.fieldCount);
   }
-  if (triggerLabel) {
-    triggerLabel.textContent = getFieldDisplayName(appState.selectedFieldNumber);
-  }
-  if (!listContainer) return;
 
-  listContainer.innerHTML = '';
+  if (drawModeBtn) {
+    drawModeBtn.classList.toggle('active-draw-mode', appState.drawBorderMode);
+    drawModeBtn.textContent = appState.drawBorderMode ? 'Drawing border... (click & drag)' : 'Draw border on map';
+  }
+  if (mapCanvas) {
+    mapCanvas.classList.toggle('drawing-cursor', appState.drawBorderMode);
+  }
+  if (drawHint) {
+    const activeCode = formatFieldCode(appState.selectedFieldNumber);
+    drawHint.textContent = appState.drawBorderMode
+      ? `Draw mode active: Click and drag on the satellite map below to draw the square border for ${activeCode}.`
+      : `Showing ${appState.fieldCount} field border${appState.fieldCount === 1 ? '' : 's'} (F001–${formatFieldCode(appState.fieldCount)}). Click any square on the map to select it, or click "Draw border on map" to draw custom borders.`;
+  }
+
+  if (activeSelect) {
+    activeSelect.innerHTML = '';
+    const selectFrag = document.createDocumentFragment();
+    for (let num = 1; num <= appState.fieldCount; num++) {
+      const opt = document.createElement('option');
+      opt.value = String(num);
+      opt.textContent = `${formatFieldCode(num)} (${getFieldDisplayName(num)})`;
+      if (num === appState.selectedFieldNumber) opt.selected = true;
+      selectFrag.appendChild(opt);
+    }
+    activeSelect.appendChild(selectFrag);
+  }
+
+  if (!bordersLayer) return;
+  bordersLayer.innerHTML = '';
+
+  // Render up to 64 visible square borders on the map canvas (plus always ensure the active field is rendered)
+  const maxBoxes = Math.min(appState.fieldCount, 64);
+  const numsToRender = [];
+  for (let n = 1; n <= maxBoxes; n++) numsToRender.push(n);
+  if (appState.selectedFieldNumber > maxBoxes) {
+    numsToRender.push(appState.selectedFieldNumber);
+  }
+
   const frag = document.createDocumentFragment();
-  for (let num = 1; num <= appState.fieldCount; num++) {
-    const fid = getFieldIdForNumber(num);
-    const optBtn = document.createElement('button');
-    optBtn.type = 'button';
-    optBtn.className = `field-option-btn ${num === appState.selectedFieldNumber ? 'selected-field' : ''}`;
-    optBtn.textContent = getFieldDisplayName(num);
-    optBtn.addEventListener('click', (e) => {
+  numsToRender.forEach((num) => {
+    const code = formatFieldCode(num);
+    const rect = appState.customFieldBorders[num] || computeAutoFieldBorder(num, appState.fieldCount);
+    const box = document.createElement('button');
+    box.type = 'button';
+    box.className = `field-border-square ${num === appState.selectedFieldNumber ? 'active-border-square' : ''}`;
+    box.style.left = `${rect.left}%`;
+    box.style.top = `${rect.top}%`;
+    box.style.width = `${rect.width}%`;
+    box.style.height = `${rect.height}%`;
+    box.title = `Select ${getFieldDisplayName(num)}`;
+    box.textContent = code;
+    box.addEventListener('click', (e) => {
+      if (appState.drawBorderMode) return;
       e.stopPropagation();
       appState.selectedFieldNumber = num;
-      appState.selectedFieldId = fid;
+      appState.selectedFieldId = getFieldIdForNumber(num);
       appState.selectedRankIndex = 0;
-      closeAllDropdowns();
       renderDashboard();
     });
-    frag.appendChild(optBtn);
-  }
-  listContainer.appendChild(frag);
+    frag.appendChild(box);
+  });
+  bordersLayer.appendChild(frag);
 }
 
 // Build 5-year temperature and rainfall series (2020 to 2024) for a field and render the dual-Y-axis SVG line chart
@@ -1035,12 +1136,12 @@ function renderDashboard() {
   const topPick = ranked[appState.selectedRankIndex] || ranked[0];
   const selectedIds = appState.selectedCrops || [];
 
-  // Render field picker options based on the typed number of fields
-  renderFieldPickerOptions();
-
-  // Sidebar trigger labels for Priority Profile and Crops
+  // Sidebar trigger labels for Previous Crop, Priority Profile, and Crops
+  const prevCropTrigLabel = document.getElementById('sidebar-prev-crop-label');
   const profileTrigLabel = document.getElementById('sidebar-profile-label');
   const equipTrigLabel = document.getElementById('sidebar-equip-label');
+  const prevCropName = CROPS_DATA[appState.previousCropId]?.name || 'Field Corn (Silage & Grain)';
+  if (prevCropTrigLabel) prevCropTrigLabel.textContent = prevCropName;
   if (profileTrigLabel) profileTrigLabel.textContent = appState.selectedProfile;
   if (equipTrigLabel) {
     if (selectedIds.length === 0) {
@@ -1053,6 +1154,9 @@ function renderDashboard() {
   }
 
   // Highlight active items inside sidebar dropdowns
+  document.querySelectorAll('[data-prev-crop-option]').forEach((btn) => {
+    btn.classList.toggle('active-option', btn.dataset.prevCropOption === appState.previousCropId);
+  });
   document.querySelectorAll('[data-profile-option]').forEach((btn) => {
     btn.classList.toggle('active-option', btn.dataset.profileOption === appState.selectedProfile);
   });
@@ -1095,7 +1199,7 @@ function renderDashboard() {
     dashMainTitle.textContent = activeFieldName;
   }
   if (dashSubLeft) {
-    dashSubLeft.textContent = `${appState.fieldCount} total fields (F001–${formatFieldCode(appState.fieldCount)}) • ${appState.selectedProfile} priority profile`;
+    dashSubLeft.textContent = `Previous crop: ${prevCropName} • ${appState.fieldCount} fields (F001–${formatFieldCode(appState.fieldCount)}) • ${appState.selectedProfile} profile`;
   }
   if (dashSubRight) {
     const pickedNames = selectedIds.map((id) => CROPS_DATA[id]?.name).filter(Boolean);
@@ -1206,14 +1310,12 @@ function renderDashboard() {
     });
   }
 
-  // Tab 2: Field health map hotspots & meta text
-  document.querySelectorAll('.field-hotspot').forEach((spot) => {
-    spot.classList.toggle('active-hotspot', spot.dataset.field === field.id);
-  });
+  // Tab 2: Render field borders on the map and update meta text
+  renderMapFieldBorders();
   const mapSelectedMeta = document.getElementById('map-selected-field-meta');
   const mapRotationMeta = document.getElementById('map-rotation-preview-meta');
   if (mapSelectedMeta) {
-    mapSelectedMeta.textContent = `Selected field: ${activeFieldCode} • simulated field readings (Soil ${field.mapSoilScore.toFixed(2)} · Moisture ${field.mapMoisture.toFixed(2)})`;
+    mapSelectedMeta.textContent = `Selected field: ${activeFieldCode} (1 of ${appState.fieldCount} fields) • Previous crop: ${prevCropName} • Soil ${field.mapSoilScore.toFixed(2)} · Moisture ${field.mapMoisture.toFixed(2)}`;
   }
   if (mapRotationMeta && topPick) {
     mapRotationMeta.textContent = `Rotation preview: ${topPick.label}`;
@@ -1429,49 +1531,119 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Dashboard sidebar 1A: Typed number of fields input
-  const fieldCountInput = document.getElementById('sidebar-field-count-input');
-  if (fieldCountInput) {
-    const handleFieldCountInput = (e) => {
+  // Dashboard sidebar dropdown 1: Previous crop planted
+  const prevCropTrigger = document.getElementById('sidebar-prev-crop-trigger');
+  if (prevCropTrigger) {
+    prevCropTrigger.addEventListener('click', (e) => {
+      toggleDropdown('sidebar-prev-crop-menu', 'sidebar-prev-crop-trigger', e);
+    });
+  }
+
+  document.querySelectorAll('[data-prev-crop-option]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      appState.previousCropId = btn.dataset.prevCropOption;
+      appState.selectedRankIndex = 0;
+      closeAllDropdowns();
+      renderDashboard();
+    });
+  });
+
+  // Tab 2: Field count input, active field selector, and border drawing on the map
+  const mapFieldCountInput = document.getElementById('map-field-count-input');
+  if (mapFieldCountInput) {
+    mapFieldCountInput.addEventListener('input', (e) => {
       const parsed = parseInt(e.target.value, 10);
       if (!Number.isNaN(parsed) && parsed >= 1) {
         setFieldCount(parsed);
         appState.selectedRankIndex = 0;
         renderDashboard();
       }
-    };
-    fieldCountInput.addEventListener('input', handleFieldCountInput);
-    fieldCountInput.addEventListener('change', (e) => {
+    });
+    mapFieldCountInput.addEventListener('change', (e) => {
       const parsed = parseInt(e.target.value, 10) || 1;
       setFieldCount(parsed);
-      fieldCountInput.value = String(appState.fieldCount);
+      mapFieldCountInput.value = String(appState.fieldCount);
       appState.selectedRankIndex = 0;
       renderDashboard();
     });
   }
 
-  // Dashboard sidebar 1B: Single dropdown menu to pick between the fields
-  const fieldTrigger = document.getElementById('sidebar-field-trigger');
-  if (fieldTrigger) {
-    fieldTrigger.addEventListener('click', (e) => {
-      toggleDropdown('sidebar-field-menu', 'sidebar-field-trigger', e);
+  const mapActiveFieldSelect = document.getElementById('map-active-field-select');
+  if (mapActiveFieldSelect) {
+    mapActiveFieldSelect.addEventListener('change', (e) => {
+      const num = parseInt(e.target.value, 10) || 1;
+      appState.selectedFieldNumber = num;
+      appState.selectedFieldId = getFieldIdForNumber(num);
+      appState.selectedRankIndex = 0;
+      renderDashboard();
     });
   }
 
-  const customMapBtn = document.getElementById('field-custom-map-btn');
-  if (customMapBtn) {
-    customMapBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      closeAllDropdowns();
-      navigateToView('location-view');
+  const mapDrawModeBtn = document.getElementById('map-draw-mode-btn');
+  if (mapDrawModeBtn) {
+    mapDrawModeBtn.addEventListener('click', () => {
+      appState.drawBorderMode = !appState.drawBorderMode;
+      renderMapFieldBorders();
     });
   }
 
-  const fieldMenuCloseBtn = document.getElementById('field-menu-close-btn');
-  if (fieldMenuCloseBtn) {
-    fieldMenuCloseBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      closeAllDropdowns();
+  const mapResetGridBtn = document.getElementById('map-reset-grid-btn');
+  if (mapResetGridBtn) {
+    mapResetGridBtn.addEventListener('click', () => {
+      appState.customFieldBorders = {};
+      appState.drawBorderMode = false;
+      renderMapFieldBorders();
+    });
+  }
+
+  // Click and drag on #satellite-map-canvas to draw a custom square/rectangle border for the active field
+  const mapCanvas = document.getElementById('satellite-map-canvas');
+  if (mapCanvas) {
+    let isDraggingBorder = false;
+    let startX = 0;
+    let startY = 0;
+
+    mapCanvas.addEventListener('mousedown', (e) => {
+      if (!appState.drawBorderMode) return;
+      const rect = mapCanvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      isDraggingBorder = true;
+      startX = clip(((e.clientX - rect.left) / rect.width) * 100, 0, 96);
+      startY = clip(((e.clientY - rect.top) / rect.height) * 100, 0, 96);
+      appState.customFieldBorders[appState.selectedFieldNumber] = {
+        left: Number(startX.toFixed(2)),
+        top: Number(startY.toFixed(2)),
+        width: 8,
+        height: 10
+      };
+      renderMapFieldBorders();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDraggingBorder || !appState.drawBorderMode) return;
+      const rect = mapCanvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const curX = clip(((e.clientX - rect.left) / rect.width) * 100, 0, 100);
+      const curY = clip(((e.clientY - rect.top) / rect.height) * 100, 0, 100);
+      const left = Math.min(startX, curX);
+      const top = Math.min(startY, curY);
+      const width = Math.max(5, Math.abs(curX - startX));
+      const height = Math.max(6, Math.abs(curY - startY));
+      appState.customFieldBorders[appState.selectedFieldNumber] = {
+        left: Number(left.toFixed(2)),
+        top: Number(top.toFixed(2)),
+        width: Number(Math.min(100 - left, width).toFixed(2)),
+        height: Number(Math.min(100 - top, height).toFixed(2))
+      };
+      renderMapFieldBorders();
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!isDraggingBorder) return;
+      isDraggingBorder = false;
+      appState.drawBorderMode = false;
+      renderMapFieldBorders();
     });
   }
 
