@@ -512,9 +512,9 @@
     drawDashboard();
     const eyebrow = document.getElementById('dash-eyebrow-text');
     const labels = {
-      live: 'PYTHON BACKEND · NASA POWER LIVE',
-      cache: 'PYTHON BACKEND · NASA POWER (SAVED COPY)',
-      demo: 'PYTHON BACKEND · SAMPLE CLIMATE DATA'
+      live: 'NASA POWER LIVE',
+      cache: 'NASA POWER',
+      demo: 'SAMPLE CLIMATE DATA'
     };
     if (eyebrow && lastSource && labels[lastSource]) {
       eyebrow.textContent = eyebrow.textContent.replace('DEMO DATA', labels[lastSource]);

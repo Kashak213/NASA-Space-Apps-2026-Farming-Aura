@@ -2416,6 +2416,11 @@ body {
   margin: 0;
 }
 
+/* "Crops selected (...)" line next to the previous-crops line under the dashboard title */
+.dash-subtitle-right {
+  color: #000000;
+}
+
 /* Sidebar switch status text */
 .sensor-status-text {
   color: #ffffff;
