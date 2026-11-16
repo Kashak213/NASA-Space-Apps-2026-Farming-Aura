@@ -1218,25 +1218,38 @@
           <section id="blog-sec-presentation" class="blog-section-card">
             <div class="blog-section-header">
               <span class="blog-section-tag">SECTION 04 • PROJECT DEMO PRESENTATION</span>
-              <h2 class="blog-section-title">Presentation &amp; Project Demo Link</h2>
+              <h2 class="blog-section-title">Presentation &amp; Project Demo</h2>
             </div>
 
             <div class="blog-presentation-box">
-              <div class="blog-photo-placeholder blog-photo-medium">
-                <div class="placeholder-badge">PRESENTATION PREVIEW / EMBED FIELD</div>
-                <div class="placeholder-icon" aria-hidden="true">&#127916;</div>
-                <div class="placeholder-title">[ Presentation Slides / Cover Preview Placeholder ]</div>
-                <div class="placeholder-hint">Leave empty for now — Provide presentation link or slide embed</div>
+              <!-- Interactive Google Slides Embed -->
+              <div class="blog-slides-frame">
+                <iframe
+                  src="https://docs.google.com/presentation/d/1SqfAU87P7rj0ixLi5TW2kDhxAbNlQrQSzhUZFFz4-g4/embed?start=false&loop=false&delayms=3000"
+                  frameborder="0"
+                  allowfullscreen="true"
+                  mozallowfullscreen="true"
+                  webkitallowfullscreen="true"
+                  title="Farming Aura Project Presentation Slides">
+                </iframe>
               </div>
 
+              <!-- Presentation Links & Actions -->
               <div class="blog-writeup-box" style="margin-top: 18px;">
-                <div class="blog-field-label">LABEL: PROJECT DEMO PRESENTATION LINK</div>
-                <div class="blog-empty-field blog-empty-field-sm">
-                  [ Placeholder: Presentation URL / Link will be placed here ]
+                <div class="blog-field-label">PROJECT DEMO PRESENTATION DECK</div>
+                <div class="blog-text-content">
+                  <p>
+                    Explore our interactive slide deck above to see our problem statement, agronomic methodology, NASA satellite data pipeline, custom Mobile Measuring Station (MMS) sensor architecture, and crop rotation scoring algorithms. You can click directly through the slides or open the deck in Google Slides using the button below.
+                  </p>
                 </div>
                 <div class="blog-presentation-actions">
-                  <a id="blog-presentation-link-btn" href="#blog-sec-presentation" class="blog-action-btn">
-                    <span>&#128279; Presentation Link Placeholder</span>
+                  <a
+                    id="blog-presentation-link-btn"
+                    href="https://docs.google.com/presentation/d/1SqfAU87P7rj0ixLi5TW2kDhxAbNlQrQSzhUZFFz4-g4/edit?usp=sharing"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="blog-action-btn">
+                    <span>&#128279; Open Full Slide Deck in Google Slides &rarr;</span>
                   </a>
                   <button type="button" class="blog-action-btn blog-action-btn-secondary" data-nav-target="dashboard-view">
                     <span>Launch Live Interactive Demo &rarr;</span>

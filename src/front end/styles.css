@@ -2895,6 +2895,25 @@ body {
   }
 }
 
+/* Presentation Embed Frame */
+.blog-slides-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background-color: #1a0b04;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.blog-slides-frame iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
 /* Presentation Section Actions */
 .blog-presentation-actions {
   display: flex;
