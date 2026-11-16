@@ -76,8 +76,13 @@
         return res.json();
       })
       .then((data) => {
-        if (!data || !Array.isArray(data.ranked) || !data.ranked.length) throw new Error('empty answer');
+        const hasRanked = data && Array.isArray(data.ranked) && data.ranked.length > 0;
+        const hasRecs = data && Array.isArray(data.recommended_rotations) && data.recommended_rotations.length > 0;
+        if (!hasRanked && !hasRecs) throw new Error('empty answer');
         backendDownSince = 0;
+        if (!data.nasa_source && data.data_sources) {
+          data.nasa_source = data.data_sources.nasa_power || 'cache';
+        }
         answers.set(key, data);
         // only redraw if the farmer hasn't changed something else in the meantime
         if (JSON.stringify(buildRequest()) === key) renderAll();
@@ -101,7 +106,10 @@
     if (data) {
       applyFieldUpdate(request.field_id, data.field_update);
       lastSource = data.nasa_source;
-      return data.ranked.map(toDashboardShape);
+      if (Array.isArray(data.ranked) && data.ranked.length > 0) {
+        return data.ranked.map(toDashboardShape);
+      }
+      return localRanking();
     }
 
     askBackend(key, request);
@@ -243,7 +251,11 @@
       demo: 'PYTHON BACKEND · SAMPLE CLIMATE DATA'
     };
     if (eyebrow && lastSource && labels[lastSource]) {
-      eyebrow.textContent = eyebrow.textContent.replace('DEMO DATA', labels[lastSource]);
+      if (eyebrow.textContent.includes('LIVE MMS TELEMETRY')) {
+        eyebrow.textContent = eyebrow.textContent.replace('LIVE MMS TELEMETRY', `LIVE MMS TELEMETRY · ${labels[lastSource]}`);
+      } else {
+        eyebrow.textContent = eyebrow.textContent.replace('DEMO DATA', labels[lastSource]);
+      }
     }
     showGeminiText();
   };

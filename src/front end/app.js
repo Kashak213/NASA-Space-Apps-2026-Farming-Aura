@@ -379,10 +379,10 @@ const appState = {
   mms: { connected: false, latest: null, lastJson: '' }
 };
 
-// Where the backend lives. Use relative URLs when served by FastAPI locally
-const MMS_API_BASE = (location.protocol === 'file:' || location.port === '5500' || location.port === '3000')
-  ? 'http://127.0.0.1:8000'
-  : '';
+// Where the backend lives. Use relative URLs when served by FastAPI on 8000/7860, otherwise point to local 8000
+const MMS_API_BASE = (location.port === '8000' || location.port === '7860')
+  ? ''
+  : 'http://127.0.0.1:8000';
 
 // True when the MMS is plugged in, sending fresh data, and the sidebar sensor toggle is on
 function isMmsLive() {
@@ -444,7 +444,10 @@ function scoreSequenceForField(seqIds, field, profileName, sensorDryOverride) {
   });
   const soilHealth = clip(0.65 * sBase + 0.35 * mean(regenScores), 0, 1);
 
-  const effectiveMoisture = sensorDryOverride ? Math.max(0.14, field.moistureAvg - 0.11) : field.moistureAvg;
+  const liveMms = isMmsLive() ? appState.mms.latest : null;
+  const effectiveMoisture = liveMms && liveMms.soil_moisture_m3 != null
+    ? clip(0.7 * Number(liveMms.soil_moisture_m3) + 0.3 * field.moistureAvg, 0.10, 0.50)
+    : (sensorDryOverride ? Math.max(0.14, field.moistureAvg - 0.11) : field.moistureAvg);
   const effectiveDrought = sensorDryOverride ? Math.min(0.68, field.drought2024 + 0.18) : field.drought2024;
   const droughtTrend = effectiveDrought - field.drought2023;
   const droughtScore = 1.0 - clip(effectiveDrought, 0, 1);
@@ -663,7 +666,7 @@ function getRankedRotations() {
   const field = FIELDS_DATA[appState.selectedFieldId] || FIELDS_DATA.F001;
   const selectedIds = appState.selectedCrops || [];
   const maxWater = appState.maxWaterDemand;
-  const dryProbeActive = appState.sensorEnabled && appState.probeMode === 'dry' && appState.activeTab === 'sensors';
+  const dryProbeActive = appState.sensorEnabled && appState.probeMode === 'dry' && (isMmsLive() || appState.activeTab === 'sensors');
 
   const candidatePool = buildCandidatePool(selectedIds);
 
@@ -1263,8 +1266,12 @@ function renderDashboard() {
   const dashMainTitle = document.getElementById('dash-main-title');
   const dashSubLeft = document.getElementById('dash-subtitle-left');
   const dashSubRight = document.getElementById('dash-subtitle-right');
+  const liveMms = isMmsLive() ? appState.mms.latest : null;
+
   if (dashEyebrow) {
-    dashEyebrow.textContent = `FIELD ${activeFieldCode} / DEMO DATA`;
+    dashEyebrow.textContent = liveMms
+      ? `FIELD ${activeFieldCode} / LIVE MMS TELEMETRY`
+      : `FIELD ${activeFieldCode} / DEMO DATA`;
   }
   if (dashMainTitle) {
     dashMainTitle.textContent = activeFieldName;
@@ -1291,12 +1298,34 @@ function renderDashboard() {
   const kpiRainVal = document.getElementById('kpi-rain-val');
   const kpiMoistureVal = document.getElementById('kpi-moisture-val');
   const kpiTempVal = document.getElementById('kpi-temp-val');
+  const kpiMoistureSub = kpiMoistureVal ? kpiMoistureVal.nextElementSibling : null;
+  const kpiTempSub = kpiTempVal ? kpiTempVal.nextElementSibling : null;
 
   if (kpiSoilVal) kpiSoilVal.textContent = `${topPick.soilHealth.toFixed(2)} SH`;
   if (kpiSoilSub) kpiSoilSub.textContent = `OC ${field.oc.toFixed(1)}% · pH ${field.ph.toFixed(1)}`;
   if (kpiRainVal) kpiRainVal.textContent = `${annualRain} mm`;
-  if (kpiMoistureVal) kpiMoistureVal.textContent = `${field.moistureAvg.toFixed(2)} RZM`;
-  if (kpiTempVal) kpiTempVal.textContent = `${field.soilTempC.toFixed(1)}°C`;
+  if (kpiMoistureVal) {
+    kpiMoistureVal.textContent = liveMms && liveMms.soil_moisture_m3 != null
+      ? `${Number(liveMms.soil_moisture_m3).toFixed(2)} RZM`
+      : `${field.moistureAvg.toFixed(2)} RZM`;
+  }
+  if (kpiMoistureSub) {
+    kpiMoistureSub.textContent = liveMms && liveMms.soil_moisture_pct != null
+      ? `Live MMS · ${liveMms.soil_moisture_pct}% (${liveMms.probe_mode === 'dry' ? 'Dry' : 'Wet'})`
+      : 'Sample soil moisture';
+  }
+  if (kpiTempVal) {
+    kpiTempVal.textContent = liveMms && liveMms.soil_temp_c != null
+      ? `${Number(liveMms.soil_temp_c).toFixed(1)}°C`
+      : `${field.soilTempC.toFixed(1)}°C`;
+  }
+  if (kpiTempSub) {
+    const airPart = liveMms && liveMms.air_temp_c != null ? `Air ${Number(liveMms.air_temp_c).toFixed(1)}°C` : '';
+    const humPart = liveMms && liveMms.air_humidity_pct != null ? `${Math.round(liveMms.air_humidity_pct)}% RH` : '';
+    kpiTempSub.textContent = liveMms && (airPart || humPart)
+      ? `Live MMS · ${[airPart, humPart].filter(Boolean).join(' · ')}`
+      : 'Above planting threshold';
+  }
 
   // Tab 1: 3-year recommended rotation cards
   if (topPick && topPick.crops.length >= 3) {
@@ -1427,8 +1456,6 @@ function renderDashboard() {
   const backendHeading = document.getElementById('moisture-backend-heading');
   const backendLine1 = document.getElementById('moisture-backend-line-1');
   const backendLine2 = document.getElementById('moisture-backend-line-2');
-
-  const liveMms = isMmsLive() ? appState.mms.latest : null;
 
   if (appState.probeMode === 'dry') {
     const localMoist = liveMms && liveMms.soil_moisture_m3 != null ? liveMms.soil_moisture_m3 : Math.max(0.14, field.moistureAvg - 0.13);
