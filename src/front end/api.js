@@ -545,7 +545,8 @@
         soil_oc_pct: Number(field.oc.toFixed(1)),
         soil_ph: Number(field.ph.toFixed(1)),
         annual_rainfall_mm: annualRain,
-        annual_total_mm: field.annualTotalMm || Math.round(annualRain * 1.8),
+        spring_rainfall_mm: Math.round(field.spring2024Precip || 0),
+        summer_rainfall_mm: Math.round(field.summer2024Precip || 0),
         root_zone_moisture: two(field.moistureAvg),
         soil_temp_c: Number(field.soilTempC.toFixed(1))
       },

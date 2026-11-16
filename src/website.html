@@ -3155,7 +3155,7 @@ body {
           <div class="kpi-card">
             <div class="kpi-label">Annual rainfall</div>
             <div id="kpi-rain-val" class="kpi-value">778 mm</div>
-            <div id="kpi-rain-sub" class="kpi-sub">NASA POWER · 1202 mm/yr total</div>
+            <div id="kpi-rain-sub" class="kpi-sub">NASA POWER · Spring 385 mm · Summer 393 mm</div>
           </div>
           <div class="kpi-card">
             <div class="kpi-label">Root-zone moisture</div>
@@ -3255,11 +3255,11 @@ body {
               <div class="breakdown-header-row">
                 <div>
                   <h3 class="panel-serif-heading" style="margin-bottom: 4px;">Rotation score breakdown</h3>
-                  <div class="breakdown-scale-note">Each metric is scored 0 to 1 · averaged into a score out of 100</div>
+                  <div class="breakdown-scale-note">Each metric is scored 0 to 1 · weighted into a score out of 100</div>
                 </div>
                 <div class="breakdown-avg-badge">
                   <span class="breakdown-avg-label">AVERAGE SCORE</span>
-                  <span id="breakdown-avg-score" class="breakdown-avg-val">81 / 100</span>
+                  <span id="breakdown-avg-score" class="breakdown-avg-val">86 / 100</span>
                 </div>
               </div>
 
@@ -5139,9 +5139,11 @@ function renderDashboard() {
   }
   if (kpiRainVal) kpiRainVal.textContent = `${annualRain} mm`;
   if (kpiRainSub) {
+    const spRain = Math.round(field.spring2024Precip || 0);
+    const suRain = Math.round(field.summer2024Precip || 0);
     kpiRainSub.textContent = hasNasaData
-      ? `NASA POWER · ${field.annualTotalMm ? field.annualTotalMm + ' mm/yr total' : coordBadge}`
-      : 'Illustrative annual total';
+      ? `NASA POWER · Spring ${spRain} mm · Summer ${suRain} mm`
+      : `Spring ${spRain} mm · Summer ${suRain} mm`;
   }
   if (kpiMoistureVal) kpiMoistureVal.textContent = `${field.moistureAvg.toFixed(2)} RZM`;
   if (kpiMoistureSub) {
@@ -5207,14 +5209,7 @@ function renderDashboard() {
     if (valYield) valYield.textContent = topPick.yieldPotential.toFixed(2);
     if (valNFix) valNFix.textContent = topPick.nFixAvg.toFixed(2);
 
-    const avgFive =
-      (topPick.soilHealth +
-        topPick.waterSafety +
-        topPick.resilience +
-        topPick.yieldPotential +
-        topPick.nFixAvg) /
-      5.0;
-    const scoreOutOf100 = Math.round(avgFive * 100);
+    const scoreOutOf100 = Math.round(Number(topPick.totalScore.toFixed(2)) * 100);
     if (avgScoreBadge) avgScoreBadge.textContent = `${scoreOutOf100} / 100`;
   }
 
@@ -6381,7 +6376,8 @@ document.addEventListener('DOMContentLoaded', () => {
         soil_oc_pct: Number(field.oc.toFixed(1)),
         soil_ph: Number(field.ph.toFixed(1)),
         annual_rainfall_mm: annualRain,
-        annual_total_mm: field.annualTotalMm || Math.round(annualRain * 1.8),
+        spring_rainfall_mm: Math.round(field.spring2024Precip || 0),
+        summer_rainfall_mm: Math.round(field.summer2024Precip || 0),
         root_zone_moisture: two(field.moistureAvg),
         soil_temp_c: Number(field.soilTempC.toFixed(1))
       },
