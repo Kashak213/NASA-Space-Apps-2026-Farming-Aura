@@ -2241,17 +2241,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       await pollMms();
-      if (!hasHardwareMms() && navigator.serial && typeof navigator.serial.requestPort === 'function') {
-        try {
-          const port = await navigator.serial.requestPort();
-          await port.open({ baudRate: 9600 });
-          await port.close();
-        } catch (err) {
-          // User denied or cancelled device access, or no MMS serial device was selected
-        }
-      }
       if (!hasHardwareMms()) {
-        // Lock to MMS off if no physical MMS is detected on the port or device access was not granted
+        // Lock to MMS off if no physical MMS is detected on the port
         appState.localMmsEnabled = false;
         const noteEl = document.getElementById('sidebar-mms-conn-note');
         if (noteEl) {
