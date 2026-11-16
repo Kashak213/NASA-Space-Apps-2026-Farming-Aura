@@ -1450,9 +1450,11 @@ function renderDashboard() {
   }
   if (kpiRainVal) kpiRainVal.textContent = `${annualRain} mm`;
   if (kpiRainSub) {
+    const spRain = Math.round(field.spring2024Precip || 0);
+    const suRain = Math.round(field.summer2024Precip || 0);
     kpiRainSub.textContent = hasNasaData
-      ? `NASA POWER · ${field.annualTotalMm ? field.annualTotalMm + ' mm/yr total' : coordBadge}`
-      : 'Illustrative annual total';
+      ? `NASA POWER · Spring ${spRain} mm · Summer ${suRain} mm`
+      : `Spring ${spRain} mm · Summer ${suRain} mm`;
   }
   if (kpiMoistureVal) kpiMoistureVal.textContent = `${field.moistureAvg.toFixed(2)} RZM`;
   if (kpiMoistureSub) {
@@ -1518,14 +1520,7 @@ function renderDashboard() {
     if (valYield) valYield.textContent = topPick.yieldPotential.toFixed(2);
     if (valNFix) valNFix.textContent = topPick.nFixAvg.toFixed(2);
 
-    const avgFive =
-      (topPick.soilHealth +
-        topPick.waterSafety +
-        topPick.resilience +
-        topPick.yieldPotential +
-        topPick.nFixAvg) /
-      5.0;
-    const scoreOutOf100 = Math.round(avgFive * 100);
+    const scoreOutOf100 = Math.round(Number(topPick.totalScore.toFixed(2)) * 100);
     if (avgScoreBadge) avgScoreBadge.textContent = `${scoreOutOf100} / 100`;
   }
 
