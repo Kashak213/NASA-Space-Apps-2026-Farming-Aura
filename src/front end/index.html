@@ -1206,16 +1206,26 @@
               <!-- Hardware Write-up Boxes Row -->
               <div class="blog-hardware-writeups-row">
                 <div class="blog-writeup-box">
-                  <div class="blog-field-label">LABEL: WHAT OUR HARDWARE DOES</div>
-                  <div class="blog-empty-field blog-empty-field-lg">
-                    [ Placeholder: Text explaining what the hardware sensor station does, what soil/weather metrics it measures, and how it calibrates satellite data ]
+                  <div class="blog-field-label">WHAT OUR HARDWARE DOES</div>
+                  <div class="blog-text-content">
+                    <p>
+                      The MMS (Mobile Measurement System) is designed to collect local measurements for meteorological and soil data (air temperature/humidity, soil temperature/humidity, and precipitation amounts) all using onboard sensors. We process this information using custom firmware adapted from the base Elegoo firmware which we wrote in C++ (very fun language to learn at 4 a.m.). We included this firmware in our repository because it is an integral part of our website.
+                    </p>
+                    <p>
+                      Farmers may choose to acquire one or more MMS units to include localized field data that satellite data cannot predict, such as soil moisture, or data easily influenced by localized surroundings (such as increased rainwater accumulation causing a localized humidity spike). The MMS is not by any means required for website functionality, but it is very useful for precision data. Our integrated firmware design allows the website to run fully based on satellite data if no input from an MMS is detected. However, as soon as input is detected from an MMS, the data flows seamlessly into our scoring algorithms.
+                    </p>
                   </div>
                 </div>
 
                 <div class="blog-writeup-box">
-                  <div class="blog-field-label">LABEL: HOW WE MADE IT</div>
-                  <div class="blog-empty-field blog-empty-field-lg">
-                    [ Placeholder: Text explaining how we built the hardware — components, sensors, microcontroller wiring, and data transmission to the backend ]
+                  <div class="blog-field-label">HOW WE MADE IT</div>
+                  <div class="blog-text-content">
+                    <p>
+                      We used an Elegoo microprocessor board with digital and analog inputs. Our sensors included a waterproof, aluminum-enclosed soil thermometer (analog output represented through a series of digital inputs), a capacitive soil moisture sensor (analog input), an air temperature and humidity sensor (analog input), and a rainfall sensor (analog output using a series of digital inputs).
+                    </p>
+                    <p>
+                      We enclosed the system within a 3D-printed box that has a lid with a waterproof seal. The box is lightweight, durable (printed with 1mm triangular infill), and easy to manufacture. All sensors used are inexpensive and easy to replace, making the system very accessible to farmers and suitable for all climates and seasons. We utilized resources like breadboards and a 3D printer to assemble a functional and effective system for actual meteorological data collection in under 48 hours. We also optimized our own firmware, which we feel sets us apart from other teams.
+                    </p>
                   </div>
                 </div>
               </div>
