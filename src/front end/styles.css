@@ -2811,9 +2811,10 @@ body {
 .blog-photo-frame img {
   width: 100%;
   height: auto;
-  max-height: 520px;
-  object-fit: cover;
+  max-height: 640px;
+  object-fit: contain;
   display: block;
+  background-color: #1a0b04;
 }
 
 .blog-photo-caption {
