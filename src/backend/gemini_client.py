@@ -123,6 +123,7 @@ def build_fallback_explanation(facts):
 
     ranked_analyses = []
     for idx, alt in enumerate(facts.get("ranked_alternatives", [])):
+        alt_label = alt.get("label", seq_label)
         alt_score = alt.get("total_score", total_score)
         alt_sh = alt.get("soil_health", sh_score)
         alt_ws = alt.get("water_safety", ws_score)
@@ -130,15 +131,15 @@ def build_fallback_explanation(facts):
         alt_nfix = alt.get("nitrogen_fixation", 0.4)
         if idx == 0:
             ranked_analyses.append(
-                f"Top-ranked sequence ({alt_score:.2f}): best overall balance for {rain_mm} mm NASA rainfall and {rzm:.2f} RZM moisture (water safety {alt_ws:.2f}, soil health {alt_sh:.2f}, yield {alt_yp:.2f})."
+                f"{alt_label} scores {alt_score:.2f} with {rain_mm} mm NASA rainfall and {rzm:.2f} RZM moisture (soil health {alt_sh:.2f}, water safety {alt_ws:.2f}, yield {alt_yp:.2f})."
             )
         elif alt_nfix >= 0.45:
             ranked_analyses.append(
-                f"Alternative #{idx + 1} ({alt_score:.2f}): strong nitrogen-fixing legume contribution ({alt_nfix:.2f}) that builds organic carbon (OC {oc:.1f}%) and keeps water safety at {alt_ws:.2f}."
+                f"{alt_label} scores {alt_score:.2f}, using legume nitrogen fixation ({alt_nfix:.2f}) on OC {oc:.1f}% \u00b7 pH {ph:.1f} soil to reach {alt_sh:.2f} soil health, {alt_ws:.2f} water safety, and {alt_yp:.2f} yield."
             )
         else:
             ranked_analyses.append(
-                f"Alternative #{idx + 1} ({alt_score:.2f}): diversifies root depths at {soil_temp:.1f}\u00b0C soil temperature with {alt_yp:.2f} yield potential and {alt_ws:.2f} water safety."
+                f"{alt_label} scores {alt_score:.2f}, diversifying root depths at {soil_temp:.1f}\u00b0C soil temperature and {rain_mm} mm rainfall for {alt_yp:.2f} yield potential and {alt_ws:.2f} water safety."
             )
 
     t_vals = list(facts.get("summer_temperature_c_by_year", {}).values())
