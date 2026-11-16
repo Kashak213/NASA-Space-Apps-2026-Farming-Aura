@@ -29,27 +29,269 @@
   const sampleFields = JSON.parse(JSON.stringify(FIELDS_DATA));
   const localRanking = getRankedRotations;
 
+  // What the dashboard currently shows. Used as the cache key and turned into the backend's format below.
   function buildRequest() {
     const latInput = document.getElementById('step1-lat-input');
     const lonInput = document.getElementById('step1-lon-input');
-    const lat = parseFloat(latInput ? latInput.value : '');
-    const lon = parseFloat(lonInput ? lonInput.value : '');
+    let lat = parseFloat(latInput ? latInput.value : '');
+    let lon = parseFloat(lonInput ? lonInput.value : '');
+
+    // Reject out-of-bounds placeholder coordinates (e.g. 9999 / -9999)
+    if (!Number.isFinite(lat) || Math.abs(lat) > 90) lat = NaN;
+    if (!Number.isFinite(lon) || Math.abs(lon) > 180) lon = NaN;
+
+    // If the active field has a custom polygon drawn on the Google satellite map, use its center coordinates
+    const poly = appState.fieldPolygons && appState.fieldPolygons[appState.selectedFieldNumber];
+    if (Array.isArray(poly) && poly.length > 0) {
+      lat = poly.reduce((s, p) => s + p.lat, 0) / poly.length;
+      lon = poly.reduce((s, p) => s + p.lng, 0) / poly.length;
+    } else if ((!Number.isFinite(lat) || !Number.isFinite(lon)) && appState.farmLocation) {
+      lat = appState.farmLocation.lat;
+      lon = appState.farmLocation.lon;
+    }
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      const fallbackField = FIELDS_DATA[appState.selectedFieldId] || FIELDS_DATA.F001;
+      lat = fallbackField.lat;
+      lon = fallbackField.lon;
+    }
+
     return {
       field_id: appState.selectedFieldId,
       city: appState.selectedCity,
-      lat: Number.isFinite(lat) ? lat : null,
-      lon: Number.isFinite(lon) ? lon : null,
+      lat: Number.isFinite(lat) ? Number(lat.toFixed(4)) : null,
+      lon: Number.isFinite(lon) ? Number(lon.toFixed(4)) : null,
       profile: appState.selectedProfile,
-      intensity: appState.profileIntensity,
+      intensity: clip(Number(appState.profileIntensity) || 50, 1, 100),
       selected_crops: appState.selectedCrops || [],
       previous_crop: appState.previousCropId,
       max_water: appState.maxWaterDemand,
-      // same rule app.js uses, the dry MMS Mobile Measuring Station only counts while the sensor tab is open
-      dry_probe: appState.sensorEnabled && appState.probeMode === 'dry' && appState.activeTab === 'sensors'
+      sensor_enabled: Boolean(appState.sensorEnabled),
+      probe_mode: appState.sensorEnabled ? appState.probeMode : 'off',
+      dry_probe: Boolean(appState.sensorEnabled && appState.probeMode === 'dry')
     };
   }
 
-  // Put NASA's rain and temperature onto the selected field, or put the sample numbers back
+  // Key that ignores profile/intensity so we can re-weight cached backend candidate rows instantly while dragging the slider
+  function buildFieldPoolKey(request) {
+    return JSON.stringify({
+      field_id: request.field_id,
+      city: request.city,
+      lat: request.lat,
+      lon: request.lon,
+      selected_crops: request.selected_crops,
+      previous_crop: request.previous_crop,
+      max_water: request.max_water,
+      dry_probe: request.dry_probe
+    });
+  }
+
+  const poolAnswers = new Map(); // fieldPoolKey -> latest backend response
+
+  // ---- Translating between the dashboard and the backend's /analyze (src/backend/main.py) ----
+  const DRY_PROBE_SOIL_MOISTURE = 0.12; // volumetric water content the dry probe reading stands for
+  const SELECTED_CROP_BONUS = 0.05; // per selected crop, so rotations using the farmer's picks rank first
+
+  function toBackendPayload(request) {
+    const payload = {
+      lat: request.lat,
+      lon: request.lon,
+      selected_crops: request.selected_crops,
+      previous_crop: request.previous_crop || null,
+      profile_name: request.profile || 'Balanced',
+      intensity: Number.isFinite(request.intensity) ? request.intensity : 50,
+      max_water_demand_mm: Number.isFinite(request.max_water) ? request.max_water : null,
+      top_n: 20 // ask for plenty, a few can be dropped when they repeat a crop group the dashboard merges
+    };
+    if (request.dry_probe) payload.sensor_overrides = { soil_moisture: DRY_PROBE_SOIL_MOISTURE };
+    return payload;
+  }
+
+  // The backend splits a few of the dashboard's merged crop groups (it has 17 crops, the dashboard 13).
+  // Load its crop list once and add the extra ones so their names and numbers can be shown.
+  let backendCropsLoaded = false;
+  fetch(`${API_BASE}/crops`)
+    .then((res) => (res.ok ? res.json() : null))
+    .then((data) => {
+      (data && data.crops ? data.crops : []).forEach((c) => {
+        if (CROPS_DATA[c.crop_id]) return; // the dashboard's own wording wins for crops it already has
+        CROPS_DATA[c.crop_id] = {
+          id: c.crop_id,
+          name: c.crop_name,
+          type: c.crop_type,
+          isPerennial: Boolean(c.is_perennial),
+          roleTag: String(c.crop_type || 'crop').replace(/_/g, ' '),
+          water: Number(c.water_demand_mm) || 450,
+          nFix: Number(c.nitrogen_fixation) || 0,
+          droughtTol: Number(c.drought_tolerance) || 0.5,
+          phMin: Number(c.optimal_ph_min) || 6.0,
+          phMax: Number(c.optimal_ph_max) || 7.0,
+          clayMin: Number(c.optimal_clay_min) || 15,
+          clayMax: Number(c.optimal_clay_max) || 35,
+          yieldT: Number(c.typical_yield_t_ha) || 5,
+          rootM: Number(c.root_depth_m) || 1,
+          build: Number(c.soil_building_score) || 0.5
+        };
+      });
+      backendCropsLoaded = true;
+      if (answers.size) renderAll();
+    })
+    .catch(() => {});
+
+  function computeIntensityWeights(profileName, intensityVal) {
+    const baseBalanced = PRIORITY_PROFILES.Balanced;
+    const targetWeights = PRIORITY_PROFILES[profileName] || baseBalanced;
+    const clamped = clip(Number(intensityVal) || 50, 1, 100);
+    const powerScale = clamped <= 50
+      ? 0.15 + ((clamped - 1) / 49) * 0.85
+      : 1.0 + ((clamped - 50) / 50) * 1.50;
+
+    let rawWeights;
+    if (profileName === 'Balanced' || targetWeights === baseBalanced) {
+      const uniform = 1 / 7;
+      const balScale = clamped <= 50
+        ? (clamped - 1) / 49
+        : 1.0 + ((clamped - 50) / 50) * 1.75;
+      rawWeights = {
+        soil_health: uniform + (baseBalanced.soil_health - uniform) * balScale,
+        water_stress: uniform + (baseBalanced.water_stress - uniform) * balScale,
+        climate_res: uniform + (baseBalanced.climate_res - uniform) * balScale,
+        nitrogen_fix: uniform + (baseBalanced.nitrogen_fix - uniform) * balScale,
+        yield: uniform + (baseBalanced.yield - uniform) * balScale,
+        drought_tol: uniform + (baseBalanced.drought_tol - uniform) * balScale,
+        soil_compat: uniform + (baseBalanced.soil_compat - uniform) * balScale
+      };
+    } else {
+      rawWeights = {
+        soil_health: baseBalanced.soil_health + (targetWeights.soil_health - baseBalanced.soil_health) * powerScale,
+        water_stress: baseBalanced.water_stress + (targetWeights.water_stress - baseBalanced.water_stress) * powerScale,
+        climate_res: baseBalanced.climate_res + (targetWeights.climate_res - baseBalanced.climate_res) * powerScale,
+        nitrogen_fix: baseBalanced.nitrogen_fix + (targetWeights.nitrogen_fix - baseBalanced.nitrogen_fix) * powerScale,
+        yield: baseBalanced.yield + (targetWeights.yield - baseBalanced.yield) * powerScale,
+        drought_tol: baseBalanced.drought_tol + (targetWeights.drought_tol - baseBalanced.drought_tol) * powerScale,
+        soil_compat: baseBalanced.soil_compat + (targetWeights.soil_compat - baseBalanced.soil_compat) * powerScale
+      };
+    }
+    const weightSum = Object.values(rawWeights).reduce((acc, v) => acc + Math.max(0.01, v), 0);
+    const w = {};
+    Object.keys(rawWeights).forEach((k) => {
+      w[k] = Math.max(0.01, rawWeights[k]) / weightSum;
+    });
+    return w;
+  }
+
+  const BACKEND_ID_TO_DASHBOARD_ID = {
+    C14: 'C03',
+    C15: 'C12',
+    C16: 'C13',
+    C17: 'C01'
+  };
+
+  // Backend rotation row -> the row shape app.js draws
+  function toDashboardRow(row, request) {
+    const selectedIds = request.selected_crops || [];
+    const seqIds = String(row.seq_ids || '')
+      .split('->')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((id) => BACKEND_ID_TO_DASHBOARD_ID[id] || id);
+    const crops = seqIds.map((id) => CROPS_DATA[id]);
+    if (seqIds.length < 3 || new Set(seqIds).size < seqIds.length || crops.some((c) => !c)) return null;
+    const matchCount = seqIds.filter((id) => selectedIds.includes(id)).length;
+    const soilHealth = Number(row.soil_health) || 0;
+    const waterSafety = Number(row.water_stress) || 0; // backend's water_stress: higher = safer
+    const resilience = Number(row.climate_res) || 0;
+    const yieldPotential = Number(row.yield_potential) || 0;
+    const nFixAvg = Number(row.nitrogen_fixation) || 0;
+    const droughtTol = Number(row.drought_tolerance) || 0.5;
+    const soilCompat = Number(row.soil_compatibility) || 0.7;
+    const penaltyMult = Number(row.penalty_multiplier) || 1.0;
+
+    const w = computeIntensityWeights(request.profile || 'Balanced', request.intensity);
+    const weightedSum =
+      w.soil_health * soilHealth +
+      w.water_stress * waterSafety +
+      w.climate_res * resilience +
+      w.nitrogen_fix * nFixAvg +
+      w.yield * yieldPotential +
+      w.drought_tol * droughtTol +
+      w.soil_compat * soilCompat;
+    const totalScore = Number(clip(weightedSum * penaltyMult, 0, 1).toFixed(4));
+
+    return {
+      seqIds,
+      crops,
+      label: crops.map((c) => c.name).join(' → '),
+      totalScore,
+      soilHealth,
+      waterSafety,
+      resilience,
+      yieldPotential,
+      nFixAvg,
+      matchCount,
+      sortScore: totalScore + SELECTED_CROP_BONUS * matchCount
+    };
+  }
+
+  function toRankedRows(data, request) {
+    const rawRows = (data.recommended_rotations || [])
+      .map((row) => toDashboardRow(row, request))
+      .filter(Boolean);
+    rawRows.sort((a, b) => b.sortScore - a.sortScore || b.totalScore - a.totalScore);
+
+    // Deduplicate by rotation label and supplement with localRanking() if fewer than 5 unique 3-crop rotations
+    const uniqueRows = [];
+    const seenLabels = new Set();
+    rawRows.forEach((r) => {
+      if (!seenLabels.has(r.label)) {
+        seenLabels.add(r.label);
+        uniqueRows.push(r);
+      }
+    });
+    if (uniqueRows.length < 5) {
+      localRanking().forEach((fallbackRow) => {
+        if (!seenLabels.has(fallbackRow.label)) {
+          seenLabels.add(fallbackRow.label);
+          uniqueRows.push(fallbackRow);
+        }
+      });
+    }
+    return uniqueRows;
+  }
+
+  // Real NASA POWER weather and USDA soil numbers, in the field keys app.js reads
+  function toFieldUpdate(data) {
+    const update = {};
+    const put = (key, value) => {
+      if (typeof value === 'number' && Number.isFinite(value)) update[key] = value;
+    };
+    const sources = data.data_sources || {};
+    const climate = data.climate || {};
+    const yearly = data.nasa_yearly || {};
+
+    if (sources.nasa_power === 'live' || sources.nasa_power === 'cache') {
+      put('tempSummer', climate.summer_temp_c);
+      put('moistureAvg', climate.soil_moisture_avg);
+      put('mapMoisture', climate.soil_moisture_avg);
+      ['2023', '2024'].forEach((yr) => {
+        put(`spring${yr}Precip`, (yearly.yearly_spring_precip_mm || {})[yr]);
+        put(`summer${yr}Precip`, (yearly.yearly_summer_precip_mm || {})[yr]);
+      });
+    }
+    // 'fallback' soil is a generic default loam, so only real USDA SSURGO readings replace the sample field
+    if (sources.usda_soil && sources.usda_soil !== 'fallback') {
+      const soil = data.soil || {};
+      put('ph', soil.ph);
+      put('oc', soil.organic_carbon_pct);
+      put('clay', soil.clay_pct);
+      put('sand', soil.sand_pct);
+      put('bd', soil.bulk_density);
+      put('cec', soil.cec);
+      put('mapSoilScore', soil.baseline_soil_score);
+    }
+    return update;
+  }
+
+  // Put the backend's numbers onto the selected field, or put the sample numbers back
   function applyFieldUpdate(fieldId, update) {
     const field = FIELDS_DATA[fieldId];
     if (!field || !sampleFields[fieldId]) return;
@@ -61,34 +303,139 @@
     return { ...row, crops: row.seqIds.map((id) => CROPS_DATA[id]).filter(Boolean) };
   }
 
+  const MONTH_DAYS_JS = { 1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31 };
+
+  async function fetchDirectNasaUpdate(lat, lon) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const url =
+      `https://power.larc.nasa.gov/api/temporal/monthly/point?parameters=ALLSKY_SFC_SW_DWN,WS2M,PRECTOTCORR,T2M,TS,GWETROOT` +
+      `&community=AG&latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&start=2020&end=2024&format=JSON`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const json = await res.json();
+    const p = (json.properties && json.properties.parameter) || {};
+    const rain = p.PRECTOTCORR || {};
+    const t2m = p.T2M || {};
+    const ts = p.TS || {};
+    const gwet = p.GWETROOT || {};
+
+    const sumMonths = (series, yr, months) => {
+      let tot = 0;
+      let count = 0;
+      for (const m of months) {
+        const v = series[`${yr}${String(m).padStart(2, '0')}`];
+        if (typeof v === 'number' && v > -900) {
+          tot += v * MONTH_DAYS_JS[m];
+          count++;
+        }
+      }
+      return count === months.length ? Math.round(tot) : null;
+    };
+
+    const rain5 = [];
+    const temp5 = [];
+    for (const yr of [2020, 2021, 2022, 2023, 2024]) {
+      const sp = sumMonths(rain, yr, [3, 4, 5]);
+      const su = sumMonths(rain, yr, [6, 7, 8]);
+      if (sp !== null && su !== null) rain5.push(sp + su);
+      const tVals = [6, 7, 8]
+        .map((m) => t2m[`${yr}${String(m).padStart(2, '0')}`])
+        .filter((v) => typeof v === 'number' && v > -900);
+      if (tVals.length) temp5.push(Number((tVals.reduce((a, b) => a + b, 0) / tVals.length).toFixed(1)));
+    }
+
+    const sp23 = sumMonths(rain, 2023, [3, 4, 5]);
+    const su23 = sumMonths(rain, 2023, [6, 7, 8]);
+    const sp24 = sumMonths(rain, 2024, [3, 4, 5]);
+    const su24 = sumMonths(rain, 2024, [6, 7, 8]);
+    const ann24 = sumMonths(rain, 2024, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    if (sp24 === null || su24 === null) return null;
+
+    const gwetVals = [4, 5, 6, 7, 8, 9]
+      .map((m) => gwet[`2024${String(m).padStart(2, '0')}`])
+      .filter((v) => typeof v === 'number' && v > -900);
+    const tsVals = [5, 6, 7, 8, 9]
+      .map((m) => ts[`2024${String(m).padStart(2, '0')}`])
+      .filter((v) => typeof v === 'number' && v > -900);
+    const suTempVals = [6, 7, 8]
+      .map((m) => t2m[`2024${String(m).padStart(2, '0')}`])
+      .filter((v) => typeof v === 'number' && v > -900);
+
+    const moistureAvg = gwetVals.length
+      ? Number((gwetVals.reduce((a, b) => a + b, 0) / gwetVals.length).toFixed(2))
+      : 0.65;
+    const soilTempC = tsVals.length
+      ? Number((tsVals.reduce((a, b) => a + b, 0) / tsVals.length).toFixed(1))
+      : 19.0;
+    const tempSummer = suTempVals.length
+      ? Number((suTempVals.reduce((a, b) => a + b, 0) / suTempVals.length).toFixed(1))
+      : 21.0;
+
+    return {
+      lat: Number(lat.toFixed(4)),
+      lon: Number(lon.toFixed(4)),
+      spring2023Precip: sp23 !== null ? sp23 : sp24,
+      summer2023Precip: su23 !== null ? su23 : su24,
+      spring2024Precip: sp24,
+      summer2024Precip: su24,
+      annualTotalMm: ann24 !== null ? ann24 : Math.round((sp24 + su24) * 1.6),
+      moistureAvg,
+      mapMoisture: moistureAvg,
+      tempSummer,
+      soilTempC,
+      rainSeries2020_2024: rain5.length === 5 ? rain5 : undefined,
+      tempSeries2020_2024: temp5.length === 5 ? temp5 : undefined,
+      nasaSource: 'live'
+    };
+  }
+
   function askBackend(key, request) {
     if (waiting.has(key)) return;
     if (backendDownSince && Date.now() - backendDownSince < RETRY_AFTER_MS) return;
+    if (request.lat === null || request.lon === null) return; // the backend needs a location
     waiting.add(key);
 
     fetch(`${API_BASE}/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request)
+      body: JSON.stringify(toBackendPayload(request))
     })
       .then((res) => {
         if (!res.ok) throw new Error(`backend said ${res.status}`);
         return res.json();
       })
       .then((data) => {
-        const hasRanked = data && Array.isArray(data.ranked) && data.ranked.length > 0;
-        const hasRecs = data && Array.isArray(data.recommended_rotations) && data.recommended_rotations.length > 0;
-        if (!hasRanked && !hasRecs) throw new Error('empty answer');
+        if (!data || !Array.isArray(data.recommended_rotations) || !data.recommended_rotations.length) {
+          throw new Error('empty answer');
+        }
         backendDownSince = 0;
         if (!data.nasa_source && data.data_sources) {
           data.nasa_source = data.data_sources.nasa_power || 'cache';
         }
         answers.set(key, data);
+        poolAnswers.set(buildFieldPoolKey(request), data);
         // only redraw if the farmer hasn't changed something else in the meantime
         if (JSON.stringify(buildRequest()) === key) renderAll();
       })
-      .catch((err) => {
-        if (!backendDownSince) console.warn('[Farming Aura] backend not reachable, using built-in scoring.', err.message);
+      .catch(async (err) => {
+        if (!backendDownSince) console.warn('[Farming Aura] backend not reachable, querying NASA POWER directly.', err.message);
+        try {
+          const directUpdate = await fetchDirectNasaUpdate(request.lat, request.lon);
+          if (directUpdate) {
+            applyFieldUpdate(request.field_id, directUpdate);
+            const rankedLocal = localRanking();
+            answers.set(key, {
+              nasa_source: 'live',
+              field_update: directUpdate,
+              ranked: rankedLocal.map((r) => ({ ...r, seqIds: r.crops.map((c) => c.id) }))
+            });
+            lastSource = 'live';
+            if (JSON.stringify(buildRequest()) === key) renderAll();
+            return;
+          }
+        } catch (_nasaErr) {
+          // ignore
+        }
         backendDownSince = Date.now();
         const hadBackend = lastSource !== null;
         lastSource = null;
@@ -103,16 +450,37 @@
     const key = JSON.stringify(request);
     const data = answers.get(key);
 
-    if (data) {
+    // Backend was down and NASA POWER answered directly: built-in ranking plus real NASA numbers
+    if (data && !data.recommended_rotations && Array.isArray(data.ranked) && data.ranked.length) {
       applyFieldUpdate(request.field_id, data.field_update);
-      lastSource = data.nasa_source;
-      if (Array.isArray(data.ranked) && data.ranked.length > 0) {
-        return data.ranked.map(toDashboardShape);
+      lastSource = data.nasa_source || 'live';
+      return data.ranked.map(toDashboardShape);
+    }
+
+    if (data) {
+      const rows = toRankedRows(data, request);
+      if (rows.length) {
+        applyFieldUpdate(request.field_id, data.field_update || toFieldUpdate(data));
+        lastSource = (data.data_sources || {}).nasa_power || data.nasa_source || 'demo';
+        return rows;
       }
-      return localRanking();
+      // every row used a crop we couldn't show yet; the built-in ranking covers until /crops loads
+      if (backendCropsLoaded) console.warn('[Farming Aura] backend rotations could not be shown, using built-in scoring.');
     }
 
     askBackend(key, request);
+
+    // While the new intensity/profile request is in flight, immediately re-weight the cached candidate pool for this field
+    const poolData = poolAnswers.get(buildFieldPoolKey(request));
+    if (poolData && !backendDownSince) {
+      const rows = toRankedRows(poolData, request);
+      if (rows.length) {
+        applyFieldUpdate(request.field_id, toFieldUpdate(poolData));
+        lastSource = (poolData.data_sources || {}).nasa_power || 'demo';
+        return rows;
+      }
+    }
+
     if (backendDownSince) {
       applyFieldUpdate(request.field_id, null);
       lastSource = null;
@@ -127,23 +495,21 @@
   let aiEnabled = true; // flips off if the backend says there is no GEMINI_API_KEY
   let aiTimer = null;
 
-  // Same numbers the chart in app.js plots, so the explanation matches what the farmer sees
+  // Same numbers the chart in app.js plots (true 2020-2024 NASA POWER PRECTOTCORR & T2M series)
   function climateSeries(field) {
     const rain2023 = Math.round(field.spring2023Precip + field.summer2023Precip);
     const rain2024 = Math.round(field.spring2024Precip + field.summer2024Precip);
-    const rainStep = Math.round((rain2024 - rain2023) * 0.45);
-    const tempDrift = rain2024 < rain2023 ? 0.35 : -0.2;
-    const t = field.tempSummer;
+    const t = Number(field.tempSummer || 21.0);
     return {
       years: [2020, 2021, 2022, 2023, 2024],
-      rain: [
-        clip(rain2023 - rainStep * 2 + 18, 360, 780),
-        clip(rain2023 - rainStep - 12, 360, 780),
-        clip(rain2023 + 14, 360, 780),
-        rain2023,
-        rain2024
-      ],
-      temp: [3.6, 2.5, 1.8, 0.9, 0].map((k) => Number((t - tempDrift * k).toFixed(1)))
+      rain:
+        Array.isArray(field.rainSeries2020_2024) && field.rainSeries2020_2024.length === 5
+          ? field.rainSeries2020_2024.map((v) => Math.round(Number(v)))
+          : [rain2023, rain2023, rain2023, rain2023, rain2024],
+      temp:
+        Array.isArray(field.tempSeries2020_2024) && field.tempSeries2020_2024.length === 5
+          ? field.tempSeries2020_2024.map((v) => Number(Number(v).toFixed(1)))
+          : [t, t, t, t, t]
     };
   }
 
@@ -152,15 +518,21 @@
     const top = ranked[appState.selectedRankIndex] || ranked[0];
     const field = FIELDS_DATA[appState.selectedFieldId] || FIELDS_DATA.F001;
     if (!top) return null;
+    const reqCoords = buildRequest();
     const series = climateSeries(field);
-    const probeCounts = appState.sensorEnabled && appState.activeTab === 'sensors';
-    const two = (n) => Number(n.toFixed(2));
+    const probeCounts = Boolean(appState.sensorEnabled);
+    const two = (n) => Number(Number(n || 0).toFixed(2));
+    const annualRain = Math.round(field.spring2024Precip + field.summer2024Precip);
     return {
       field_number: appState.selectedFieldNumber,
       city: appState.selectedCity,
+      lat: reqCoords.lat !== null ? reqCoords.lat : field.lat,
+      lon: reqCoords.lon !== null ? reqCoords.lon : field.lon,
       profile: appState.selectedProfile,
+      intensity: clip(Number(appState.profileIntensity) || 50, 1, 100),
       previous_crop: appState.previousCropId,
       max_water: appState.maxWaterDemand,
+      local_sensors_enabled: probeCounts,
       probe: probeCounts ? appState.probeMode : 'off',
       rotation: top.seqIds,
       scores: {
@@ -171,6 +543,24 @@
         nitrogen_fixation: two(top.nFixAvg)
       },
       total_score: two(top.totalScore),
+      nasa_kpis: {
+        soil_health_score: two(top.soilHealth),
+        soil_oc_pct: Number(field.oc.toFixed(1)),
+        soil_ph: Number(field.ph.toFixed(1)),
+        annual_rainfall_mm: annualRain,
+        spring_rainfall_mm: Math.round(field.spring2024Precip || 0),
+        summer_rainfall_mm: Math.round(field.summer2024Precip || 0),
+        root_zone_moisture: two(field.moistureAvg),
+        soil_temp_c: Number(field.soilTempC.toFixed(1))
+      },
+      ranked_alternatives: ranked.slice(0, 5).map((r) => ({
+        label: r.label,
+        total_score: two(r.totalScore),
+        soil_health: two(r.soilHealth),
+        water_safety: two(r.waterSafety),
+        yield_potential: two(r.yieldPotential),
+        nitrogen_fixation: two(r.nFixAvg)
+      })),
       years: series.years,
       summer_temp_c: series.temp,
       season_rain_mm: series.rain
@@ -208,8 +598,13 @@
     const key = JSON.stringify(request);
     const text = aiAnswers.get(key);
 
-    const whyTag = document.getElementById('why-won-gemini-tag');
-    const climateTag = document.getElementById('climate-gemini-tag');
+    // "Generated from Gemini" tags only show while Gemini's own text is on screen
+    const geminiTags = [
+      ...['why-won-gemini-tag', 'climate-gemini-tag', 'banner-gemini-tag']
+        .map((id) => document.getElementById(id))
+        .filter(Boolean),
+      ...Array.from(document.querySelectorAll('.sequence-gemini-tag'))
+    ];
 
     if (text) {
       const put = (id, value) => {
@@ -218,19 +613,27 @@
       };
       put('why-won-line-1', text.why_line_1);
       put('why-won-line-2', text.why_line_2);
+      put('banner-sequence-analysis-text', text.sequence_analysis);
       put('climate-temp-explanation', text.temp_explanation);
       put('climate-rain-explanation', text.rain_explanation);
+      if (Array.isArray(text.ranked_analyses)) {
+        text.ranked_analyses.forEach((line, idx) => {
+          put(`ranked-row-analysis-${idx}`, line);
+        });
+      }
       const heading = document.getElementById('why-won-heading');
       if (heading) {
         heading.textContent = heading.textContent.replace(/\s*·\s*Gemini\s*$/i, '');
       }
-      if (whyTag) whyTag.style.display = 'inline-flex';
-      if (climateTag) climateTag.style.display = 'inline-flex';
+      geminiTags.forEach((tag) => {
+        tag.style.display = 'inline-flex';
+      });
       return;
     }
 
-    if (whyTag) whyTag.style.display = 'none';
-    if (climateTag) climateTag.style.display = 'none';
+    geminiTags.forEach((tag) => {
+      tag.style.display = 'none';
+    });
 
     if (aiAnswers.has(key)) return; // already asked and Gemini had nothing
     clearTimeout(aiTimer);
@@ -246,9 +649,9 @@
     drawDashboard();
     const eyebrow = document.getElementById('dash-eyebrow-text');
     const labels = {
-      live: 'PYTHON BACKEND · NASA POWER LIVE',
-      cache: 'PYTHON BACKEND · NASA POWER (SAVED COPY)',
-      demo: 'PYTHON BACKEND · SAMPLE CLIMATE DATA'
+      live: 'NASA POWER LIVE',
+      cache: 'NASA POWER',
+      demo: 'SAMPLE CLIMATE DATA'
     };
     if (eyebrow && lastSource && labels[lastSource]) {
       if (eyebrow.textContent.includes('LIVE MMS TELEMETRY')) {

@@ -1,5 +1,9 @@
+# keeps the "str | None" type hints below working on Python 3.9 (the default python3 on macOS)
+from __future__ import annotations
+
 import os
 from pathlib import Path
+
 
 
 # parse .env manually so we don't crash if someone forgot to pip install python-dotenv

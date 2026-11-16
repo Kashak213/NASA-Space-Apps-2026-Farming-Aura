@@ -458,17 +458,19 @@ def build_rotations_for_farmer(
         previous_crop_ids=prev_ids,
     )
 
-    # Attempt 2: Good rotations need at least one nitrogen-fixing legume (like Soybeans or Alfalfa).
-    # If the farmer only picked non-legumes (like Corn and Potatoes), mix in legumes from our catalog
-    # so we can recommend rotations that include their chosen crops without depleting soil nitrogen.
-    if not candidates and farmer_crops:
-        legume_helpers = [
+    # Attempt 2: Good rotations need at least one nitrogen-fixing legume AND at least one
+    # non-legume cash/grain/vegetable crop. If the farmer picked only non-legumes, only legumes,
+    # or mixed in woody perennials (like Apples), mix in complementary annual/forage crops from
+    # our catalog so we can recommend full 3-year rotations built around their chosen crops.
+    if len(candidates) < 10 and farmer_crops:
+        complementary_helpers = [
             c
             for c in catalog
-            if float(c.get("nitrogen_fixation", 0.0)) >= 0.5
+            if not bool(c.get("is_woody_perennial", False))
             and str(c["crop_id"]) not in farmer_ids
+            and str(c["crop_id"]) not in ("C14", "C15", "C16", "C17")
         ]
-        expanded_pool = farmer_crops + legume_helpers
+        expanded_pool = farmer_crops + complementary_helpers
         all_generated = generate_candidate_rotations(
             crops=expanded_pool,
             length=length,
@@ -476,15 +478,26 @@ def build_rotations_for_farmer(
             max_water_demand_mm=max_water_demand_mm,
             previous_crop_ids=prev_ids,
         )
-        # Keep only candidate sequences that contain at least one crop the farmer asked for
+        # Keep only sequences with distinct frontend crop groups and prioritize farmer's selected crops
         wanted_set = set(farmer_ids)
-        candidates = [seq for seq in all_generated if any(cid in wanted_set for cid in seq)]
+        matched_seqs = [
+            seq
+            for seq in all_generated
+            if any(cid in wanted_set for cid in seq)
+            and len({FRONTEND_CROP_MAP.get(cid, {"id": cid})["id"] for cid in seq}) == len(seq)
+        ]
+        matched_seqs.sort(key=lambda seq: sum(1 for cid in seq if cid in wanted_set), reverse=True)
+        seen_keys = {tuple(seq) for seq in candidates}
+        for seq in matched_seqs:
+            t_seq = tuple(seq)
+            if t_seq not in seen_keys:
+                seen_keys.add(t_seq)
+                candidates.append(seq)
 
-    # Attempt 3: Build non-repeating permutations from the farmer's annual/forage crops
+    # Attempt 3: Build non-repeating permutations from the farmer's annual/forage crops when >= length
     annual_farmer_ids = [cid for cid in farmer_ids if cid not in WOODY_PERENNIAL_IDS]
-    if not candidates and len(annual_farmer_ids) >= 2:
-        perm_len = min(length, len(annual_farmer_ids))
-        raw_perms = [list(p) for p in itertools.permutations(annual_farmer_ids, perm_len)]
+    if not candidates and len(annual_farmer_ids) >= length:
+        raw_perms = [list(p) for p in itertools.permutations(annual_farmer_ids, length)]
         filtered_perms = filter_rotations_by_constraints(
             raw_perms,
             crops=catalog,
@@ -500,24 +513,267 @@ def build_rotations_for_farmer(
         else:
             candidates = perms_to_use
 
-    # Attempt 4: Fall back to preset New York annual rotations filtered by constraints
-    if not candidates:
-        filtered_presets = filter_rotations_by_constraints(
-            PRESET_ROTATIONS,
-            crops=catalog,
-            row_crop_only=row_crop_only,
-            max_water_demand_mm=max_water_demand_mm,
-        )
-        presets_to_use = filtered_presets if filtered_presets else list(PRESET_ROTATIONS)
-        if last_prev_id is not None:
-            non_repeating_presets = [
-                seq for seq in presets_to_use if seq[0].upper() != last_prev_id
-            ]
-            candidates = non_repeating_presets if non_repeating_presets else presets_to_use
-        else:
-            candidates = presets_to_use
+    # Attempt 4: Always supplement with preset New York annual rotations so there are at least 5 distinct 3-year options
+    filtered_presets = filter_rotations_by_constraints(
+        PRESET_ROTATIONS,
+        crops=catalog,
+        row_crop_only=row_crop_only,
+        max_water_demand_mm=max_water_demand_mm,
+    )
+    presets_to_use = filtered_presets if filtered_presets else list(PRESET_ROTATIONS)
+    if last_prev_id is not None:
+        non_repeating_presets = [
+            seq for seq in presets_to_use if seq[0].upper() != last_prev_id
+        ]
+        presets_ordered = non_repeating_presets + [
+            seq for seq in presets_to_use if seq[0].upper() == last_prev_id
+        ]
+    else:
+        presets_ordered = presets_to_use
+
+    seen_cand = {tuple(seq) for seq in candidates}
+    for seq in presets_ordered:
+        if len(seq) >= length:
+            trimmed = list(seq[:length])
+            if tuple(trimmed) not in seen_cand:
+                seen_cand.add(tuple(trimmed))
+                candidates.append(trimmed)
 
     return candidates
+
+
+FRONTEND_CROP_MAP: dict[str, dict[str, Any]] = {
+    "C01": {"id": "C01", "name": "Hay or Alfalfa (Haylage)"},
+    "C02": {"id": "C02", "name": "Field Corn (Silage or Grain)"},
+    "C03": {"id": "C03", "name": "Soybeans or Small Grains"},
+    "C04": {"id": "C04", "name": "Apples"},
+    "C05": {"id": "C05", "name": "Grapes (Juice or Wine)"},
+    "C06": {"id": "C06", "name": "Cherries, Peaches, Pears or Plums"},
+    "C07": {"id": "C07", "name": "Berries"},
+    "C08": {"id": "C08", "name": "Sugar Maple (Maple Syrup)"},
+    "C09": {"id": "C09", "name": "Cabbage"},
+    "C10": {"id": "C10", "name": "Onions"},
+    "C11": {"id": "C11", "name": "Potatoes"},
+    "C12": {"id": "C12", "name": "Sweet Corn, Snap Beans or Green Peas"},
+    "C13": {"id": "C13", "name": "Beets, Carrots, Squash or Pumpkins"},
+    "C14": {"id": "C03", "name": "Soybeans or Small Grains"},
+    "C15": {"id": "C12", "name": "Sweet Corn, Snap Beans or Green Peas"},
+    "C16": {"id": "C13", "name": "Beets, Carrots, Squash or Pumpkins"},
+    "C17": {"id": "C01", "name": "Hay or Alfalfa (Haylage)"},
+}
+
+CITY_DEFAULT_COORDS: dict[str, tuple[float, float]] = {
+    "Albany": (42.6526, -73.7562),
+    "Saratoga Springs": (43.0831, -73.7846),
+    "Schenectady": (42.8142, -73.9396),
+    "Troy": (42.7284, -73.6918),
+    "Hudson": (42.2529, -73.7910),
+}
+
+MONTH_DAYS_MAP: dict[int, int] = {
+    1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30,
+    7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31,
+}
+
+
+def _season_precip_mm(precip_series: dict[str, Any], year: int, months: tuple[int, ...]) -> Optional[int]:
+    """Convert NASA POWER monthly mm/day averages into total seasonal rainfall in mm."""
+    total = 0.0
+    found = 0
+    for m in months:
+        val = precip_series.get(f"{year}{m:02d}")
+        if val is not None and float(val) >= 0.0:
+            total += float(val) * MONTH_DAYS_MAP[m]
+            found += 1
+    return round(total) if found == len(months) else None
+
+
+def _build_nasa_field_update(
+    lat: float,
+    lon: float,
+    nasa_result: dict[str, Any],
+    usda_result: dict[str, Any],
+    soil_data: dict[str, Any],
+    climate_data: dict[str, Any],
+) -> dict[str, Any]:
+    """Build `field_update` from true NASA POWER (2020-2024) and USDA SSURGO measurements."""
+    raw_data = nasa_result.get("data", {})
+    summary = nasa_result.get("summary", {})
+    rain_series = raw_data.get("PRECTOTCORR", {})
+    temp_series = raw_data.get("T2M", {})
+    ts_series = raw_data.get("TS", {})
+    gwet_series = raw_data.get("GWETROOT", {})
+
+    # True 5-year (2020-2024) growing-season rainfall (Mar-Aug, mm) and summer air temp (Jun-Aug, C) from NASA POWER
+    rain_5yr: list[int] = []
+    temp_5yr: list[float] = []
+    for yr in (2020, 2021, 2022, 2023, 2024):
+        sp_yr = _season_precip_mm(rain_series, yr, (3, 4, 5))
+        su_yr = _season_precip_mm(rain_series, yr, (6, 7, 8))
+        if sp_yr is not None and su_yr is not None:
+            rain_5yr.append(sp_yr + su_yr)
+        t_vals = [float(temp_series[f"{yr}{m:02d}"]) for m in (6, 7, 8) if f"{yr}{m:02d}" in temp_series]
+        if t_vals:
+            temp_5yr.append(round(sum(t_vals) / len(t_vals), 1))
+
+    sp23 = _season_precip_mm(rain_series, 2023, (3, 4, 5))
+    su23 = _season_precip_mm(rain_series, 2023, (6, 7, 8))
+    sp24 = _season_precip_mm(rain_series, 2024, (3, 4, 5))
+    su24 = _season_precip_mm(rain_series, 2024, (6, 7, 8))
+    ann_2024 = _season_precip_mm(rain_series, 2024, (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))
+
+    growing_mm = float(summary.get("growing_season_precip_mm") or climate_data.get("growing_season_precip_mm") or 530.0)
+    annual_total_mm = (
+        ann_2024
+        if ann_2024 is not None
+        else round(float(summary.get("estimated_annual_precip_mm") or climate_data.get("annual_precip_mm") or 950.0))
+    )
+
+    if sp24 is None or su24 is None:
+        sp24 = round(growing_mm * 0.50)
+        su24 = round(growing_mm * 0.50)
+    if sp23 is None or su23 is None:
+        sp23 = sp24
+        su23 = su24
+
+    summer_24_vals = [float(temp_series[f"2024{m:02d}"]) for m in (6, 7, 8) if f"2024{m:02d}" in temp_series]
+    if summer_24_vals:
+        temp_summer = round(sum(summer_24_vals) / len(summer_24_vals), 1)
+    else:
+        temp_summer = round(float(climate_data.get("summer_temp_c") or summary.get("summer_temp_c") or 21.0), 1)
+
+    # True NASA POWER Earth Skin / Surface Soil Temperature (TS, May-Sep 2024 mean)
+    ts_24_vals = [float(ts_series[f"2024{m:02d}"]) for m in (5, 6, 7, 8, 9) if f"2024{m:02d}" in ts_series]
+    if ts_24_vals:
+        soil_temp_c = round(sum(ts_24_vals) / len(ts_24_vals), 1)
+    elif summary.get("growing_season_ts_c") is not None:
+        soil_temp_c = round(float(summary["growing_season_ts_c"]), 1)
+    else:
+        soil_temp_c = round(float(summary.get("growing_season_temp_c") or temp_summer), 1)
+
+    # True NASA POWER Root-Zone Soil Wetness (GWETROOT, Apr-Sep 2024 mean)
+    gwet_24_vals = [float(gwet_series[f"2024{m:02d}"]) for m in (4, 5, 6, 7, 8, 9) if f"2024{m:02d}" in gwet_series]
+    if gwet_24_vals:
+        moisture_avg = round(sum(gwet_24_vals) / len(gwet_24_vals), 2)
+    else:
+        moisture_avg = round(
+            float(
+                summary.get("growing_season_gwetroot")
+                or summary.get("gwetroot_avg")
+                or climate_data.get("soil_moisture_avg")
+                or 0.35
+            ),
+            2,
+        )
+
+    oc = round(float(soil_data.get("organic_carbon_pct", 2.5)), 2)
+    ph = round(float(soil_data.get("ph", 6.5)), 2)
+    baseline_soil = round(float(field_soil_baseline_score(soil_data)), 2)
+
+    out: dict[str, Any] = {
+        "lat": round(lat, 4),
+        "lon": round(lon, 4),
+        "oc": oc,
+        "ph": ph,
+        "clay": round(float(soil_data.get("clay_pct", 25.0)), 1),
+        "sand": round(float(soil_data.get("sand_pct", 40.0)), 1),
+        "bd": round(float(soil_data.get("bulk_density", 1.35)), 2),
+        "cec": round(float(soil_data.get("cec", 20.0)), 2),
+        "spring2023Precip": sp23,
+        "summer2023Precip": su23,
+        "spring2024Precip": sp24,
+        "summer2024Precip": su24,
+        "annualTotalMm": annual_total_mm,
+        "moistureAvg": moisture_avg,
+        "mapMoisture": moisture_avg,
+        "tempSummer": temp_summer,
+        "soilTempC": soil_temp_c,
+        "mapSoilScore": baseline_soil,
+        "soilMapUnit": str(soil_data.get("map_unit_name") or "USDA Soil Unit"),
+        "drainageClass": str(soil_data.get("drainage_class") or "Well drained"),
+        "nasaSource": str(nasa_result.get("source", "live")),
+        "usdaSource": str(usda_result.get("source", "live")),
+    }
+    if len(rain_5yr) == 5:
+        out["rainSeries2020_2024"] = rain_5yr
+    if len(temp_5yr) == 5:
+        out["tempSeries2020_2024"] = temp_5yr
+    return out
+
+
+def _format_ranked_for_frontend(
+    scored_rotations: list[dict[str, Any]],
+    selected_crops: Optional[list[str]] = None,
+) -> list[dict[str, Any]]:
+    """Format backend scored rotations into the exact shape `src/front end/api.js` expects in `data.ranked`."""
+    selected_set = {
+        FRONTEND_CROP_MAP.get(str(c).strip().upper(), {}).get("id", str(c).strip().upper())
+        for c in (selected_crops or [])
+    }
+    ranked_out: list[dict[str, Any]] = []
+    seen_labels: set[str] = set()
+
+    for rot in scored_rotations:
+        raw_ids = [cid.strip().upper() for cid in str(rot.get("seq_ids", "")).split("->") if cid.strip()]
+        mapped_ids = [FRONTEND_CROP_MAP.get(cid, FRONTEND_CROP_MAP["C03"])["id"] for cid in raw_ids]
+        if len(mapped_ids) < 3:
+            continue
+        mapped_ids = mapped_ids[:3]
+        if mapped_ids[0] == mapped_ids[1] or mapped_ids[1] == mapped_ids[2] or mapped_ids[0] == mapped_ids[2]:
+            continue
+        names = [FRONTEND_CROP_MAP[cid]["name"] for cid in mapped_ids]
+        label = " \u2192 ".join(names)
+        if label in seen_labels:
+            continue
+        seen_labels.add(label)
+
+        match_count = len(set(mapped_ids).intersection(selected_set))
+        ranked_out.append(
+            {
+                "seqIds": mapped_ids,
+                "label": label,
+                "soilHealth": round(float(rot.get("soil_health", 0.70)), 3),
+                "waterSafety": round(float(rot.get("water_stress", 0.75)), 3),
+                "resilience": round(float(rot.get("climate_res", 0.72)), 3),
+                "yieldPotential": round(float(rot.get("yield_potential", 0.78)), 3),
+                "nFixAvg": round(float(rot.get("nitrogen_fixation", 0.50)), 3),
+                "soilCompat": round(float(rot.get("soil_compatibility", 0.78)), 3),
+                "totalScore": round(float(rot.get("total_score", 0.72)), 3),
+                "matchCount": match_count,
+            }
+        )
+
+    return ranked_out
+
+
+def _compute_intensity_weights(profile_name: str, intensity: int = 50) -> dict[str, float]:
+    """Scale preset profile weights by the frontend's 1-100 intensity slider."""
+    base_balanced = PROFILES["Balanced"]
+    target_weights = PROFILES.get(profile_name, base_balanced)
+    intensity_clamped = max(1.0, min(100.0, float(intensity)))
+    if intensity_clamped <= 50.0:
+        power_scale = 0.15 + ((intensity_clamped - 1.0) / 49.0) * 0.85
+    else:
+        power_scale = 1.0 + ((intensity_clamped - 50.0) / 50.0) * 1.50
+
+    if profile_name == "Balanced" or target_weights == base_balanced:
+        uniform = 1.0 / len(base_balanced)
+        bal_scale = (
+            ((intensity_clamped - 1.0) / 49.0)
+            if intensity_clamped <= 50.0
+            else 1.0 + ((intensity_clamped - 50.0) / 50.0) * 1.75
+        )
+        raw_weights = {
+            k: max(0.01, uniform + (base_val - uniform) * bal_scale)
+            for k, base_val in base_balanced.items()
+        }
+    else:
+        raw_weights = {
+            k: max(0.01, base_val + (target_weights.get(k, base_val) - base_val) * power_scale)
+            for k, base_val in base_balanced.items()
+        }
+    tot = sum(raw_weights.values())
+    return {k: round(v / tot, 4) for k, v in raw_weights.items()}
 
 
 def analyze_location_and_crops(
@@ -532,7 +788,7 @@ def analyze_location_and_crops(
     row_crop_only: bool = True,
     max_water_demand_mm: Optional[float] = None,
     top_n: int = 5,
-    start_year: int = 2023,
+    start_year: int = 2020,
     end_year: int = 2024,
     use_cache: bool = True,
     sensor_overrides: Optional[dict[str, float]] = None,
@@ -673,8 +929,24 @@ def analyze_location_and_crops(
             previous_crops=previous_crop_objs,
         )
 
+    field_update = _build_nasa_field_update(
+        lat=lat_f,
+        lon=lon_f,
+        nasa_result=nasa_result,
+        usda_result=usda_result,
+        soil_data=soil_data,
+        climate_data=climate_data,
+    )
+    ranked_frontend = _format_ranked_for_frontend(ranked_rotations, selected_crops)
+
     # Return one complete dictionary with location, soil, weather, previous crop, and rotation rankings
     return {
+        "engine": "backend",
+        "nasa_source": nasa_result.get("source", "live"),
+        "usda_source": usda_result.get("source", "live"),
+        "nasa_summary": nasa_result.get("summary", {}),
+        "field_update": field_update,
+        "ranked": ranked_frontend[: max(5, int(top_n))],
         "coordinates": {"lat": round(float(lat), 4), "lon": round(float(lon), 4)},
         "profile_used": profile_name if custom_weights is None else "Custom",
         "data_sources": {
@@ -689,6 +961,10 @@ def analyze_location_and_crops(
             "drainage_score": round(soil_drainage_score(soil_data), 3),
         },
         "climate": climate_data,
+        "nasa_yearly": {
+            key: nasa_result.get("summary", {}).get(key, {})
+            for key in ("yearly_spring_precip_mm", "yearly_summer_precip_mm", "yearly_summer_temp_c")
+        },
         "previous_crops_matched": [
             {
                 "crop_id": c["crop_id"],
@@ -725,7 +1001,8 @@ def analyze_farm_request(payload: dict[str, Any]) -> dict[str, Any]:
     lon = payload.get("lon", payload.get("longitude", coords.get("lon", coords.get("longitude"))))
 
     if lat is None or lon is None:
-        raise ValueError("Frontend request must include 'lat' and 'lon' coordinates.")
+        city_name = str(payload.get("city") or "Albany").split(",")[0].strip()
+        lat, lon = CITY_DEFAULT_COORDS.get(city_name, CITY_DEFAULT_COORDS["Albany"])
 
     raw_crops = payload.get("selected_crops", payload.get("crops"))
     if isinstance(raw_crops, str):
@@ -769,24 +1046,41 @@ def analyze_farm_request(payload: dict[str, Any]) -> dict[str, Any]:
     else:
         previous_crops = None
 
+    profile_str = str(payload.get("profile_name") or payload.get("profile") or "Balanced")
+    custom_weights = payload.get("custom_weights")
+    if custom_weights is None and payload.get("intensity") is not None:
+        try:
+            custom_weights = _compute_intensity_weights(profile_str, int(payload["intensity"]))
+        except (TypeError, ValueError):
+            custom_weights = None
+
+    raw_max_water = payload.get("max_water_demand_mm", payload.get("max_water"))
+    max_water_mm: Optional[float] = None
+    if raw_max_water is not None:
+        try:
+            mw = float(raw_max_water)
+            max_water_mm = 580.0 if mw >= 550.0 else mw
+        except (TypeError, ValueError):
+            max_water_mm = None
+
+    sensor_overrides = payload.get("sensor_overrides")
+    if sensor_overrides is None and bool(payload.get("dry_probe", False)):
+        sensor_overrides = {"soil_moisture": 0.21}
+
     return analyze_location_and_crops(
         lat=float(lat),
         lon=float(lon),
         selected_crops=selected_crops,
         crop_types=crop_types,
         previous_crops=previous_crops,
-        profile_name=str(payload.get("profile_name", payload.get("profile", "Balanced"))),
-        custom_weights=payload.get("custom_weights"),
+        profile_name=profile_str,
+        custom_weights=custom_weights,
         rotation_length=int(payload.get("rotation_length", payload.get("years", 3))),
         row_crop_only=bool(payload.get("row_crop_only", True)),
-        max_water_demand_mm=(
-            float(payload["max_water_demand_mm"])
-            if payload.get("max_water_demand_mm") is not None
-            else None
-        ),
+        max_water_demand_mm=max_water_mm,
         top_n=int(payload.get("top_n", 5)),
         use_cache=bool(payload.get("use_cache", True)),
-        sensor_overrides=payload.get("sensor_overrides"),
+        sensor_overrides=sensor_overrides,
         ask_previous_crop=bool(payload.get("ask_previous_crop", False)),
     )
 
@@ -807,8 +1101,10 @@ if FastAPI is not None:
     )
 
     class AnalyzeRequestModel(BaseModel):  # type: ignore[misc]
-        lat: float = Field(..., ge=-90.0, le=90.0, description="Farm latitude in decimal degrees")
-        lon: float = Field(..., ge=-180.0, le=180.0, description="Farm longitude in decimal degrees")
+        field_id: Optional[str] = Field(default="F001")
+        city: Optional[str] = Field(default="Albany")
+        lat: Optional[float] = Field(default=None, ge=-90.0, le=90.0, description="Farm latitude in decimal degrees")
+        lon: Optional[float] = Field(default=None, ge=-180.0, le=180.0, description="Farm longitude in decimal degrees")
         previous_crop: Optional[str] = Field(
             default=None,
             description="Crop ID or crop name that was already farmed on the field last season (e.g. 'C02' or 'Field Corn')",
@@ -825,17 +1121,21 @@ if FastAPI is not None:
             default=None,
             description="Optional list of crop families to filter by (e.g. ['grain', 'legume', 'vegetable'])",
         )
+        profile: Optional[str] = Field(default=None)
         profile_name: str = Field(
             default="Balanced",
             description="One of: Balanced, Max Yield, Water Conservation, Soil Health First, Climate Resilient",
         )
+        intensity: Optional[int] = Field(default=None, ge=1, le=100)
         custom_weights: Optional[dict[str, float]] = Field(
             default=None,
             description="Optional custom 7-weight dictionary overriding profile_name",
         )
         rotation_length: int = Field(default=3, ge=2, le=5)
         row_crop_only: bool = Field(default=True)
+        max_water: Optional[float] = Field(default=None)
         max_water_demand_mm: Optional[float] = Field(default=None)
+        dry_probe: bool = Field(default=False)
         top_n: int = Field(default=5, ge=1, le=20)
         sensor_overrides: Optional[dict[str, float]] = Field(
             default=None,
@@ -910,38 +1210,54 @@ if FastAPI is not None:
 
         field_number: int = 1
         city: str = "Albany"
+        lat: Optional[float] = None
+        lon: Optional[float] = None
         profile: str = "Balanced"
+        intensity: int = 50
         previous_crop: Optional[str] = None
         max_water: int = 550
+        local_sensors_enabled: bool = True
         probe: str = "off"
         rotation: list[str] = []
         scores: dict[str, float] = {}
         total_score: float = 0.0
+        nasa_kpis: dict[str, Any] = {}
+        ranked_alternatives: list[dict[str, Any]] = []
         years: list[int] = []
         summer_temp_c: list[float] = []
         season_rain_mm: list[float] = []
 
     @app.post("/explain")
     def explain_endpoint(req: ExplainRequestModel) -> dict[str, Any]:
-        """Ask Gemini to put the top rotation and the climate chart into plain English."""
-        if not gemini_is_configured():
-            return {"enabled": False, "text": None}
-
+        """Ask Gemini to put the top rotation, ranked crop sequences, and climate chart into plain English."""
         catalog = load_crops()
         rotation_crops = [c for c in (get_crop_by_id(cid, catalog) for cid in req.rotation) if c][:3]
         if len(rotation_crops) < 3:
-            return {"enabled": True, "text": None}
+            return {"enabled": True, "gemini_live": gemini_is_configured(), "text": None}
 
         previous = get_crop_by_id(req.previous_crop, catalog) if req.previous_crop else None
         score_names = ("soil_health", "water_safety", "resilience", "yield_potential", "nitrogen_fixation")
         points = min(len(req.years), len(req.summer_temp_c), len(req.season_rain_mm), 10)
 
+        coord_str = (
+            f" ({req.lat:.4f}°, {req.lon:.4f}°)"
+            if req.lat is not None and req.lon is not None
+            else ""
+        )
+        loc_label = req.city or "selected Google Map location"
+
+        probe_state = req.probe if (req.local_sensors_enabled and req.probe in ("wet", "dry")) else "not used"
         facts = {
-            "field": f"Field F{max(1, req.field_number):03d} near {req.city or 'a custom location'}, New York",
-            "farmer_priority": req.profile if req.profile in PROFILES else "Balanced",
+            "field": f"Field F{max(1, req.field_number):03d} at {loc_label}{coord_str}",
+            "farmer_priority": f"{req.profile if req.profile in PROFILES else 'Balanced'} (intensity {max(1, min(100, req.intensity))}/100)",
             "previous_crop": previous["crop_name"] if previous else "not given",
             "max_water_demand_mm_per_year": req.max_water,
-            "mms_mobile_measuring_station": req.probe if req.probe in ("wet", "dry") else "not used",
+            "local_sensors_enabled": bool(req.local_sensors_enabled),
+            "mms_mobile_measuring_station": (
+                f"enabled ({probe_state} soil)" if probe_state in ("wet", "dry") else "disabled (satellite only)"
+            ),
+            "moisture_probe": probe_state,
+            "nasa_kpis": req.nasa_kpis,
             "recommended_rotation": [
                 {
                     "year": i + 1,
@@ -954,10 +1270,15 @@ if FastAPI is not None:
             ],
             "rotation_total_score_0_to_1": round(req.total_score, 2),
             "scores_0_to_1": {k: round(float(req.scores[k]), 2) for k in score_names if k in req.scores},
+            "ranked_alternatives": req.ranked_alternatives[:5],
             "summer_temperature_c_by_year": {str(req.years[i]): req.summer_temp_c[i] for i in range(points)},
             "growing_season_rain_mm_by_year": {str(req.years[i]): round(req.season_rain_mm[i]) for i in range(points)},
         }
-        return {"enabled": True, "text": explain_dashboard(facts)}
+        return {
+            "enabled": True,
+            "gemini_live": gemini_is_configured(),
+            "text": explain_dashboard(facts),
+        }
 
     # Serve the dashboard too, so http://localhost:8000 runs the whole app. Must stay below the routes.
     try:

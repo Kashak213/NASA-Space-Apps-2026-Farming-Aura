@@ -5,233 +5,281 @@ const FIELDS_DATA = {
     id: 'F001',
     name: 'Field F001',
     regionLabel: 'Albany, New York',
-    lat: 41.5,
-    lon: -93.6,
-    oc: 2.8,
-    ph: 6.5,
-    clay: 28.0,
-    sand: 42.0,
-    bd: 1.35,
-    cec: 22.5,
-    spring2023Precip: 340,
-    summer2023Precip: 280,
-    spring2024Precip: 310,
-    summer2024Precip: 220,
-    drought2023: 0.16,
-    drought2024: 0.265,
-    moistureAvg: 0.35,
-    ndvi2023: 0.725,
-    ndvi2024: 0.685,
-    tempSummer: 24.8,
-    soilTempC: 18.6,
-    anom2023: 3.3,
-    anom2024: -13.35,
+    lat: 42.6526,
+    lon: -73.7562,
+    oc: 2.49,
+    ph: 6.36,
+    clay: 34.1,
+    sand: 15.5,
+    bd: 1.14,
+    cec: 18.89,
+    spring2023Precip: 270,
+    summer2023Precip: 512,
+    spring2024Precip: 385,
+    summer2024Precip: 393,
+    annualTotalMm: 1202,
+    rainSeries2020_2024: [539, 728, 495, 782, 778],
+    tempSeries2020_2024: [21.5, 20.9, 21.4, 19.8, 21.0],
+    drought2023: 0.14,
+    drought2024: 0.15,
+    moistureAvg: 0.66,
+    ndvi2023: 0.74,
+    ndvi2024: 0.75,
+    tempSummer: 21.0,
+    soilTempC: 19.1,
+    anom2023: 8.2,
+    anom2024: 7.4,
     mapStatus: 'Healthy',
-    mapSoilScore: 0.76,
-    mapMoisture: 0.42
+    mapSoilScore: 0.79,
+    mapMoisture: 0.66,
+    soilMapUnit: 'Hudson silt loam, 3 to 8 percent slopes',
+    nasaSource: 'cache',
+    usdaSource: 'cache'
   },
   F002: {
     id: 'F002',
     name: 'Field F002',
     regionLabel: 'Saratoga Springs, New York',
-    lat: 41.7,
-    lon: -93.4,
-    oc: 1.9,
-    ph: 7.1,
-    clay: 35.0,
-    sand: 30.0,
-    bd: 1.45,
-    cec: 18.2,
-    spring2023Precip: 320,
-    summer2023Precip: 260,
-    spring2024Precip: 290,
-    summer2024Precip: 195,
-    drought2023: 0.24,
-    drought2024: 0.365,
-    moistureAvg: 0.27,
-    ndvi2023: 0.685,
-    ndvi2024: 0.63,
-    tempSummer: 25.1,
-    soilTempC: 19.4,
-    anom2023: -3.15,
-    anom2024: -21.0,
+    lat: 43.0831,
+    lon: -73.7846,
+    oc: 0.75,
+    ph: 5.19,
+    clay: 1.0,
+    sand: 85.0,
+    bd: 1.48,
+    cec: 0.54,
+    spring2023Precip: 274,
+    summer2023Precip: 514,
+    spring2024Precip: 375,
+    summer2024Precip: 396,
+    annualTotalMm: 1184,
+    rainSeries2020_2024: [530, 694, 540, 788, 771],
+    tempSeries2020_2024: [21.3, 21.0, 20.9, 20.1, 21.1],
+    drought2023: 0.18,
+    drought2024: 0.19,
+    moistureAvg: 0.71,
+    ndvi2023: 0.71,
+    ndvi2024: 0.72,
+    tempSummer: 21.1,
+    soilTempC: 19.1,
+    anom2023: 7.5,
+    anom2024: 5.8,
     mapStatus: 'Moderate stress',
-    mapSoilScore: 0.64,
-    mapMoisture: 0.24
+    mapSoilScore: 0.42,
+    mapMoisture: 0.71,
+    soilMapUnit: 'Windsor loamy sand, 3 to 8 percent slopes',
+    nasaSource: 'cache',
+    usdaSource: 'cache'
   },
   F003: {
     id: 'F003',
     name: 'Field F003',
     regionLabel: 'Schenectady, New York',
-    lat: 40.8,
-    lon: -95.2,
-    oc: 3.2,
-    ph: 6.2,
-    clay: 22.0,
-    sand: 55.0,
-    bd: 1.25,
-    cec: 26.8,
-    spring2023Precip: 340,
-    summer2023Precip: 295,
-    spring2024Precip: 350,
-    summer2024Precip: 310,
-    drought2023: 0.15,
-    drought2024: 0.13,
-    moistureAvg: 0.41,
-    ndvi2023: 0.765,
+    lat: 42.8142,
+    lon: -73.9396,
+    oc: 3.31,
+    ph: 7.0,
+    clay: 45.3,
+    sand: 11.4,
+    bd: 1.11,
+    cec: 33.42,
+    spring2023Precip: 274,
+    summer2023Precip: 514,
+    spring2024Precip: 375,
+    summer2024Precip: 396,
+    annualTotalMm: 1184,
+    rainSeries2020_2024: [530, 694, 540, 788, 771],
+    tempSeries2020_2024: [21.3, 21.0, 20.9, 20.1, 21.1],
+    drought2023: 0.13,
+    drought2024: 0.14,
+    moistureAvg: 0.71,
+    ndvi2023: 0.77,
     ndvi2024: 0.78,
-    tempSummer: 25.5,
-    soilTempC: 18.9,
-    anom2023: 6.15,
-    anom2024: 10.3,
+    tempSummer: 21.1,
+    soilTempC: 19.1,
+    anom2023: 7.5,
+    anom2024: 5.8,
     mapStatus: 'Healthy',
-    mapSoilScore: 0.82,
-    mapMoisture: 0.51
+    mapSoilScore: 0.79,
+    mapMoisture: 0.71,
+    soilMapUnit: 'Madalin silty clay loam, 0 to 3 percent slopes',
+    nasaSource: 'cache',
+    usdaSource: 'cache'
   },
   F004: {
     id: 'F004',
     name: 'Field F004',
     regionLabel: 'Troy, New York',
-    lat: 42.1,
-    lon: -92.8,
-    oc: 2.1,
-    ph: 7.4,
-    clay: 40.0,
-    sand: 25.0,
-    bd: 1.5,
-    cec: 15.6,
-    spring2023Precip: 310,
-    summer2023Precip: 240,
-    spring2024Precip: 275,
-    summer2024Precip: 180,
-    drought2023: 0.3,
-    drought2024: 0.435,
-    moistureAvg: 0.24,
-    ndvi2023: 0.64,
-    ndvi2024: 0.57,
-    tempSummer: 25.8,
-    soilTempC: 20.2,
-    anom2023: -8.45,
-    anom2024: -25.3,
-    mapStatus: 'High drought risk',
-    mapSoilScore: 0.58,
-    mapMoisture: 0.19
+    lat: 42.7284,
+    lon: -73.6918,
+    oc: 2.18,
+    ph: 5.16,
+    clay: 12.0,
+    sand: 32.1,
+    bd: 1.35,
+    cec: 6.83,
+    spring2023Precip: 270,
+    summer2023Precip: 512,
+    spring2024Precip: 385,
+    summer2024Precip: 393,
+    annualTotalMm: 1202,
+    rainSeries2020_2024: [539, 728, 495, 782, 778],
+    tempSeries2020_2024: [21.5, 20.9, 21.4, 19.8, 21.0],
+    drought2023: 0.16,
+    drought2024: 0.17,
+    moistureAvg: 0.66,
+    ndvi2023: 0.72,
+    ndvi2024: 0.73,
+    tempSummer: 21.0,
+    soilTempC: 19.1,
+    anom2023: 8.2,
+    anom2024: 7.4,
+    mapStatus: 'Moderate stress',
+    mapSoilScore: 0.45,
+    mapMoisture: 0.66,
+    soilMapUnit: 'Chenango gravelly silt loam, 3 to 8 percent slopes',
+    nasaSource: 'cache',
+    usdaSource: 'cache'
   },
   F005: {
     id: 'F005',
     name: 'Field F005',
     regionLabel: 'Hudson, New York',
-    lat: 41.3,
-    lon: -94.1,
-    oc: 3.8,
-    ph: 5.9,
-    clay: 18.0,
-    sand: 62.0,
-    bd: 1.2,
-    cec: 31.2,
-    spring2023Precip: 360,
-    summer2023Precip: 310,
-    spring2024Precip: 380,
-    summer2024Precip: 330,
-    drought2023: 0.115,
-    drought2024: 0.085,
-    moistureAvg: 0.46,
-    ndvi2023: 0.815,
-    ndvi2024: 0.835,
-    tempSummer: 26.0,
+    lat: 42.2529,
+    lon: -73.7910,
+    oc: 2.32,
+    ph: 6.38,
+    clay: 41.2,
+    sand: 15.6,
+    bd: 1.24,
+    cec: 21.8,
+    spring2023Precip: 270,
+    summer2023Precip: 512,
+    spring2024Precip: 385,
+    summer2024Precip: 393,
+    annualTotalMm: 1202,
+    rainSeries2020_2024: [539, 728, 495, 782, 778],
+    tempSeries2020_2024: [21.5, 20.9, 21.4, 19.8, 21.0],
+    drought2023: 0.14,
+    drought2024: 0.15,
+    moistureAvg: 0.66,
+    ndvi2023: 0.75,
+    ndvi2024: 0.76,
+    tempSummer: 21.0,
     soilTempC: 19.1,
-    anom2023: 11.6,
-    anom2024: 18.35,
-    mapStatus: 'Moderate stress',
-    mapSoilScore: 0.71,
-    mapMoisture: 0.36
+    anom2023: 8.2,
+    anom2024: 7.4,
+    mapStatus: 'Healthy',
+    mapSoilScore: 0.74,
+    mapMoisture: 0.66,
+    soilMapUnit: 'Hudson-Vergennes silt loam complex',
+    nasaSource: 'cache',
+    usdaSource: 'cache'
   },
   F006: {
     id: 'F006',
     name: 'Field F006',
-    regionLabel: 'Albany, New York',
-    lat: 40.5,
-    lon: -96.0,
-    oc: 1.5,
-    ph: 7.8,
-    clay: 45.0,
-    sand: 20.0,
-    bd: 1.55,
-    cec: 12.4,
-    spring2023Precip: 280,
-    summer2023Precip: 210,
-    spring2024Precip: 250,
-    summer2024Precip: 165,
-    drought2023: 0.425,
-    drought2024: 0.52,
-    moistureAvg: 0.21,
-    ndvi2023: 0.59,
-    ndvi2024: 0.53,
-    tempSummer: 26.2,
-    soilTempC: 21.0,
-    anom2023: -18.8,
-    anom2024: -31.85,
+    regionLabel: 'Albany West, New York',
+    lat: 42.6554,
+    lon: -73.9734,
+    oc: 2.18,
+    ph: 5.16,
+    clay: 12.0,
+    sand: 32.1,
+    bd: 1.35,
+    cec: 6.83,
+    spring2023Precip: 270,
+    summer2023Precip: 512,
+    spring2024Precip: 385,
+    summer2024Precip: 393,
+    annualTotalMm: 1202,
+    rainSeries2020_2024: [539, 728, 495, 782, 778],
+    tempSeries2020_2024: [21.5, 20.9, 21.4, 19.8, 21.0],
+    drought2023: 0.16,
+    drought2024: 0.17,
+    moistureAvg: 0.66,
+    ndvi2023: 0.72,
+    ndvi2024: 0.73,
+    tempSummer: 21.0,
+    soilTempC: 19.1,
+    anom2023: 8.2,
+    anom2024: 7.4,
     mapStatus: 'Healthy',
-    mapSoilScore: 0.88,
-    mapMoisture: 0.57
+    mapSoilScore: 0.45,
+    mapMoisture: 0.66,
+    soilMapUnit: 'Chenango gravelly silt loam, rolling',
+    nasaSource: 'cache',
+    usdaSource: 'cache'
   },
   F007: {
     id: 'F007',
     name: 'Field F007',
-    regionLabel: 'Saratoga Springs, New York',
-    lat: 42.5,
-    lon: -91.5,
-    oc: 4.2,
-    ph: 6.0,
-    clay: 20.0,
-    sand: 58.0,
-    bd: 1.18,
-    cec: 35.1,
-    spring2023Precip: 385,
-    summer2023Precip: 340,
-    spring2024Precip: 400,
-    summer2024Precip: 360,
-    drought2023: 0.075,
-    drought2024: 0.055,
-    moistureAvg: 0.51,
-    ndvi2023: 0.86,
-    ndvi2024: 0.875,
-    tempSummer: 26.5,
-    soilTempC: 18.2,
-    anom2023: 20.95,
-    anom2024: 26.9,
+    regionLabel: 'Saratoga South, New York',
+    lat: 42.9241,
+    lon: -73.6411,
+    oc: 2.9,
+    ph: 5.3,
+    clay: 10.0,
+    sand: 63.8,
+    bd: 1.35,
+    cec: 2.2,
+    spring2023Precip: 274,
+    summer2023Precip: 514,
+    spring2024Precip: 375,
+    summer2024Precip: 396,
+    annualTotalMm: 1184,
+    rainSeries2020_2024: [530, 694, 540, 788, 771],
+    tempSeries2020_2024: [21.3, 21.0, 20.9, 20.1, 21.1],
+    drought2023: 0.15,
+    drought2024: 0.16,
+    moistureAvg: 0.71,
+    ndvi2023: 0.74,
+    ndvi2024: 0.75,
+    tempSummer: 21.1,
+    soilTempC: 19.1,
+    anom2023: 7.5,
+    anom2024: 5.8,
     mapStatus: 'Moderate stress',
-    mapSoilScore: 0.69,
-    mapMoisture: 0.28
+    mapSoilScore: 0.51,
+    mapMoisture: 0.71,
+    soilMapUnit: 'Scio very fine sandy loam, 0 to 3 percent slopes',
+    nasaSource: 'cache',
+    usdaSource: 'cache'
   },
   F008: {
     id: 'F008',
     name: 'Field F008',
-    regionLabel: 'Hudson, New York',
-    lat: 41.0,
-    lon: -94.8,
-    oc: 2.5,
-    ph: 6.8,
-    clay: 32.0,
-    sand: 38.0,
-    bd: 1.38,
-    cec: 20.3,
-    spring2023Precip: 320,
-    summer2023Precip: 255,
-    spring2024Precip: 295,
-    summer2024Precip: 210,
-    drought2023: 0.265,
-    drought2024: 0.35,
-    moistureAvg: 0.31,
-    ndvi2023: 0.685,
-    ndvi2024: 0.635,
-    tempSummer: 25.0,
-    soilTempC: 19.0,
-    anom2023: -4.4,
-    anom2024: -16.75,
+    regionLabel: 'Finger Lakes, New York',
+    lat: 42.7000,
+    lon: -76.8000,
+    oc: 2.2,
+    ph: 6.7,
+    clay: 22.5,
+    sand: 26.8,
+    bd: 1.35,
+    cec: 14.3,
+    spring2023Precip: 218,
+    summer2023Precip: 359,
+    spring2024Precip: 243,
+    summer2024Precip: 347,
+    annualTotalMm: 993,
+    rainSeries2020_2024: [454, 626, 450, 577, 590],
+    tempSeries2020_2024: [22.1, 21.5, 21.5, 20.3, 21.6],
+    drought2023: 0.19,
+    drought2024: 0.18,
+    moistureAvg: 0.60,
+    ndvi2023: 0.73,
+    ndvi2024: 0.74,
+    tempSummer: 21.6,
+    soilTempC: 19.8,
+    anom2023: 2.1,
+    anom2024: 4.5,
     mapStatus: 'Healthy',
-    mapSoilScore: 0.79,
-    mapMoisture: 0.45
+    mapSoilScore: 0.73,
+    mapMoisture: 0.60,
+    soilMapUnit: 'Angola silt loam, 3 to 8 percent slopes',
+    nasaSource: 'cache',
+    usdaSource: 'cache'
   }
 };
 
@@ -518,18 +566,38 @@ function scoreSequenceForField(seqIds, field, profileName, sensorDryOverride) {
 
   const baseBalanced = PRIORITY_PROFILES.Balanced;
   const targetWeights = PRIORITY_PROFILES[profileName] || baseBalanced;
-  const intensityNorm = clip((appState.profileIntensity - 1) / 99, 0, 1);
+  const clamped = clip(Number(appState.profileIntensity) || 50, 1, 100);
   // At 50 intensity use the profile's standard weights; scale emphasis smoothly from 1 to 100
-  const powerScale = 0.25 + intensityNorm * 1.75;
-  const rawWeights = {
-    soil_health: baseBalanced.soil_health + (targetWeights.soil_health - baseBalanced.soil_health) * powerScale,
-    water_stress: baseBalanced.water_stress + (targetWeights.water_stress - baseBalanced.water_stress) * powerScale,
-    climate_res: baseBalanced.climate_res + (targetWeights.climate_res - baseBalanced.climate_res) * powerScale,
-    nitrogen_fix: baseBalanced.nitrogen_fix + (targetWeights.nitrogen_fix - baseBalanced.nitrogen_fix) * powerScale,
-    yield: baseBalanced.yield + (targetWeights.yield - baseBalanced.yield) * powerScale,
-    drought_tol: baseBalanced.drought_tol + (targetWeights.drought_tol - baseBalanced.drought_tol) * powerScale,
-    soil_compat: baseBalanced.soil_compat + (targetWeights.soil_compat - baseBalanced.soil_compat) * powerScale
-  };
+  const powerScale = clamped <= 50
+    ? 0.15 + ((clamped - 1) / 49) * 0.85
+    : 1.0 + ((clamped - 50) / 50) * 1.50;
+
+  let rawWeights;
+  if (profileName === 'Balanced' || targetWeights === baseBalanced) {
+    const uniform = 1 / 7;
+    const balScale = clamped <= 50
+      ? (clamped - 1) / 49
+      : 1.0 + ((clamped - 50) / 50) * 1.75;
+    rawWeights = {
+      soil_health: uniform + (baseBalanced.soil_health - uniform) * balScale,
+      water_stress: uniform + (baseBalanced.water_stress - uniform) * balScale,
+      climate_res: uniform + (baseBalanced.climate_res - uniform) * balScale,
+      nitrogen_fix: uniform + (baseBalanced.nitrogen_fix - uniform) * balScale,
+      yield: uniform + (baseBalanced.yield - uniform) * balScale,
+      drought_tol: uniform + (baseBalanced.drought_tol - uniform) * balScale,
+      soil_compat: uniform + (baseBalanced.soil_compat - uniform) * balScale
+    };
+  } else {
+    rawWeights = {
+      soil_health: baseBalanced.soil_health + (targetWeights.soil_health - baseBalanced.soil_health) * powerScale,
+      water_stress: baseBalanced.water_stress + (targetWeights.water_stress - baseBalanced.water_stress) * powerScale,
+      climate_res: baseBalanced.climate_res + (targetWeights.climate_res - baseBalanced.climate_res) * powerScale,
+      nitrogen_fix: baseBalanced.nitrogen_fix + (targetWeights.nitrogen_fix - baseBalanced.nitrogen_fix) * powerScale,
+      yield: baseBalanced.yield + (targetWeights.yield - baseBalanced.yield) * powerScale,
+      drought_tol: baseBalanced.drought_tol + (targetWeights.drought_tol - baseBalanced.drought_tol) * powerScale,
+      soil_compat: baseBalanced.soil_compat + (targetWeights.soil_compat - baseBalanced.soil_compat) * powerScale
+    };
+  }
   const weightSum = Object.values(rawWeights).reduce((acc, v) => acc + Math.max(0.01, v), 0);
   const w = {};
   Object.keys(rawWeights).forEach((k) => {
@@ -666,7 +734,7 @@ function getRankedRotations() {
   const field = FIELDS_DATA[appState.selectedFieldId] || FIELDS_DATA.F001;
   const selectedIds = appState.selectedCrops || [];
   const maxWater = appState.maxWaterDemand;
-  const dryProbeActive = appState.sensorEnabled && appState.probeMode === 'dry' && (isMmsLive() || appState.activeTab === 'sensors');
+  const dryProbeActive = Boolean(appState.sensorEnabled && appState.probeMode === 'dry');
 
   const candidatePool = buildCandidatePool(selectedIds);
 
@@ -726,7 +794,41 @@ function getRankedRotations() {
     return b.nFixAvg - a.nFixAvg;
   });
 
-  return scored;
+  // Deduplicate by rotation label so all top 5 rotations are distinct
+  const uniqueScored = [];
+  const seenLabels = new Set();
+  scored.forEach((item) => {
+    if (item && item.label && !seenLabels.has(item.label)) {
+      seenLabels.add(item.label);
+      uniqueScored.push(item);
+    }
+  });
+
+  return uniqueScored;
+}
+
+// Build a distinct, data-grounded small quick analysis for each alternative rotation
+function buildAlternativeQuickAnalysis(item, rankIdx, field, annualRain) {
+  const c1 = item.crops[0]?.name || 'Year 1 crop';
+  const c2 = item.crops[1]?.name || 'Year 2 crop';
+  const c3 = item.crops[2]?.name || 'Year 3 crop';
+  const maxWater = Math.max(...item.crops.map((c) => c.water || 450));
+  const avgRoot = (item.crops.reduce((s, c) => s + (c.rootM || 1.0), 0) / Math.max(1, item.crops.length)).toFixed(1);
+  const legumeCrops = item.crops.filter((c) => (c.nFix || 0) >= 0.5).map((c) => c.name);
+
+  if (rankIdx === 1) {
+    const legText = legumeCrops.length
+      ? `${legumeCrops[0]} supplies biological nitrogen (${item.nFixAvg.toFixed(2)} N-fix)`
+      : `alternating crop families preserves soil nutrients`;
+    return `Starts with ${c1} followed by ${c2} and ${c3} (score ${item.totalScore.toFixed(2)}): ${legText}, achieving ${item.soilHealth.toFixed(2)} soil health and ${item.yieldPotential.toFixed(2)} yield potential with ${annualRain} mm rainfall.`;
+  }
+  if (rankIdx === 2) {
+    return `Pairs ${c1} → ${c2} → ${c3} (score ${item.totalScore.toFixed(2)}) to keep peak water demand (${maxWater} mm) within ${annualRain} mm NASA rainfall and ${field.moistureAvg.toFixed(2)} RZM moisture (water safety ${item.waterSafety.toFixed(2)}, resilience ${item.resilience.toFixed(2)}).`;
+  }
+  if (rankIdx === 3) {
+    return `Rotates ${c1}, ${c2}, and ${c3} across ${avgRoot} m average root depth on OC ${field.oc.toFixed(1)}% · pH ${field.ph.toFixed(1)} soil (score ${item.totalScore.toFixed(2)}), balancing ${item.soilHealth.toFixed(2)} soil health with ${item.yieldPotential.toFixed(2)} yield.`;
+  }
+  return `Sequence ${item.label} scores ${item.totalScore.toFixed(2)} at ${field.soilTempC.toFixed(1)}°C soil temperature, combining ${item.waterSafety.toFixed(2)} water safety, ${item.resilience.toFixed(2)} climate resilience, and ${item.nFixAvg.toFixed(2)} nitrogen fixation.`;
 }
 
 // Template logic evaluating the user's crop selection (to be combined with the backend API later)
@@ -734,6 +836,9 @@ function evaluateCropSelection(selectedIds, topPick) {
   const count = selectedIds.length;
   const pickedNames = selectedIds.map((id) => CROPS_DATA[id]?.name).filter(Boolean);
   const recLabel = topPick ? topPick.label : 'Soybeans or Small Grains → Field Corn (Silage or Grain) → Hay or Alfalfa (Haylage)';
+  const sensorClause = appState.sensorEnabled
+    ? `MMS Mobile Measuring Station active (${appState.probeMode === 'dry' ? 'Dry soil mode' : 'Wet soil mode'})`
+    : 'satellite baseline only (local MMS sensor disabled)';
 
   if (count === 0) {
     return {
@@ -741,7 +846,7 @@ function evaluateCropSelection(selectedIds, topPick) {
       bannerTitle: 'This might be a better idea to start with.',
       heading: 'Suggestion: Pick 1 to 3 crops in the sidebar',
       line1: 'You have not selected any crops yet — try picking your preferred New York crops in the Crops dropdown on the left.',
-      line2: `Better suggestion for this field: ${recLabel} (template ready for backend integration).`
+      line2: `Better suggestion for this field: ${recLabel} (${sensorClause}).`
     };
   }
 
@@ -751,7 +856,7 @@ function evaluateCropSelection(selectedIds, topPick) {
       bannerTitle: 'Picking this many crops is bad — try this better 3-crop plan.',
       heading: 'Why picking this many crops is bad',
       line1: `Selecting ${count} crops at once (${pickedNames.slice(0, 4).join(', ')}${count > 4 ? '...' : ''}) splits field management, mixes incompatible harvest schedules, and weakens soil recovery.`,
-      line2: `Better suggestion: Narrow your field down to ${recLabel} for stronger soil nitrogen and higher yield.`
+      line2: `Better suggestion: Narrow your field down to ${recLabel} for stronger soil nitrogen and higher yield (${sensorClause}).`
     };
   }
 
@@ -761,7 +866,7 @@ function evaluateCropSelection(selectedIds, topPick) {
       bannerTitle: 'This is a good crop selection for your field.',
       heading: 'This is a good crop mix — why it works',
       line1: `Your 3 selected crops (${pickedNames.join(', ')}) form a strong rotation that balances nitrogen fixation, root depth, and pest resistance.`,
-      line2: `Recommended 3-year sequence: ${recLabel} within your ${appState.maxWaterDemand} mm water budget.`
+      line2: `Recommended 3-year sequence: ${recLabel} within your ${appState.maxWaterDemand} mm water budget • ${sensorClause}.`
     };
   }
 
@@ -772,7 +877,7 @@ function evaluateCropSelection(selectedIds, topPick) {
       bannerTitle: 'This might be a better idea than planting a single crop.',
       heading: 'Suggestion: This might be a better idea',
       line1: `You only picked ${pickedNames[0]} — planting 1 crop repeatedly depletes soil nutrients and builds up crop-specific pests.`,
-      line2: `Better suggestion: Rotate ${pickedNames[0]} inside ${recLabel} to restore nitrogen and protect topsoil.`
+      line2: `Better suggestion: Rotate ${pickedNames[0]} inside ${recLabel} to restore nitrogen and protect topsoil (${sensorClause}).`
     };
   }
 
@@ -782,7 +887,7 @@ function evaluateCropSelection(selectedIds, topPick) {
       bannerTitle: 'This might be a better idea for a full 3-year cycle.',
       heading: 'Suggestion: This might be a better idea',
       line1: `You picked ${pickedNames.join(' and ')} — adding a 3rd complementary crop completes a 3-year cycle and boosts organic carbon.`,
-      line2: `Better suggestion: Try ${recLabel} to pair your selection with balanced soil recovery.`
+      line2: `Better suggestion: Try ${recLabel} to pair your selection with balanced soil recovery (${sensorClause}).`
     };
   }
 
@@ -792,15 +897,15 @@ function evaluateCropSelection(selectedIds, topPick) {
     bannerTitle: 'This might be a better idea for soil balance.',
     heading: 'Suggestion: This might be a better idea',
     line1: `Your 3 picks (${pickedNames.join(', ')}) either lack a nitrogen-fixing legume or mix perennial tree/vine crops with annual row crops.`,
-    line2: `Better suggestion: Swap in a complementary nitrogen builder with ${recLabel}.`
+    line2: `Better suggestion: Swap in a complementary nitrogen builder with ${recLabel} (${sensorClause}).`
   };
 }
 
-// Switch between top-level views with smooth fade transitions
-function navigateToView(viewId) {
+// Switch between top-level views with smooth fade transitions and browser history support
+function navigateToView(viewId, pushHistory = true) {
   const allViews = document.querySelectorAll('.app-view');
   const target = document.getElementById(viewId);
-  if (!target) return;
+  if (!target || !target.classList.contains('app-view')) return;
 
   closeAllDropdowns();
 
@@ -815,8 +920,32 @@ function navigateToView(viewId) {
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       target.classList.add('visible-view');
+      if (viewId === 'location-view' && typeof window.refreshFarmingAuraLocationMap === 'function') {
+        window.refreshFarmingAuraLocationMap();
+      } else if (viewId === 'dashboard-view' && typeof window.refreshFarmingAuraFieldMap === 'function') {
+        window.refreshFarmingAuraFieldMap();
+      }
     });
   });
+
+  setTimeout(() => {
+    if (viewId === 'location-view' && typeof window.refreshFarmingAuraLocationMap === 'function') {
+      window.refreshFarmingAuraLocationMap();
+    } else if (viewId === 'dashboard-view' && typeof window.refreshFarmingAuraFieldMap === 'function') {
+      window.refreshFarmingAuraFieldMap();
+    }
+  }, 120);
+
+  if (pushHistory && window.history && typeof window.history.pushState === 'function') {
+    const hashTarget = viewId === 'landing-view' ? window.location.pathname + window.location.search : `#${viewId}`;
+    if (window.location.hash !== `#${viewId}`) {
+      try {
+        window.history.pushState({ viewId }, '', hashTarget);
+      } catch (_err) {
+        // ignore file:// history restrictions
+      }
+    }
+  }
 
   appState.currentView = viewId;
   renderAll();
@@ -841,10 +970,21 @@ function switchDashboardTab(tabKey) {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           panel.classList.add('visible-panel');
+          if (tabKey === 'map' && typeof window.refreshFarmingAuraFieldMap === 'function') {
+            window.refreshFarmingAuraFieldMap();
+          }
         });
       });
     }
   });
+
+  if (tabKey === 'map') {
+    setTimeout(() => {
+      if (typeof window.refreshFarmingAuraFieldMap === 'function') {
+        window.refreshFarmingAuraFieldMap();
+      }
+    }, 100);
+  }
 
   // Update sensor switch color to match Figma (green on Tab 2/3, brown on Tab 1)
   const sensorSwitch = document.getElementById('sidebar-sensor-switch');
@@ -1024,25 +1164,19 @@ function renderClimateLineChart(field) {
   const years = [2020, 2021, 2022, 2023, 2024];
   const rain2023 = Math.round(field.spring2023Precip + field.summer2023Precip);
   const rain2024 = Math.round(field.spring2024Precip + field.summer2024Precip);
-  const rainStep = Math.round((rain2024 - rain2023) * 0.45);
 
-  const rainSeries = [
-    clip(rain2023 - rainStep * 2 + 18, 360, 780),
-    clip(rain2023 - rainStep - 12, 360, 780),
-    clip(rain2023 + 14, 360, 780),
-    rain2023,
-    rain2024
-  ];
+  // Use true 2020-2024 NASA POWER PRECTOTCORR series when available
+  const rainSeries =
+    Array.isArray(field.rainSeries2020_2024) && field.rainSeries2020_2024.length === 5
+      ? field.rainSeries2020_2024.map((v) => Math.round(Number(v)))
+      : [rain2023, rain2023, rain2023, rain2023, rain2024];
 
-  const t2024 = field.tempSummer;
-  const tempDrift = rain2024 < rain2023 ? 0.35 : -0.20;
-  const tempSeriesC = [
-    Number((t2024 - tempDrift * 3.6).toFixed(1)),
-    Number((t2024 - tempDrift * 2.5).toFixed(1)),
-    Number((t2024 - tempDrift * 1.8).toFixed(1)),
-    Number((t2024 - tempDrift * 0.9).toFixed(1)),
-    Number(t2024.toFixed(1))
-  ];
+  const t2024 = Number(field.tempSummer || 21.0);
+  // Use true 2020-2024 NASA POWER T2M summer series when available
+  const tempSeriesC =
+    Array.isArray(field.tempSeries2020_2024) && field.tempSeries2020_2024.length === 5
+      ? field.tempSeries2020_2024.map((v) => Number(Number(v).toFixed(1)))
+      : [t2024, t2024, t2024, t2024, t2024];
 
   const toF = (c) => Math.round((c * 9) / 5 + 32);
 
@@ -1056,10 +1190,16 @@ function renderClimateLineChart(field) {
   // Inset the first/last data points from the Y-axes so centered point labels never overlap axis ticks
   const xInset = 54;
 
-  const tempMin = 20;
-  const tempMax = 28;
-  const rainMin = 350;
-  const rainMax = 800;
+  // Dynamic axis bounds fitted to the true NASA POWER temperature and rainfall range
+  const minT = Math.min(...tempSeriesC);
+  const maxT = Math.max(...tempSeriesC);
+  const tempMin = Math.floor(Math.min(18, minT - 2));
+  const tempMax = Math.ceil(Math.max(26, maxT + 2));
+
+  const minR = Math.min(...rainSeries);
+  const maxR = Math.max(...rainSeries);
+  const rainMin = Math.max(0, Math.floor((minR - 80) / 50) * 50);
+  const rainMax = Math.ceil((maxR + 80) / 50) * 50;
 
   const xAt = (i) => padLeft + xInset + (i / (years.length - 1)) * (plotW - xInset * 2);
   const yTemp = (c) => padTop + (1 - clip((c - tempMin) / (tempMax - tempMin), 0, 1)) * plotH;
@@ -1296,14 +1436,33 @@ function renderDashboard() {
   const kpiSoilVal = document.getElementById('kpi-soil-val');
   const kpiSoilSub = document.getElementById('kpi-soil-sub');
   const kpiRainVal = document.getElementById('kpi-rain-val');
+  const kpiRainSub = document.getElementById('kpi-rain-sub');
   const kpiMoistureVal = document.getElementById('kpi-moisture-val');
+  const kpiMoistureSub = document.getElementById('kpi-moisture-sub');
   const kpiTempVal = document.getElementById('kpi-temp-val');
-  const kpiMoistureSub = kpiMoistureVal ? kpiMoistureVal.nextElementSibling : null;
-  const kpiTempSub = kpiTempVal ? kpiTempVal.nextElementSibling : null;
+  const kpiTempSub = document.getElementById('kpi-temp-sub');
 
-  if (kpiSoilVal) kpiSoilVal.textContent = `${topPick.soilHealth.toFixed(2)} SH`;
-  if (kpiSoilSub) kpiSoilSub.textContent = `OC ${field.oc.toFixed(1)}% · pH ${field.ph.toFixed(1)}`;
+  const hasNasaData = Boolean(field.nasaSource && field.nasaSource !== 'demo');
+  const coordBadge =
+    typeof field.lat === 'number' && typeof field.lon === 'number'
+      ? `${field.lat.toFixed(2)}°, ${field.lon.toFixed(2)}°`
+      : '';
+
+  if (kpiSoilVal && topPick) kpiSoilVal.textContent = `${topPick.soilHealth.toFixed(2)} SH`;
+  if (kpiSoilSub) {
+    const unitShort = field.soilMapUnit ? field.soilMapUnit.split(',')[0] : 'USDA SSURGO';
+    kpiSoilSub.textContent = hasNasaData
+      ? `OC ${field.oc.toFixed(2)}% · pH ${field.ph.toFixed(2)} · ${unitShort}`
+      : `OC ${field.oc.toFixed(2)}% · pH ${field.ph.toFixed(2)}`;
+  }
   if (kpiRainVal) kpiRainVal.textContent = `${annualRain} mm`;
+  if (kpiRainSub) {
+    const spRain = Math.round(field.spring2024Precip || 0);
+    const suRain = Math.round(field.summer2024Precip || 0);
+    kpiRainSub.textContent = hasNasaData
+      ? `NASA POWER · Spring ${spRain} mm · Summer ${suRain} mm`
+      : `Spring ${spRain} mm · Summer ${suRain} mm`;
+  }
   if (kpiMoistureVal) {
     kpiMoistureVal.textContent = liveMms && liveMms.soil_moisture_m3 != null
       ? `${Number(liveMms.soil_moisture_m3).toFixed(2)} RZM`
@@ -1312,7 +1471,7 @@ function renderDashboard() {
   if (kpiMoistureSub) {
     kpiMoistureSub.textContent = liveMms && liveMms.soil_moisture_pct != null
       ? `Live MMS · ${liveMms.soil_moisture_pct}% (${liveMms.probe_mode === 'dry' ? 'Dry' : 'Wet'})`
-      : 'Sample soil moisture';
+      : (hasNasaData ? `NASA GWETROOT · ${coordBadge}` : 'Sample soil moisture');
   }
   if (kpiTempVal) {
     kpiTempVal.textContent = liveMms && liveMms.soil_temp_c != null
@@ -1322,9 +1481,10 @@ function renderDashboard() {
   if (kpiTempSub) {
     const airPart = liveMms && liveMms.air_temp_c != null ? `Air ${Number(liveMms.air_temp_c).toFixed(1)}°C` : '';
     const humPart = liveMms && liveMms.air_humidity_pct != null ? `${Math.round(liveMms.air_humidity_pct)}% RH` : '';
+    const tempStatus = field.soilTempC >= 12.0 ? 'Above planting threshold' : 'Cool topsoil (<12°C)';
     kpiTempSub.textContent = liveMms && (airPart || humPart)
       ? `Live MMS · ${[airPart, humPart].filter(Boolean).join(' · ')}`
-      : 'Above planting threshold';
+      : (hasNasaData ? `NASA POWER · ${tempStatus}` : tempStatus);
   }
 
   // Tab 1: 3-year recommended rotation cards
@@ -1379,28 +1539,25 @@ function renderDashboard() {
     if (valYield) valYield.textContent = topPick.yieldPotential.toFixed(2);
     if (valNFix) valNFix.textContent = topPick.nFixAvg.toFixed(2);
 
-    const avgFive =
-      (topPick.soilHealth +
-        topPick.waterSafety +
-        topPick.resilience +
-        topPick.yieldPotential +
-        topPick.nFixAvg) /
-      5.0;
-    const scoreOutOf100 = Math.round(avgFive * 100);
+    const scoreOutOf100 = Math.round(Number(topPick.totalScore.toFixed(2)) * 100);
     if (avgScoreBadge) avgScoreBadge.textContent = `${scoreOutOf100} / 100`;
   }
 
-  // Ranked alternatives table (only RANK, ROTATION, TOTAL SCORE)
+  // Ranked alternatives table (RANK, ROTATION, TOTAL SCORE) + 4 small quick analyses for the other 4 crop rotations
+  const topFive = ranked.slice(0, 5);
+  const activeRankIdx = topFive[appState.selectedRankIndex] ? appState.selectedRankIndex : 0;
   const tbody = document.getElementById('ranked-alternatives-tbody');
   if (tbody) {
     tbody.innerHTML = '';
-    ranked.slice(0, 5).forEach((item, idx) => {
+    topFive.forEach((item, idx) => {
       const tr = document.createElement('tr');
-      tr.className = `ranked-row ${idx === appState.selectedRankIndex ? 'selected-rank-row' : ''}`;
+      tr.className = `ranked-row ${idx === activeRankIdx ? 'selected-rank-row' : ''}`;
       const rankNum = String(idx + 1).padStart(2, '0');
       tr.innerHTML = `
         <td class="col-rank">${rankNum}</td>
-        <td class="col-rotation">${item.label}</td>
+        <td class="col-rotation">
+          <div class="ranked-seq-title">${item.label}</div>
+        </td>
         <td class="col-score">${item.totalScore.toFixed(2)}</td>
       `;
       tr.addEventListener('click', () => {
@@ -1408,6 +1565,50 @@ function renderDashboard() {
         renderDashboard();
       });
       tbody.appendChild(tr);
+    });
+  }
+
+  // Top banner quick analysis for the active rotation + 4 small quick analyses at the bottom for the other 4 rotations
+  const bannerSeqText = document.getElementById('banner-sequence-analysis-text');
+  if (topPick && bannerSeqText) {
+    bannerSeqText.textContent = `Generated sequence ${topPick.label} scores ${topPick.totalScore.toFixed(2)} at (${field.lat.toFixed(2)}°, ${field.lon.toFixed(2)}°) with ${annualRain} mm rainfall, ${field.moistureAvg.toFixed(2)} RZM root-zone moisture, ${field.soilTempC.toFixed(1)}°C soil temperature, and OC ${field.oc.toFixed(1)}% · pH ${field.ph.toFixed(1)} (soil health ${topPick.soilHealth.toFixed(2)}, water safety ${topPick.waterSafety.toFixed(2)}, yield ${topPick.yieldPotential.toFixed(2)}).`;
+  }
+
+  const altAnalysisBox = document.getElementById('sequence-quick-analysis-box');
+  if (altAnalysisBox) {
+    altAnalysisBox.className = 'sequence-quick-analysis-grid';
+    altAnalysisBox.innerHTML = '';
+    const otherFour = topFive
+      .map((item, idx) => ({ item, idx }))
+      .filter((entry) => entry.idx !== activeRankIdx)
+      .slice(0, 4);
+
+    otherFour.forEach(({ item, idx }, cardPos) => {
+      const rankNum = String(idx + 1).padStart(2, '0');
+      const card = document.createElement('div');
+      card.className = 'alt-quick-analysis-card';
+      const defaultAltText = buildAlternativeQuickAnalysis(item, cardPos + 1, field, annualRain);
+      card.innerHTML = `
+        <div class="alt-quick-analysis-header">
+          <div class="alt-quick-analysis-title-group">
+            <span class="quick-analysis-title alt-quick-analysis-title">Quick analysis · Rank #${rankNum}</span>
+            <span class="gemini-attribution-tag sequence-gemini-tag" style="display: none;">
+              <svg class="gemini-sparkle-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z" fill="#9B72CB"/>
+              </svg>
+              <span>Generated by Gemini</span>
+            </span>
+          </div>
+          <span class="alt-quick-analysis-score">Score ${item.totalScore.toFixed(2)}</span>
+        </div>
+        <div class="alt-quick-analysis-seq">${item.label}</div>
+        <p id="ranked-row-analysis-${idx}" class="sequence-analysis-text alt-quick-analysis-text">${defaultAltText}</p>
+      `;
+      card.addEventListener('click', () => {
+        appState.selectedRankIndex = idx;
+        renderDashboard();
+      });
+      altAnalysisBox.appendChild(card);
     });
   }
 
@@ -1457,11 +1658,33 @@ function renderDashboard() {
   const backendLine1 = document.getElementById('moisture-backend-line-1');
   const backendLine2 = document.getElementById('moisture-backend-line-2');
 
-  if (appState.probeMode === 'dry') {
+  if (nasaRzm) nasaRzm.textContent = `${field.moistureAvg.toFixed(2)} m³/m³`;
+  if (nasaTemp) nasaTemp.textContent = `${field.tempSummer.toFixed(1)} °C`;
+  if (nasaPrecip) nasaPrecip.textContent = `${field.summer2024Precip} mm`;
+
+  if (!appState.sensorEnabled) {
+    if (devRzm) devRzm.textContent = 'Disabled (satellite only)';
+    if (devSt) devSt.textContent = `${field.soilTempC.toFixed(1)} °C (satellite)`;
+    if (devAh) devAh.textContent = 'Disabled in sidebar';
+    if (devRain) devRain.textContent = 'Disabled in sidebar';
+    if (alertTitle) {
+      alertTitle.textContent = 'MMS Mobile Measuring Station: Disabled in sidebar — using NASA satellite baseline only';
+    }
+    if (alertSub) {
+      alertSub.textContent =
+        'Local sensor readings are currently turned off in the sidebar. Toggle "Local sensor readings" on in the sidebar or click Wet / Dry below to activate MMS ground-truth calibration.';
+    }
+    if (backendHeading) {
+      backendHeading.textContent = `Backend report for ${activeFieldName} · Satellite Baseline Only (MMS Disabled)`;
+    }
+    if (backendLine1) {
+      backendLine1.textContent = `Local MMS sensor override is disabled. Rotations are scored using NASA POWER root-zone moisture (${field.moistureAvg.toFixed(2)} m³/m³) and ${field.summer2024Precip} mm summer precipitation without local probe adjustments.`;
+    }
+    if (backendLine2) {
+      backendLine2.textContent = `Click "MMS Mobile Measuring Station: Wet" or "MMS Mobile Measuring Station: Dry" above (or enable the sidebar toggle) to apply local soil moisture readings to ${topPick ? topPick.label : 'your rotation'}.`;
+    }
+  } else if (appState.probeMode === 'dry') {
     const localMoist = liveMms && liveMms.soil_moisture_m3 != null ? liveMms.soil_moisture_m3 : Math.max(0.14, field.moistureAvg - 0.13);
-    if (nasaRzm) nasaRzm.textContent = `${field.moistureAvg.toFixed(2)} m³/m³`;
-    if (nasaTemp) nasaTemp.textContent = `${field.tempSummer.toFixed(1)} °C`;
-    if (nasaPrecip) nasaPrecip.textContent = `${field.summer2024Precip} mm`;
     if (devRzm) devRzm.textContent = `${localMoist.toFixed(2)} m³/m³ (Dry)`;
     if (devSt) devSt.textContent = `${(liveMms && liveMms.soil_temp_c != null ? liveMms.soil_temp_c : field.soilTempC + 2.3).toFixed(1)} °C`;
     if (devAh) devAh.textContent = liveMms && liveMms.air_humidity_pct != null ? `${Math.round(liveMms.air_humidity_pct)} % RH` : '38 % RH';
@@ -1479,9 +1702,6 @@ function renderDashboard() {
     }
   } else {
     const localMoist = liveMms && liveMms.soil_moisture_m3 != null ? liveMms.soil_moisture_m3 : Math.min(0.49, field.moistureAvg + 0.06);
-    if (nasaRzm) nasaRzm.textContent = `${field.moistureAvg.toFixed(2)} m³/m³`;
-    if (nasaTemp) nasaTemp.textContent = `${field.tempSummer.toFixed(1)} °C`;
-    if (nasaPrecip) nasaPrecip.textContent = `${field.summer2024Precip} mm`;
     if (devRzm) devRzm.textContent = `${localMoist.toFixed(2)} m³/m³ (Wet)`;
     if (devSt) devSt.textContent = `${(liveMms && liveMms.soil_temp_c != null ? liveMms.soil_temp_c : field.soilTempC).toFixed(1)} °C`;
     if (devAh) devAh.textContent = liveMms && liveMms.air_humidity_pct != null ? `${Math.round(liveMms.air_humidity_pct)} % RH` : '68 % RH';
@@ -1498,17 +1718,17 @@ function renderDashboard() {
     }
   }
 
-  if (devRain) {
+  if (appState.sensorEnabled && devRain) {
     devRain.textContent = liveMms
       ? (liveMms.is_raining ? `Raining (${liveMms.rain_intensity_pct}%)` : 'Dry')
       : 'No MMS data';
   }
-  if (liveMms && alertTitle) {
+  if (appState.sensorEnabled && liveMms && alertTitle) {
     alertTitle.textContent = `MMS Mobile Measuring Station: ${appState.probeMode === 'dry' ? 'Dry' : 'Wet'} soil detected — live telemetry`;
   }
 
   document.querySelectorAll('.probe-mode-btn').forEach((btn) => {
-    btn.classList.toggle('active-probe-mode', btn.dataset.probe === appState.probeMode);
+    btn.classList.toggle('active-probe-mode', Boolean(appState.sensorEnabled && btn.dataset.probe === appState.probeMode));
   });
 }
 
@@ -1876,18 +2096,48 @@ document.addEventListener('DOMContentLoaded', () => {
   // Tab 3 MMS Mobile Measuring Station Wet / Dry decision buttons
   document.querySelectorAll('.probe-mode-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
+      // Automatically enable local sensor readings in the sidebar if the user clicks Wet or Dry
+      if (!appState.sensorEnabled) {
+        appState.sensorEnabled = true;
+      }
       // While the MMS is live, the sensor decides Wet or Dry
-      if (isMmsLive()) return;
-      appState.probeMode = btn.dataset.probe;
+      if (!isMmsLive()) {
+        appState.probeMode = btn.dataset.probe;
+      }
       renderDashboard();
     });
   });
 
-  // Top nav Demo & Data sources links and brand home links
+  // Top nav Demo, Blog & Data sources links, Back buttons, and brand home links
   document.querySelectorAll('[data-nav-target]').forEach((el) => {
     el.addEventListener('click', () => {
       navigateToView(el.dataset.navTarget);
     });
+  });
+
+  // Smooth scroll for blog section jump buttons without changing view state
+  document.querySelectorAll('.blog-jump-btn').forEach((link) => {
+    link.addEventListener('click', (e) => {
+      const href = link.getAttribute('href');
+      if (href && href.startsWith('#')) {
+        const sec = document.querySelector(href);
+        if (sec) {
+          e.preventDefault();
+          sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    });
+  });
+
+  // Browser Back / Forward navigation across onboarding steps
+  window.addEventListener('popstate', (e) => {
+    const stateView = e.state && e.state.viewId;
+    const hashView = window.location.hash ? window.location.hash.replace('#', '') : 'landing-view';
+    const targetView = stateView || hashView || 'landing-view';
+    const targetEl = document.getElementById(targetView);
+    if (targetEl && targetEl.classList.contains('app-view')) {
+      navigateToView(targetView, false);
+    }
   });
 
   document.querySelectorAll('.open-sources-modal-btn').forEach((btn) => {
@@ -1907,6 +2157,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialize first view
   renderAll();
+
+  // Allow direct view navigation via URL parameter or hash
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialView = urlParams.get('view') || (window.location.hash ? window.location.hash.replace('#', '') : null);
+  if (initialView && document.getElementById(initialView)) {
+    navigateToView(initialView);
+  }
 
   // Start polling Mobile Measurement Station (MMS) telemetry
   pollMms();
