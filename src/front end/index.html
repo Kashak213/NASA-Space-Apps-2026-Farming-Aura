@@ -1277,9 +1277,14 @@
             </div>
 
             <div class="blog-writeup-box">
-              <div class="blog-field-label">LABEL: PROJECT SUMMARY — HOW FARMING AURA WORKS &amp; HELPS FARMERS</div>
-              <div class="blog-empty-field blog-empty-field-lg">
-                [ Placeholder: Project Summary Write-up — A unified breakdown of how Farming Aura functions from onboarding and satellite field selection to generating 3-year crop rotations, and how this empowers farmers to regenerate soil health, cut input costs, conserve water, and navigate changing climates ]
+              <div class="blog-field-label">PROJECT SUMMARY</div>
+              <div class="blog-text-content">
+                <p>
+                  Farming Aura is an intelligent, full-stack crop rotation planner and climate-adaptation dashboard aimed to aid farmers. By fusing satellite Earth observations and accurate, global latitude/longitude data, we ensure that this tool is accessible, data-driven recommendations. The main goals of our tool are ensuring accurate data processing, providing diverse crop statistics, and assessing the user's needs to the highest degree possible. To address these needs, the program displays a dynamic, 3-5 year rotation path, crop water demand vs. annual rainfall, a dual-axis line graph for historical climate (temperature and precipitation) trends, and alternative crop rotations with ranked overall score breakdowns calculated from a combination of all their metrics.
+                </p>
+                <p>
+                  Additionally, to provide a more interactive experience in which the user is able to customize their settings further and see resulting breakdowns in the manner explained above, our team’s application incorporates various user-modifiable metrics. These include: the priority profile of crop rotation in which the user chooses a selection amongst a list of farm priorities; the maximum water demand in relation to how much water is accessible for the crops; and lastly the previous crop planted, which ensures that the crop rotation provided builds on to previous years and the resulting soil health of past farming. Through these developed features, we centered our solution on user input and accurate resulting recommendations.
+                </p>
               </div>
             </div>
           </section>
@@ -1292,9 +1297,17 @@
             </div>
 
             <div class="blog-writeup-box">
-              <div class="blog-field-label">LABEL: PROJECT DETAILS — CODE ARCHITECTURE &amp; WHAT WE INTEGRATED</div>
-              <div class="blog-empty-field blog-empty-field-lg">
-                [ Placeholder: Project Details Write-up — A unified technical breakdown covering our full-stack codebase, ML rotation scoring engine, and how we integrated NASA Earth data, USDA SSURGO soil records, Google Maps API, Google Gemini AI, and the physical Mobile Measurement Station (MMS) ]
+              <div class="blog-field-label">PROJECT DETAILS &amp; ARCHITECTURE</div>
+              <div class="blog-text-content">
+                <p>
+                  Our project integrates a fusion of provided NASA satellite data, agronomic and soil studies made available by the USDA, Google Maps latitude and longitude data, and a team-made local Mobile Measuring Station, to optimize a multi-year crop rotation selection for farmers. Through official google cloud infrastructure, we were able to make our application publicly available on an internet domain, and we utilized a combination of API sources (NASA POWER APIs, Google Maps JavaScript API, USDA API), to ensure an accurate and diverse set of data was made available to users.
+                </p>
+                <p>
+                  The main coding languages incorporated in our project are python, for the backend data analysis software; html, used to design the frontend, surface-level GUI; and JavaScript, used as a bridge between the backend python-based and frontend html-based components. Through a Google Maps software embedded within the website, we allowed for farmers to select an exact latitude and longitude, then link the given location to meteorological data sourced from NASA POWER APIs, and finally configure a nuanced crop-rotation analysis by fetching yield values and nutritional statistics from an embedded USDA API.
+                </p>
+                <p>
+                  In addition to online, publicly available records integrated into the application, we developed a prototype Mobile Measuring Station to further substantiate exact field data. Our design utilized the following: A soil moisture sensor, rainfall amount sensor, soil temperature sensor, and air temperature &amp; humidity sensor. We also supplemented an imported polygon form tool to the location selection interface, allowing farmers to outline field number and dimensions to further tailor crop placement. Finally, we assimilated a Google Gemini API, focused on analysis, in order to provide a customized short, written breakdown intended to rationalize the provided crop-rotation recommendation. These collected values are then read into the program and combined with API-provided data to finalize a response, which is then referred to the user.
+                </p>
               </div>
             </div>
           </section>
