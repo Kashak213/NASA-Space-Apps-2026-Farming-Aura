@@ -902,7 +902,7 @@ function evaluateCropSelection(selectedIds, topPick) {
 function navigateToView(viewId, pushHistory = true) {
   const allViews = document.querySelectorAll('.app-view');
   const target = document.getElementById(viewId);
-  if (!target) return;
+  if (!target || !target.classList.contains('app-view')) return;
 
   closeAllDropdowns();
 
@@ -2091,10 +2091,24 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Top nav Demo & Data sources links, Back buttons, and brand home links
+  // Top nav Demo, Blog & Data sources links, Back buttons, and brand home links
   document.querySelectorAll('[data-nav-target]').forEach((el) => {
     el.addEventListener('click', () => {
       navigateToView(el.dataset.navTarget);
+    });
+  });
+
+  // Smooth scroll for blog section jump buttons without changing view state
+  document.querySelectorAll('.blog-jump-btn').forEach((link) => {
+    link.addEventListener('click', (e) => {
+      const href = link.getAttribute('href');
+      if (href && href.startsWith('#')) {
+        const sec = document.querySelector(href);
+        if (sec) {
+          e.preventDefault();
+          sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
     });
   });
 
@@ -2103,7 +2117,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const stateView = e.state && e.state.viewId;
     const hashView = window.location.hash ? window.location.hash.replace('#', '') : 'landing-view';
     const targetView = stateView || hashView || 'landing-view';
-    if (document.getElementById(targetView)) {
+    const targetEl = document.getElementById(targetView);
+    if (targetEl && targetEl.classList.contains('app-view')) {
       navigateToView(targetView, false);
     }
   });

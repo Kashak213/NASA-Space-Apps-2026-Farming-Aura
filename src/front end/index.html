@@ -21,6 +21,7 @@
             <div class="brand-subtitle">Built for Field Shift • NASA Space Apps Challenge 2026</div>
           </div>
           <nav class="top-nav-links">
+            <button type="button" class="top-nav-link" data-nav-target="blog-view">Blog</button>
             <button type="button" class="top-nav-link" data-nav-target="dashboard-view">Demo</button>
             <button type="button" class="top-nav-link open-sources-modal-btn">Data sources</button>
           </nav>
@@ -94,6 +95,7 @@
           <div class="brand-subtitle">Built for Field Shift • NASA Space Apps Challenge 2026</div>
         </div>
         <nav class="top-nav-links">
+          <button type="button" class="top-nav-link" data-nav-target="blog-view">Blog</button>
           <button type="button" class="top-nav-link" data-nav-target="dashboard-view">Demo</button>
           <button type="button" class="top-nav-link open-sources-modal-btn">Data sources</button>
         </nav>
@@ -252,6 +254,7 @@
           <div class="brand-subtitle-caps">NASA SPACE APPS / 2026</div>
         </div>
         <nav class="top-nav-links">
+          <button type="button" class="top-nav-link" data-nav-target="blog-view">Blog</button>
           <button type="button" class="top-nav-link" data-nav-target="dashboard-view">Demo</button>
           <button type="button" class="top-nav-link open-sources-modal-btn">Data sources</button>
         </nav>
@@ -1012,6 +1015,355 @@
         </section>
 
       </main>
+    </div>
+  </div>
+
+  <!-- SCREEN 5: BLOG & PROJECT WRITE-UP PAGE -->
+  <div id="blog-view" class="app-view">
+    <div class="onboarding-bg blog-page-bg">
+      <header class="top-navbar">
+        <div class="brand-block" data-nav-target="landing-view">
+          <div class="brand-title">Farming Aura</div>
+          <div class="brand-subtitle">Built for Field Shift • NASA Space Apps Challenge 2026</div>
+        </div>
+        <nav class="top-nav-links">
+          <button type="button" class="top-nav-link" data-nav-target="landing-view">&larr; Home</button>
+          <button type="button" class="top-nav-link active-nav-pill" data-nav-target="blog-view">Blog</button>
+          <button type="button" class="top-nav-link" data-nav-target="dashboard-view">Demo</button>
+          <button type="button" class="top-nav-link open-sources-modal-btn">Data sources</button>
+        </nav>
+      </header>
+
+      <div class="blog-stage">
+        <div class="blog-backdrop-shell">
+
+          <!-- Blog Page Header -->
+          <div class="blog-hero-header">
+            <div class="blog-eyebrow-pill">NASA SPACE APPS CHALLENGE 2026 • FIELD SHIFT</div>
+            <h1 class="blog-main-heading">PROJECT BLOG &amp; DOCUMENTATION</h1>
+            <p class="blog-main-subtitle">
+              Our team, custom ground-truth hardware, 5-stage live storyboard, presentation deck, and technical documentation.
+            </p>
+
+            <div class="blog-jump-nav">
+              <a href="#blog-sec-team" class="blog-jump-btn">01 · Our Team</a>
+              <a href="#blog-sec-hardware" class="blog-jump-btn">02 · Hardware</a>
+              <a href="#blog-sec-storyboard" class="blog-jump-btn">03 · Live Example</a>
+              <a href="#blog-sec-presentation" class="blog-jump-btn">04 · Presentation</a>
+              <a href="#blog-sec-summary" class="blog-jump-btn">05 · Project Summary</a>
+              <a href="#blog-sec-details" class="blog-jump-btn">06 · Project Details &amp; Code</a>
+            </div>
+          </div>
+
+          <!-- SECTION 1: OUR TEAM & ROLES -->
+          <section id="blog-sec-team" class="blog-section-card">
+            <div class="blog-section-header">
+              <span class="blog-section-tag">SECTION 01 • OUR TEAM</span>
+              <h2 class="blog-section-title">Meet Our Team &amp; What Each Person Did</h2>
+            </div>
+
+            <!-- Team Photo -->
+            <div class="blog-photo-frame">
+              <img src="assets/team-photo.jpg" alt="Farming Aura Team - NASA Space Apps Challenge 2026" />
+              <div class="blog-photo-caption">
+                <span><strong>The Farming Aura Team</strong> — NASA Space Apps Challenge 2026</span>
+                <span>Team Photo</span>
+              </div>
+            </div>
+
+            <!-- Team Description Write-up -->
+            <div class="blog-writeup-box" style="margin-top: 20px;">
+              <div class="blog-field-label">TEAM OVERVIEW &amp; MISSION</div>
+              <div class="blog-text-content">
+                <p>
+                  We are a dedicated group of high-school builders, developers, and researchers united by a shared goal: bridging cutting-edge aerospace data with boots-on-the-ground agriculture. Across thousands of lines of code, hardware prototypes, and sleepless work sessions, our team came together to tackle one of modern farming's greatest challenges: predicting and optimizing multi-year crop rotations while actively restoring soil health.
+                </p>
+                <p>
+                  Farming Aura is the culmination of our complementary strengths. We combined NASA satellite climatology (POWER and Earthdata), USDA SSURGO/NCSS soil databases, Google Maps satellite plotting, custom multi-criteria agronomic weighted scoring models, and a self-built physical soil probe (the Mobile Measurement Station). Every member brought intense focus to their craft — whether soldering sensor circuits, developing multi-criteria agronomic weighted scoring algorithms, designing intuitive farmer-first user experiences in Figma, or analyzing complex ecological datasets — all working side-by-side to bring this vision to life.
+                </p>
+              </div>
+            </div>
+
+            <!-- Individual Team Member Roles Grid -->
+            <div class="blog-team-grid">
+              <div class="blog-member-card">
+                <div class="blog-field-label">FULL-STACK, HARDWARE &amp; SCORING</div>
+                <div class="blog-member-name">Michael Vert</div>
+                <div class="blog-member-text">
+                  <p>
+                    Michael was a core engine across both backend engineering and physical hardware. He architected the backend endpoints, designed the multi-criteria agronomic weighted scoring model, and co-developed our unique multi-year rotation scoring mechanism alongside Aiden.
+                  </p>
+                  <p>
+                    On the hardware side, Michael personally built the Mobile Measurement Station (MMS) from scratch, engineered the sensor circuitry, and 3D-printed custom protective casing. In addition, Michael spearheaded the backend-to-frontend API integrations, combed through agricultural and climate data lists, and conducted deep data analysis for field calibrations.
+                  </p>
+                </div>
+              </div>
+
+              <div class="blog-member-card">
+                <div class="blog-field-label">FRONTEND ARCHITECTURE &amp; APIS</div>
+                <div class="blog-member-name">Aniket Dixit</div>
+                <div class="blog-member-text">
+                  <p>
+                    Aniket served as one of the primary lead coders for the frontend, bringing the interface, views, and interactive state management to life.
+                  </p>
+                  <p>
+                    He researched and implemented the Google Gemini AI API integration, figuring out how to connect, securely handle, and embed real-time generative farming insights directly into the dashboard. Aniket also collaborated on connecting the backend to the frontend, helped analyze complex agronomic and climate datasets, and actively contributed to project-wide integration and debugging.
+                  </p>
+                </div>
+              </div>
+
+              <div class="blog-member-card">
+                <div class="blog-field-label">BACKEND &amp; SCORING ARCHITECTURE</div>
+                <div class="blog-member-name">Aiden Weng</div>
+                <div class="blog-member-text">
+                  <p>
+                    Aiden focused heavily on backend logic, data processing pipelines, and multi-criteria agronomic weighted scoring model development alongside Michael.
+                  </p>
+                  <p>
+                    Together with Michael, Aiden designed and calibrated our custom multi-year rotation scoring mechanism — weighting soil organic carbon, moisture retention, nitrogen replenishment, and crop market resilience. Aiden spent hours combing through extensive NASA climatology records and USDA datasets, ensuring our algorithms reflect real agronomic science.
+                  </p>
+                </div>
+              </div>
+
+              <div class="blog-member-card">
+                <div class="blog-field-label">UI/UX DESIGN, QA &amp; DOCUMENTATION</div>
+                <div class="blog-member-name">Rishabh Nagarkar</div>
+                <div class="blog-member-text">
+                  <p>
+                    Rishabh designed the entire Farming Aura website experience in Figma from the ground up, iterating through numerous interactive prototypes until the terracotta design system was perfected.
+                  </p>
+                  <p>
+                    Beyond design, Rishabh served as the team's head debugger, methodically tracking down edge cases across the codebase. He helped bridge backend data to the frontend UI, assisted with data analysis, and led the team documentation as the head writer for the project summary and technical write-ups.
+                  </p>
+                </div>
+              </div>
+
+              <div class="blog-member-card">
+                <div class="blog-field-label">FRONTEND &amp; MAPS INTEGRATION</div>
+                <div class="blog-member-name">Gautham Reddy Sagili</div>
+                <div class="blog-member-text">
+                  <p>
+                    Gautham was one of the primary lead frontend developers, coding interactive views and UI components across the platform.
+                  </p>
+                  <p>
+                    He spearheaded the Google Maps JavaScript &amp; Places API integration, developing the custom satellite boundary planner that lets farmers draw and measure their actual fields. Gautham also worked on connecting the backend to the frontend and led the creation and design of the team's project demo presentation slideshow alongside Charles.
+                  </p>
+                </div>
+              </div>
+
+              <div class="blog-member-card">
+                <div class="blog-field-label">PRESENTATION, QA &amp; FULL-STACK INTEGRATION</div>
+                <div class="blog-member-name">Charles Wang</div>
+                <div class="blog-member-text">
+                  <p>
+                    Charles played a versatile role across presentation, design refinement, and system debugging. Working closely with Gautham, Charles was a lead author for our project demo slideshow and pitch deck.
+                  </p>
+                  <p>
+                    Charles also contributed to Figma UI polishing, helped bridge the backend APIs to the frontend interface, thoroughly tested and debugged features across the site, and assisted with data analysis across our agricultural data lists.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- SECTION 2: HARDWARE (MMS) -->
+          <section id="blog-sec-hardware" class="blog-section-card">
+            <div class="blog-section-header">
+              <span class="blog-section-tag">SECTION 02 • HARDWARE</span>
+              <h2 class="blog-section-title">Our Hardware: What It Does &amp; How We Made It</h2>
+            </div>
+
+            <div class="blog-hardware-layout">
+              <!-- Hardware Photos Row (2 large labeled picture placeholders side-by-side) -->
+              <div class="blog-hardware-photos-row">
+                <!-- Hardware Photo 1: MMS on the field -->
+                <div class="blog-hardware-card">
+                  <div class="blog-field-label" style="color: #ffffff; margin-bottom: 10px; font-size: 13px;">
+                    PICTURE 1: MMS ON THE FIELD
+                  </div>
+                  <div class="blog-photo-placeholder blog-photo-hardware">
+                    <div class="placeholder-badge">PICTURE 01 — MMS ON THE FIELD</div>
+                    <div class="placeholder-icon" aria-hidden="true">&#127793;</div>
+                    <div class="placeholder-title">MMS on the Field</div>
+                    <div class="placeholder-hint">Provide your high-res photo of the MMS deployed on the field</div>
+                  </div>
+                </div>
+
+                <!-- Hardware Photo 2: A Glimpse into the MMS -->
+                <div class="blog-hardware-card">
+                  <div class="blog-field-label" style="color: #ffffff; margin-bottom: 10px; font-size: 13px;">
+                    PICTURE 2: A GLIMPSE INTO THE MMS
+                  </div>
+                  <div class="blog-photo-placeholder blog-photo-hardware">
+                    <div class="placeholder-badge">PICTURE 02 — A GLIMPSE INTO THE MMS</div>
+                    <div class="placeholder-icon" aria-hidden="true">&#128295;</div>
+                    <div class="placeholder-title">A Glimpse into the MMS</div>
+                    <div class="placeholder-hint">Provide your close-up photo of the hardware internals &amp; 3D casing</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Hardware Write-up Boxes Row -->
+              <div class="blog-hardware-writeups-row">
+                <div class="blog-writeup-box">
+                  <div class="blog-field-label">LABEL: WHAT OUR HARDWARE DOES</div>
+                  <div class="blog-empty-field blog-empty-field-lg">
+                    [ Placeholder: Text explaining what the hardware sensor station does, what soil/weather metrics it measures, and how it calibrates satellite data ]
+                  </div>
+                </div>
+
+                <div class="blog-writeup-box">
+                  <div class="blog-field-label">LABEL: HOW WE MADE IT</div>
+                  <div class="blog-empty-field blog-empty-field-lg">
+                    [ Placeholder: Text explaining how we built the hardware — components, sensors, microcontroller wiring, and data transmission to the backend ]
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- SECTION 3: LIVE EXAMPLE -->
+          <section id="blog-sec-storyboard" class="blog-section-card">
+            <div class="blog-section-header">
+              <span class="blog-section-tag">SECTION 03 • LIVE EXAMPLE</span>
+              <h2 class="blog-section-title">Live Example: Meet Farmer Cletus</h2>
+            </div>
+
+            <div class="blog-live-example-container">
+              <!-- Farmer Image 1: Standing with Rake -->
+              <div class="blog-farmer-figure">
+                <img src="assets/farmer-cletus-standing.jpg" alt="Meet Farmer Cletus C. Cornwallis" />
+                <div class="blog-farmer-caption">
+                  <strong>Meet Cletus C. Cornwallis</strong><br />
+                  A lifelong farmer navigating climate shifts
+                </div>
+              </div>
+
+              <!-- Center Story Write-up -->
+              <div class="blog-live-example-center">
+                <div class="blog-writeup-box" style="height: 100%; display: flex; flex-direction: column;">
+                  <div class="blog-field-label">A REAL-WORLD STORY: RESTORING CLIMATE RESILIENCE WITH FARMING AURA</div>
+                  <div class="blog-text-content" style="flex: 1;">
+                    <p>
+                      <strong>1. The Backbone of Agriculture:</strong> Meet Cletus C. Cornwallis. Cletus has been farming his whole life. He loves the land, cares deeply for his crops, and has long relied on traditional multi-year crop rotations passed down through generations.
+                    </p>
+                    <p>
+                      <strong>2. The Climate Challenge:</strong> However, Cletus recently ran into a serious problem: his traditional crop rotations simply don't work anymore. With changing regional weather patterns, his fields have been battered by record summer heat spikes and erratic rainfall extremes, leaving his soil degraded and seasonal yields unpredictable.
+                    </p>
+                    <p>
+                      <strong>3. Discovering Farming Aura:</strong> Luckily, Cletus discovers our website. Farming Aura automatically compiles and translates NASA satellite observations (POWER and Earthdata) directly for his exact field coordinates. Instead of spending hours scouring complex meteorological charts, Cletus receives instant, data-driven crop recommendations and multi-year rotation paths tailored to his local soil and climate — so he can focus on farming!
+                    </p>
+                    <p>
+                      <strong>4. Hyper-Local Ground Truth with MMS:</strong> Knowing that macro satellite models might still miss local microclimates, Cletus takes it a step further using our Mobile Measuring Station (MMS). By deploying our hardware probe directly into his soil, he tracks real-time capacitive moisture, soil temperature, ambient humidity, and precipitation. This live field calibration refines his dashboard with micro-level precision.
+                    </p>
+                    <p>
+                      <strong>5. Happy Farming Returns:</strong> Armed with satellite intelligence and live field readings, Cletus can make informed, confident planting choices, restore his soil health, and return to thriving, happy farming!
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Farmer Image 2: Thumbs up with Rake -->
+              <div class="blog-farmer-figure">
+                <img src="assets/farmer-cletus-happy.jpg" alt="Farmer Cletus happy with thumbs up" />
+                <div class="blog-farmer-caption">
+                  <strong>Happy Farming</strong><br />
+                  Confident, data-backed planting seasons
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- SECTION 4: PRESENTATION FOR PROJECT DEMO -->
+          <section id="blog-sec-presentation" class="blog-section-card">
+            <div class="blog-section-header">
+              <span class="blog-section-tag">SECTION 04 • PROJECT DEMO PRESENTATION</span>
+              <h2 class="blog-section-title">Presentation &amp; Project Demo</h2>
+            </div>
+
+            <div class="blog-presentation-box">
+              <!-- Interactive Google Slides Embed -->
+              <div class="blog-slides-frame">
+                <iframe
+                  src="https://docs.google.com/presentation/d/1SqfAU87P7rj0ixLi5TW2kDhxAbNlQrQSzhUZFFz4-g4/embed?start=false&loop=false&delayms=3000"
+                  frameborder="0"
+                  allowfullscreen="true"
+                  mozallowfullscreen="true"
+                  webkitallowfullscreen="true"
+                  title="Farming Aura Project Presentation Slides">
+                </iframe>
+              </div>
+
+              <!-- Presentation Links & Actions -->
+              <div class="blog-writeup-box" style="margin-top: 18px;">
+                <div class="blog-field-label">PROJECT DEMO PRESENTATION DECK</div>
+                <div class="blog-text-content">
+                  <p>
+                    Explore our interactive slide deck above to see our problem statement, agronomic methodology, NASA satellite data pipeline, custom Mobile Measuring Station (MMS) sensor architecture, and crop rotation scoring algorithms. You can click directly through the slides or open the deck in Google Slides using the button below.
+                  </p>
+                </div>
+                <div class="blog-presentation-actions">
+                  <a
+                    id="blog-presentation-link-btn"
+                    href="https://docs.google.com/presentation/d/1SqfAU87P7rj0ixLi5TW2kDhxAbNlQrQSzhUZFFz4-g4/edit?usp=sharing"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="blog-action-btn">
+                    <span>&#128279; Open Full Slide Deck in Google Slides &rarr;</span>
+                  </a>
+                  <button type="button" class="blog-action-btn blog-action-btn-secondary" data-nav-target="dashboard-view">
+                    <span>Launch Live Interactive Demo &rarr;</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- SECTION 5: PROJECT SUMMARY WRITE-UP -->
+          <section id="blog-sec-summary" class="blog-section-card">
+            <div class="blog-section-header">
+              <span class="blog-section-tag">SECTION 05 • PROJECT SUMMARY</span>
+              <h2 class="blog-section-title">Project Summary: How the Website Works &amp; Helps Farmers</h2>
+            </div>
+
+            <div class="blog-writeup-box">
+              <div class="blog-field-label">PROJECT SUMMARY</div>
+              <div class="blog-text-content">
+                <p>
+                  Farming Aura is an intelligent, full-stack crop rotation planner and climate-adaptation dashboard aimed to aid farmers. By fusing satellite Earth observations and accurate, global latitude/longitude data, we ensure that this tool is accessible, data-driven recommendations. The main goals of our tool are ensuring accurate data processing, providing diverse crop statistics, and assessing the user's needs to the highest degree possible. To address these needs, the program displays a dynamic, 3-5 year rotation path, crop water demand vs. annual rainfall, a dual-axis line graph for historical climate (temperature and precipitation) trends, and alternative crop rotations with ranked overall score breakdowns calculated from a combination of all their metrics.
+                </p>
+                <p>
+                  Additionally, to provide a more interactive experience in which the user is able to customize their settings further and see resulting breakdowns in the manner explained above, our team’s application incorporates various user-modifiable metrics. These include: the priority profile of crop rotation in which the user chooses a selection amongst a list of farm priorities; the maximum water demand in relation to how much water is accessible for the crops; and lastly the previous crop planted, which ensures that the crop rotation provided builds on to previous years and the resulting soil health of past farming. Through these developed features, we centered our solution on user input and accurate resulting recommendations.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <!-- SECTION 6: PROJECT DETAILS WRITE-UP (CODE & INTEGRATIONS) -->
+          <section id="blog-sec-details" class="blog-section-card">
+            <div class="blog-section-header">
+              <span class="blog-section-tag">SECTION 06 • PROJECT DETAILS &amp; ARCHITECTURE</span>
+              <h2 class="blog-section-title">Project Details: Code Architecture &amp; What We Integrated</h2>
+            </div>
+
+            <div class="blog-writeup-box">
+              <div class="blog-field-label">PROJECT DETAILS &amp; ARCHITECTURE</div>
+              <div class="blog-text-content">
+                <p>
+                  Our project integrates a fusion of provided NASA satellite data, agronomic and soil studies made available by the USDA, Google Maps latitude and longitude data, and a team-made local Mobile Measuring Station, to optimize a multi-year crop rotation selection for farmers. Through official google cloud infrastructure, we were able to make our application publicly available on an internet domain, and we utilized a combination of API sources (NASA POWER APIs, Google Maps JavaScript API, USDA API), to ensure an accurate and diverse set of data was made available to users.
+                </p>
+                <p>
+                  The main coding languages incorporated in our project are python, for the backend data analysis software; html, used to design the frontend, surface-level GUI; and JavaScript, used as a bridge between the backend python-based and frontend html-based components. Through a Google Maps software embedded within the website, we allowed for farmers to select an exact latitude and longitude, then link the given location to meteorological data sourced from NASA POWER APIs, and finally configure a nuanced crop-rotation analysis by fetching yield values and nutritional statistics from an embedded USDA API.
+                </p>
+                <p>
+                  In addition to online, publicly available records integrated into the application, we developed a prototype Mobile Measuring Station to further substantiate exact field data. Our design utilized the following: A soil moisture sensor, rainfall amount sensor, soil temperature sensor, and air temperature &amp; humidity sensor. We also supplemented an imported polygon form tool to the location selection interface, allowing farmers to outline field number and dimensions to further tailor crop placement. Finally, we assimilated a Google Gemini API, focused on analysis, in order to provide a customized short, written breakdown intended to rationalize the provided crop-rotation recommendation. These collected values are then read into the program and combined with API-provided data to finalize a response, which is then referred to the user.
+                </p>
+              </div>
+            </div>
+          </section>
+
+        </div>
+      </div>
     </div>
   </div>
 
