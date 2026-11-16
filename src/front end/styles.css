@@ -2751,6 +2751,11 @@ body {
   min-height: 320px;
 }
 
+.blog-photo-hardware {
+  min-height: 320px;
+  padding: 36px 24px;
+}
+
 .blog-photo-stage {
   min-height: 150px;
   padding: 18px 12px;
@@ -2905,24 +2910,30 @@ body {
   justify-content: space-between;
 }
 
-/* Hardware 2-Column Layout */
-.blog-two-col-grid {
+/* Hardware Layout: Photos on top, writeups below (or balanced side-by-side) */
+.blog-hardware-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.blog-hardware-photos-row {
   display: grid;
-  grid-template-columns: 1fr 1.25fr;
-  gap: 22px;
-  align-items: stretch;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
 }
 
-.blog-hardware-photos-col {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+.blog-hardware-writeups-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
 }
 
-.blog-stack-col {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+@media (max-width: 900px) {
+  .blog-hardware-photos-row,
+  .blog-hardware-writeups-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Live Example Farmer Layout */
