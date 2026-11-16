@@ -2530,7 +2530,11 @@ body {
 
 /* Screen 5: Blog & Project Write-up Page */
 .blog-page-bg {
-  background-attachment: fixed;
+  background-image: url('assets/farmland-tile.jpg');
+  background-size: 100% auto;
+  background-repeat: repeat-y;
+  background-position: center top;
+  background-attachment: scroll;
 }
 
 .top-nav-link.active-nav-pill {
