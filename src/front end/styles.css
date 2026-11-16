@@ -2841,33 +2841,54 @@ body {
   gap: 18px;
 }
 
-/* 5-Stage Storyboard Grid */
-.blog-storyboard-grid {
+/* Live Example Farmer Layout */
+.blog-live-example-container {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 14px;
+  grid-template-columns: 240px 1fr 240px;
+  gap: 20px;
+  align-items: stretch;
 }
 
-.blog-stage-card {
-  background-color: #ffffff;
-  border-radius: 3px;
-  padding: 16px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+.blog-farmer-figure {
+  background: linear-gradient(180deg, rgba(66, 33, 10, 0.72) 0%, rgba(43, 20, 7, 0.95) 100%);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   display: flex;
   flex-direction: column;
 }
 
-.blog-stage-number {
-  display: inline-block;
-  align-self: flex-start;
-  background-color: #87431d;
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  padding: 4px 10px;
-  border-radius: 2px;
-  margin-bottom: 10px;
+.blog-farmer-figure img {
+  width: 100%;
+  height: auto;
+  max-height: 480px;
+  object-fit: cover;
+  display: block;
+}
+
+.blog-farmer-caption {
+  padding: 10px 14px;
+  background-color: rgba(43, 20, 7, 0.95);
+  color: #ffecd9;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.blog-live-example-center {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 992px) {
+  .blog-live-example-container {
+    grid-template-columns: 1fr;
+  }
+  .blog-farmer-figure img {
+    max-height: 380px;
+  }
 }
 
 /* Presentation Section Actions */
