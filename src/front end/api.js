@@ -179,15 +179,23 @@
     return w;
   }
 
+  const BACKEND_ID_TO_DASHBOARD_ID = {
+    C14: 'C03',
+    C15: 'C12',
+    C16: 'C13',
+    C17: 'C01'
+  };
+
   // Backend rotation row -> the row shape app.js draws
   function toDashboardRow(row, request) {
     const selectedIds = request.selected_crops || [];
     const seqIds = String(row.seq_ids || '')
       .split('->')
       .map((s) => s.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .map((id) => BACKEND_ID_TO_DASHBOARD_ID[id] || id);
     const crops = seqIds.map((id) => CROPS_DATA[id]);
-    if (!seqIds.length || crops.some((c) => !c)) return null;
+    if (seqIds.length < 3 || new Set(seqIds).size < seqIds.length || crops.some((c) => !c)) return null;
     const matchCount = seqIds.filter((id) => selectedIds.includes(id)).length;
     const soilHealth = Number(row.soil_health) || 0;
     const waterSafety = Number(row.water_stress) || 0; // backend's water_stress: higher = safer
@@ -225,11 +233,29 @@
   }
 
   function toRankedRows(data, request) {
-    const rows = (data.recommended_rotations || [])
+    const rawRows = (data.recommended_rotations || [])
       .map((row) => toDashboardRow(row, request))
       .filter(Boolean);
-    rows.sort((a, b) => b.sortScore - a.sortScore || b.totalScore - a.totalScore);
-    return rows;
+    rawRows.sort((a, b) => b.sortScore - a.sortScore || b.totalScore - a.totalScore);
+
+    // Deduplicate by rotation label and supplement with localRanking() if fewer than 5 unique 3-crop rotations
+    const uniqueRows = [];
+    const seenLabels = new Set();
+    rawRows.forEach((r) => {
+      if (!seenLabels.has(r.label)) {
+        seenLabels.add(r.label);
+        uniqueRows.push(r);
+      }
+    });
+    if (uniqueRows.length < 5) {
+      localRanking().forEach((fallbackRow) => {
+        if (!seenLabels.has(fallbackRow.label)) {
+          seenLabels.add(fallbackRow.label);
+          uniqueRows.push(fallbackRow);
+        }
+      });
+    }
+    return uniqueRows;
   }
 
   // Real NASA POWER weather and USDA soil numbers, in the field keys app.js reads
@@ -422,7 +448,7 @@
     const data = answers.get(key);
 
     // Backend was down and NASA POWER answered directly: built-in ranking plus real NASA numbers
-    if (data && Array.isArray(data.ranked)) {
+    if (data && !data.recommended_rotations && Array.isArray(data.ranked) && data.ranked.length) {
       applyFieldUpdate(request.field_id, data.field_update);
       lastSource = data.nasa_source || 'live';
       return data.ranked.map(toDashboardShape);
@@ -431,8 +457,8 @@
     if (data) {
       const rows = toRankedRows(data, request);
       if (rows.length) {
-        applyFieldUpdate(request.field_id, toFieldUpdate(data));
-        lastSource = (data.data_sources || {}).nasa_power || 'demo';
+        applyFieldUpdate(request.field_id, data.field_update || toFieldUpdate(data));
+        lastSource = (data.data_sources || {}).nasa_power || data.nasa_source || 'demo';
         return rows;
       }
       // every row used a crop we couldn't show yet; the built-in ranking covers until /crops loads
@@ -569,9 +595,12 @@
     const text = aiAnswers.get(key);
 
     // "Generated from Gemini" tags only show while Gemini's own text is on screen
-    const geminiTags = ['why-won-gemini-tag', 'climate-gemini-tag', 'banner-gemini-tag', 'sequence-gemini-tag']
-      .map((id) => document.getElementById(id))
-      .filter(Boolean);
+    const geminiTags = [
+      ...['why-won-gemini-tag', 'climate-gemini-tag', 'banner-gemini-tag']
+        .map((id) => document.getElementById(id))
+        .filter(Boolean),
+      ...Array.from(document.querySelectorAll('.sequence-gemini-tag'))
+    ];
 
     if (text) {
       const put = (id, value) => {
@@ -581,7 +610,6 @@
       put('why-won-line-1', text.why_line_1);
       put('why-won-line-2', text.why_line_2);
       put('banner-sequence-analysis-text', text.sequence_analysis);
-      put('sequence-analysis-text', text.sequence_analysis);
       put('climate-temp-explanation', text.temp_explanation);
       put('climate-rain-explanation', text.rain_explanation);
       if (Array.isArray(text.ranked_analyses)) {

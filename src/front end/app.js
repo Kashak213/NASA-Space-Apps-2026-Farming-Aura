@@ -791,7 +791,41 @@ function getRankedRotations() {
     return b.nFixAvg - a.nFixAvg;
   });
 
-  return scored;
+  // Deduplicate by rotation label so all top 5 rotations are distinct
+  const uniqueScored = [];
+  const seenLabels = new Set();
+  scored.forEach((item) => {
+    if (item && item.label && !seenLabels.has(item.label)) {
+      seenLabels.add(item.label);
+      uniqueScored.push(item);
+    }
+  });
+
+  return uniqueScored;
+}
+
+// Build a distinct, data-grounded small quick analysis for each alternative rotation
+function buildAlternativeQuickAnalysis(item, rankIdx, field, annualRain) {
+  const c1 = item.crops[0]?.name || 'Year 1 crop';
+  const c2 = item.crops[1]?.name || 'Year 2 crop';
+  const c3 = item.crops[2]?.name || 'Year 3 crop';
+  const maxWater = Math.max(...item.crops.map((c) => c.water || 450));
+  const avgRoot = (item.crops.reduce((s, c) => s + (c.rootM || 1.0), 0) / Math.max(1, item.crops.length)).toFixed(1);
+  const legumeCrops = item.crops.filter((c) => (c.nFix || 0) >= 0.5).map((c) => c.name);
+
+  if (rankIdx === 1) {
+    const legText = legumeCrops.length
+      ? `${legumeCrops[0]} supplies biological nitrogen (${item.nFixAvg.toFixed(2)} N-fix)`
+      : `alternating crop families preserves soil nutrients`;
+    return `Starts with ${c1} followed by ${c2} and ${c3} (score ${item.totalScore.toFixed(2)}): ${legText}, achieving ${item.soilHealth.toFixed(2)} soil health and ${item.yieldPotential.toFixed(2)} yield potential with ${annualRain} mm rainfall.`;
+  }
+  if (rankIdx === 2) {
+    return `Pairs ${c1} → ${c2} → ${c3} (score ${item.totalScore.toFixed(2)}) to keep peak water demand (${maxWater} mm) within ${annualRain} mm NASA rainfall and ${field.moistureAvg.toFixed(2)} RZM moisture (water safety ${item.waterSafety.toFixed(2)}, resilience ${item.resilience.toFixed(2)}).`;
+  }
+  if (rankIdx === 3) {
+    return `Rotates ${c1}, ${c2}, and ${c3} across ${avgRoot} m average root depth on OC ${field.oc.toFixed(1)}% · pH ${field.ph.toFixed(1)} soil (score ${item.totalScore.toFixed(2)}), balancing ${item.soilHealth.toFixed(2)} soil health with ${item.yieldPotential.toFixed(2)} yield.`;
+  }
+  return `Sequence ${item.label} scores ${item.totalScore.toFixed(2)} at ${field.soilTempC.toFixed(1)}°C soil temperature, combining ${item.waterSafety.toFixed(2)} water safety, ${item.resilience.toFixed(2)} climate resilience, and ${item.nFixAvg.toFixed(2)} nitrogen fixation.`;
 }
 
 // Template logic evaluating the user's crop selection (to be combined with the backend API later)
@@ -1495,23 +1529,20 @@ function renderDashboard() {
     if (avgScoreBadge) avgScoreBadge.textContent = `${scoreOutOf100} / 100`;
   }
 
-  // Ranked alternatives table (RANK, ROTATION + per-sequence quick analysis, TOTAL SCORE)
+  // Ranked alternatives table (RANK, ROTATION, TOTAL SCORE) + 4 small quick analyses for the other 4 crop rotations
+  const topFive = ranked.slice(0, 5);
+  const activeRankIdx = topFive[appState.selectedRankIndex] ? appState.selectedRankIndex : 0;
   const tbody = document.getElementById('ranked-alternatives-tbody');
   if (tbody) {
     tbody.innerHTML = '';
-    ranked.slice(0, 5).forEach((item, idx) => {
+    topFive.forEach((item, idx) => {
       const tr = document.createElement('tr');
-      tr.className = `ranked-row ${idx === appState.selectedRankIndex ? 'selected-rank-row' : ''}`;
+      tr.className = `ranked-row ${idx === activeRankIdx ? 'selected-rank-row' : ''}`;
       const rankNum = String(idx + 1).padStart(2, '0');
-      const defaultRowNote =
-        idx === 0
-          ? `Top match (${item.totalScore.toFixed(2)}) for ${annualRain} mm rainfall, ${field.moistureAvg.toFixed(2)} RZM moisture, and ${field.soilTempC.toFixed(1)}°C soil temp (water safety ${item.waterSafety.toFixed(2)}, soil health ${item.soilHealth.toFixed(2)}).`
-          : `Alternative #${idx + 1}: balances ${item.nFixAvg >= 0.45 ? 'legume nitrogen fixation (' + item.nFixAvg.toFixed(2) + ')' : 'root-depth diversity'} with ${item.yieldPotential.toFixed(2)} yield potential and ${item.waterSafety.toFixed(2)} water safety.`;
       tr.innerHTML = `
         <td class="col-rank">${rankNum}</td>
         <td class="col-rotation">
           <div class="ranked-seq-title">${item.label}</div>
-          <div id="ranked-row-analysis-${idx}" class="ranked-row-analysis">${defaultRowNote}</div>
         </td>
         <td class="col-score">${item.totalScore.toFixed(2)}</td>
       `;
@@ -1523,17 +1554,48 @@ function renderDashboard() {
     });
   }
 
-  // Default quick analysis under generated crop sequence (upgraded by Gemini /explain in api.js)
+  // Top banner quick analysis for the active rotation + 4 small quick analyses at the bottom for the other 4 rotations
   const bannerSeqText = document.getElementById('banner-sequence-analysis-text');
-  const seqAnalysisText = document.getElementById('sequence-analysis-text');
-  const seqAnalysisTitle = document.getElementById('sequence-analysis-title');
-  if (topPick) {
-    const defaultQuickAnalysis = `Generated sequence ${topPick.label} scores ${topPick.totalScore.toFixed(2)} at (${field.lat.toFixed(2)}°, ${field.lon.toFixed(2)}°) with ${annualRain} mm rainfall, ${field.moistureAvg.toFixed(2)} RZM root-zone moisture, ${field.soilTempC.toFixed(1)}°C soil temperature, and OC ${field.oc.toFixed(1)}% · pH ${field.ph.toFixed(1)} (soil health ${topPick.soilHealth.toFixed(2)}, water safety ${topPick.waterSafety.toFixed(2)}, yield ${topPick.yieldPotential.toFixed(2)}).`;
-    if (bannerSeqText) bannerSeqText.textContent = defaultQuickAnalysis;
-    if (seqAnalysisText) seqAnalysisText.textContent = defaultQuickAnalysis;
-    if (seqAnalysisTitle) {
-      seqAnalysisTitle.textContent = 'Quick analysis';
-    }
+  if (topPick && bannerSeqText) {
+    bannerSeqText.textContent = `Generated sequence ${topPick.label} scores ${topPick.totalScore.toFixed(2)} at (${field.lat.toFixed(2)}°, ${field.lon.toFixed(2)}°) with ${annualRain} mm rainfall, ${field.moistureAvg.toFixed(2)} RZM root-zone moisture, ${field.soilTempC.toFixed(1)}°C soil temperature, and OC ${field.oc.toFixed(1)}% · pH ${field.ph.toFixed(1)} (soil health ${topPick.soilHealth.toFixed(2)}, water safety ${topPick.waterSafety.toFixed(2)}, yield ${topPick.yieldPotential.toFixed(2)}).`;
+  }
+
+  const altAnalysisBox = document.getElementById('sequence-quick-analysis-box');
+  if (altAnalysisBox) {
+    altAnalysisBox.className = 'sequence-quick-analysis-grid';
+    altAnalysisBox.innerHTML = '';
+    const otherFour = topFive
+      .map((item, idx) => ({ item, idx }))
+      .filter((entry) => entry.idx !== activeRankIdx)
+      .slice(0, 4);
+
+    otherFour.forEach(({ item, idx }, cardPos) => {
+      const rankNum = String(idx + 1).padStart(2, '0');
+      const card = document.createElement('div');
+      card.className = 'alt-quick-analysis-card';
+      const defaultAltText = buildAlternativeQuickAnalysis(item, cardPos + 1, field, annualRain);
+      card.innerHTML = `
+        <div class="alt-quick-analysis-header">
+          <div class="alt-quick-analysis-title-group">
+            <span class="quick-analysis-title alt-quick-analysis-title">Quick analysis · Rank #${rankNum}</span>
+            <span class="gemini-attribution-tag sequence-gemini-tag" style="display: none;">
+              <svg class="gemini-sparkle-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z" fill="#9B72CB"/>
+              </svg>
+              <span>Generated by Gemini</span>
+            </span>
+          </div>
+          <span class="alt-quick-analysis-score">Score ${item.totalScore.toFixed(2)}</span>
+        </div>
+        <div class="alt-quick-analysis-seq">${item.label}</div>
+        <p id="ranked-row-analysis-${idx}" class="sequence-analysis-text alt-quick-analysis-text">${defaultAltText}</p>
+      `;
+      card.addEventListener('click', () => {
+        appState.selectedRankIndex = idx;
+        renderDashboard();
+      });
+      altAnalysisBox.appendChild(card);
+    });
   }
 
   // Tab 2: Render field borders on the map and update meta text

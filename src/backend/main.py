@@ -458,17 +458,19 @@ def build_rotations_for_farmer(
         previous_crop_ids=prev_ids,
     )
 
-    # Attempt 2: Good rotations need at least one nitrogen-fixing legume (like Soybeans or Alfalfa).
-    # If the farmer only picked non-legumes (like Corn and Potatoes), mix in legumes from our catalog
-    # so we can recommend rotations that include their chosen crops without depleting soil nitrogen.
-    if not candidates and farmer_crops:
-        legume_helpers = [
+    # Attempt 2: Good rotations need at least one nitrogen-fixing legume AND at least one
+    # non-legume cash/grain/vegetable crop. If the farmer picked only non-legumes, only legumes,
+    # or mixed in woody perennials (like Apples), mix in complementary annual/forage crops from
+    # our catalog so we can recommend full 3-year rotations built around their chosen crops.
+    if len(candidates) < 10 and farmer_crops:
+        complementary_helpers = [
             c
             for c in catalog
-            if float(c.get("nitrogen_fixation", 0.0)) >= 0.5
+            if not bool(c.get("is_woody_perennial", False))
             and str(c["crop_id"]) not in farmer_ids
+            and str(c["crop_id"]) not in ("C14", "C15", "C16", "C17")
         ]
-        expanded_pool = farmer_crops + legume_helpers
+        expanded_pool = farmer_crops + complementary_helpers
         all_generated = generate_candidate_rotations(
             crops=expanded_pool,
             length=length,
@@ -476,15 +478,26 @@ def build_rotations_for_farmer(
             max_water_demand_mm=max_water_demand_mm,
             previous_crop_ids=prev_ids,
         )
-        # Keep only candidate sequences that contain at least one crop the farmer asked for
+        # Keep only sequences with distinct frontend crop groups and prioritize farmer's selected crops
         wanted_set = set(farmer_ids)
-        candidates = [seq for seq in all_generated if any(cid in wanted_set for cid in seq)]
+        matched_seqs = [
+            seq
+            for seq in all_generated
+            if any(cid in wanted_set for cid in seq)
+            and len({FRONTEND_CROP_MAP.get(cid, {"id": cid})["id"] for cid in seq}) == len(seq)
+        ]
+        matched_seqs.sort(key=lambda seq: sum(1 for cid in seq if cid in wanted_set), reverse=True)
+        seen_keys = {tuple(seq) for seq in candidates}
+        for seq in matched_seqs:
+            t_seq = tuple(seq)
+            if t_seq not in seen_keys:
+                seen_keys.add(t_seq)
+                candidates.append(seq)
 
-    # Attempt 3: Build non-repeating permutations from the farmer's annual/forage crops
+    # Attempt 3: Build non-repeating permutations from the farmer's annual/forage crops when >= length
     annual_farmer_ids = [cid for cid in farmer_ids if cid not in WOODY_PERENNIAL_IDS]
-    if not candidates and len(annual_farmer_ids) >= 2:
-        perm_len = min(length, len(annual_farmer_ids))
-        raw_perms = [list(p) for p in itertools.permutations(annual_farmer_ids, perm_len)]
+    if not candidates and len(annual_farmer_ids) >= length:
+        raw_perms = [list(p) for p in itertools.permutations(annual_farmer_ids, length)]
         filtered_perms = filter_rotations_by_constraints(
             raw_perms,
             crops=catalog,
@@ -500,22 +513,31 @@ def build_rotations_for_farmer(
         else:
             candidates = perms_to_use
 
-    # Attempt 4: Fall back to preset New York annual rotations filtered by constraints
-    if not candidates:
-        filtered_presets = filter_rotations_by_constraints(
-            PRESET_ROTATIONS,
-            crops=catalog,
-            row_crop_only=row_crop_only,
-            max_water_demand_mm=max_water_demand_mm,
-        )
-        presets_to_use = filtered_presets if filtered_presets else list(PRESET_ROTATIONS)
-        if last_prev_id is not None:
-            non_repeating_presets = [
-                seq for seq in presets_to_use if seq[0].upper() != last_prev_id
-            ]
-            candidates = non_repeating_presets if non_repeating_presets else presets_to_use
-        else:
-            candidates = presets_to_use
+    # Attempt 4: Always supplement with preset New York annual rotations so there are at least 5 distinct 3-year options
+    filtered_presets = filter_rotations_by_constraints(
+        PRESET_ROTATIONS,
+        crops=catalog,
+        row_crop_only=row_crop_only,
+        max_water_demand_mm=max_water_demand_mm,
+    )
+    presets_to_use = filtered_presets if filtered_presets else list(PRESET_ROTATIONS)
+    if last_prev_id is not None:
+        non_repeating_presets = [
+            seq for seq in presets_to_use if seq[0].upper() != last_prev_id
+        ]
+        presets_ordered = non_repeating_presets + [
+            seq for seq in presets_to_use if seq[0].upper() == last_prev_id
+        ]
+    else:
+        presets_ordered = presets_to_use
+
+    seen_cand = {tuple(seq) for seq in candidates}
+    for seq in presets_ordered:
+        if len(seq) >= length:
+            trimmed = list(seq[:length])
+            if tuple(trimmed) not in seen_cand:
+                seen_cand.add(tuple(trimmed))
+                candidates.append(trimmed)
 
     return candidates
 
