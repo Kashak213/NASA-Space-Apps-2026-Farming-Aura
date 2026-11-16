@@ -419,8 +419,11 @@ const appState = {
   profileIntensity: 50,
   selectedCrops: ['C01', 'C02', 'C03'],
   maxWaterDemand: 550,
+  localMmsEnabled: false,
+  mmsSimEnabled: true,
+  selectedSimMmsStation: 1,
   sensorEnabled: true,
-  probeMode: 'dry', // 'wet' | 'dry'
+  probeMode: 'wet',
   mapZoom: 1.0,
   selectedRankIndex: 0,
   // Latest packet from the Mobile Measurement Station (MMS), filled in by pollMms()
@@ -428,13 +431,106 @@ const appState = {
 };
 
 // Where the backend lives. Use relative URLs when served by FastAPI on 8000/7860, otherwise point to local 8000
-const MMS_API_BASE = (location.port === '8000' || location.port === '7860')
-  ? ''
-  : 'http://127.0.0.1:8000';
+const MMS_API_BASE = (location.protocol === 'file:' || location.port === '5500' || location.port === '3000')
+  ? 'http://127.0.0.1:8000'
+  : '';
 
-// True when the MMS is plugged in, sending fresh data, and the sidebar sensor toggle is on
+// True when a physical MMS unit is detected on the serial port with fresh telemetry
+function hasHardwareMms() {
+  return Boolean(appState.mms && appState.mms.connected && appState.mms.latest);
+}
+
+// True when a physical MMS is connected AND the user turned the local MMS switch ON
 function isMmsLive() {
-  return Boolean(appState.sensorEnabled && appState.mms && appState.mms.connected && appState.mms.latest);
+  return Boolean(appState.localMmsEnabled && hasHardwareMms());
+}
+
+// Three realistic simulated MMS stations within a 1-mile radius (1 Wet lowland, 2 Dry slope/ridge)
+function getSimulatedMmsStation(stationNum, field) {
+  const baseTemp = (field && typeof field.soilTempC === 'number') ? field.soilTempC : 19.1;
+  const nasaMoist = (field && typeof field.moistureAvg === 'number') ? field.moistureAvg : 0.42;
+  const idx = clip(Number(stationNum) || 1, 1, 3);
+
+  if (idx === 1) {
+    const moistM3 = 0.49;
+    return {
+      stationId: 1,
+      fieldNum: 1,
+      fieldCode: 'F001',
+      stationLabel: 'MMS 01 · Field F001 (Lowland Creek Plot)',
+      locationNote: '0.2 mi from farm center · lowland hollow',
+      soil_moisture_m3: moistM3,
+      soil_moisture_pct: 68,
+      soil_temp_c: Number((baseTemp - 0.3).toFixed(1)),
+      air_temp_c: Number((baseTemp + 2.4).toFixed(1)),
+      air_humidity_pct: 68,
+      rain_intensity_pct: 0,
+      is_raining: false,
+      probe_mode: 'wet',
+      recHeading: 'Backend report for Field F001 (MMS 01) · Soil Status: WET',
+      recLine1: `Your MMS Mobile Measuring Station confirms you have wet soil and wet root-zone conditions (${moistM3.toFixed(2)} m³/m³ vs NASA ${nasaMoist.toFixed(2)} m³/m³). Because this lowland plot collects runoff moisture, the backend advises monitoring field drainage to prevent root compaction and taking advantage of strong moisture reserves for high-biomass crops.`,
+      recLine2: 'Backend recommended rotation for Field F001 (Wet soil): Soybeans or Small Grains → Hay or Alfalfa (Haylage) → Field Corn (Silage or Grain).'
+    };
+  }
+  if (idx === 2) {
+    const moistM3 = 0.27;
+    return {
+      stationId: 2,
+      fieldNum: 2,
+      fieldCode: 'F002',
+      stationLabel: 'MMS 02 · Field F002 (Mid-Slope Loam)',
+      locationNote: '0.6 mi NE of MMS 01 · gentle mid-slope',
+      soil_moisture_m3: moistM3,
+      soil_moisture_pct: 31,
+      soil_temp_c: Number((baseTemp + 0.5).toFixed(1)),
+      air_temp_c: Number((baseTemp + 2.8).toFixed(1)),
+      air_humidity_pct: 58,
+      rain_intensity_pct: 0,
+      is_raining: false,
+      probe_mode: 'dry',
+      recHeading: 'Backend report for Field F002 (MMS 02) · Soil Status: DRY',
+      recLine1: `Your MMS Mobile Measuring Station confirms you have dry soil and moderately dry root-zone conditions (${moistM3.toFixed(2)} m³/m³ vs NASA ${nasaMoist.toFixed(2)} m³/m³). Surface water drains faster across this mid-slope plot than the regional satellite average, so the backend advises reduced tillage and leading with nitrogen-fixing legumes before moderate-water root crops.`,
+      recLine2: 'Backend recommended rotation for Field F002 (Dry mid-slope soil): Soybeans or Small Grains → Potatoes → Hay or Alfalfa (Haylage).'
+    };
+  }
+
+  const moistM3 = 0.23;
+  return {
+    stationId: 3,
+    fieldNum: 3,
+    fieldCode: 'F003',
+    stationLabel: 'MMS 03 · Field F003 (South Ridge Plot)',
+    locationNote: '0.9 mi S of MMS 01 · sun-exposed ridge',
+    soil_moisture_m3: moistM3,
+    soil_moisture_pct: 25,
+    soil_temp_c: Number((baseTemp + 1.1).toFixed(1)),
+    air_temp_c: Number((baseTemp + 3.1).toFixed(1)),
+    air_humidity_pct: 53,
+    rain_intensity_pct: 0,
+    is_raining: false,
+    probe_mode: 'dry',
+    recHeading: 'Backend report for Field F003 (MMS 03) · Soil Status: DRY',
+    recLine1: `Your MMS Mobile Measuring Station confirms you have dry soil and drier topsoil stress on the south ridge (${moistM3.toFixed(2)} m³/m³ vs NASA ${nasaMoist.toFixed(2)} m³/m³). Afternoon sun and wind exposure speed up evaporation here, so the backend advises keeping surface residue cover, avoiding consecutive high-transpiration grains, and rotating hardy drought-tolerant crops.`,
+    recLine2: 'Backend recommended rotation for Field F003 (Dry ridge soil): Soybeans or Small Grains → Beets, Carrots, Squash or Pumpkins → Hay or Alfalfa (Haylage).'
+  };
+}
+
+// Return the active MMS telemetry packet (live hardware if MMS on, simulated station if judge sim on, or null if both off)
+function getActiveMmsReading(field) {
+  if (!hasHardwareMms() && appState.localMmsEnabled) {
+    appState.localMmsEnabled = false;
+  }
+  if (isMmsLive()) {
+    const live = appState.mms.latest;
+    const m3 = live.soil_moisture_m3 != null ? Number(live.soil_moisture_m3) : 0.32;
+    const mode = live.probe_mode || (m3 < 0.32 ? 'dry' : 'wet');
+    return { source: 'live', data: { ...live, soil_moisture_m3: m3, probe_mode: mode } };
+  }
+  if (appState.mmsSimEnabled) {
+    const sim = getSimulatedMmsStation(appState.selectedSimMmsStation, field);
+    return { source: 'sim', data: sim };
+  }
+  return { source: 'none', data: null };
 }
 
 // Ask the backend for the newest MMS reading
@@ -454,9 +550,8 @@ async function pollMms() {
   if (appState.mms && nextJson === appState.mms.lastJson) return;
 
   appState.mms = { ...next, lastJson: nextJson };
-  // When live, the Wet/Dry decision follows the moisture sensor instead of manual buttons
-  if (isMmsLive() && appState.mms.latest && appState.mms.latest.probe_mode) {
-    appState.probeMode = appState.mms.latest.probe_mode;
+  if (!next.connected) {
+    appState.localMmsEnabled = false;
   }
   renderDashboard();
 }
@@ -492,9 +587,10 @@ function scoreSequenceForField(seqIds, field, profileName, sensorDryOverride) {
   });
   const soilHealth = clip(0.65 * sBase + 0.35 * mean(regenScores), 0, 1);
 
-  const liveMms = isMmsLive() ? appState.mms.latest : null;
-  const effectiveMoisture = liveMms && liveMms.soil_moisture_m3 != null
-    ? clip(0.7 * Number(liveMms.soil_moisture_m3) + 0.3 * field.moistureAvg, 0.10, 0.50)
+  const activeMms = getActiveMmsReading(field);
+  const mmsData = activeMms.data;
+  const effectiveMoisture = mmsData && mmsData.soil_moisture_m3 != null
+    ? clip(0.7 * Number(mmsData.soil_moisture_m3) + 0.3 * field.moistureAvg, 0.10, 0.50)
     : (sensorDryOverride ? Math.max(0.14, field.moistureAvg - 0.11) : field.moistureAvg);
   const effectiveDrought = sensorDryOverride ? Math.min(0.68, field.drought2024 + 0.18) : field.drought2024;
   const droughtTrend = effectiveDrought - field.drought2023;
@@ -1320,6 +1416,27 @@ function toggleDropdown(menuId, triggerId, event) {
 
 // Update the Dashboard UI with current field, profile, crops selection, water slider, and sensor state
 function renderDashboard() {
+  // Sync MMS switches and automatic Wet/Dry state from active data before scoring
+  const initialField = FIELDS_DATA[appState.selectedFieldId] || FIELDS_DATA.F001;
+  const activeMmsState = getActiveMmsReading(initialField);
+  if (activeMmsState.source === 'live') {
+    appState.sensorEnabled = true;
+    appState.probeMode = activeMmsState.data.probe_mode || 'wet';
+    // When physical MMS is connected and turned ON, lock to 1 field representing the sole connected MMS
+    appState.fieldCount = 1;
+    appState.selectedFieldNumber = 1;
+    appState.selectedFieldId = 'F001';
+  } else if (activeMmsState.source === 'sim') {
+    appState.sensorEnabled = true;
+    appState.probeMode = activeMmsState.data.probe_mode || 'wet';
+    if (appState.fieldCount < 3) {
+      appState.fieldCount = 3;
+    }
+  } else {
+    appState.sensorEnabled = false;
+    appState.probeMode = (initialField.moistureAvg < 0.32) ? 'dry' : 'wet';
+  }
+
   const field = FIELDS_DATA[appState.selectedFieldId] || FIELDS_DATA.F001;
   const ranked = getRankedRotations();
   const topPick = ranked[appState.selectedRankIndex] || ranked[0];
@@ -1387,16 +1504,33 @@ function renderDashboard() {
     waterSlider.style.background = `linear-gradient(to right, #8f4419 0%, #8f4419 ${pct}%, #e7b892 ${pct}%, #e7b892 100%)`;
   }
 
-  // Sensor switch state
+  // Sidebar Switch 1 (Local MMS) and Switch 2 (Judge MMS simulation)
   const sensorSwitch = document.getElementById('sidebar-sensor-switch');
   const sensorStatus = document.getElementById('sidebar-sensor-status');
-  if (sensorSwitch) sensorSwitch.classList.toggle('active', appState.sensorEnabled);
+  const mmsConnNote = document.getElementById('sidebar-mms-conn-note');
+  const judgeSimSwitch = document.getElementById('sidebar-judge-sim-switch');
+  const judgeSimStatus = document.getElementById('sidebar-judge-sim-status');
+
+  const hardwareDetected = hasHardwareMms();
+  const localActive = isMmsLive();
+  if (sensorSwitch) {
+    sensorSwitch.classList.toggle('active', localActive);
+    sensorSwitch.classList.toggle('sensor-green', localActive);
+    sensorSwitch.classList.toggle('locked-off', !hardwareDetected);
+  }
   if (sensorStatus) {
-    if (isMmsLive()) {
-      sensorStatus.textContent = 'Live · MMS connected';
-    } else {
-      sensorStatus.textContent = appState.sensorEnabled ? 'Enabled · demo (MMS offline)' : 'Disabled · satellite only';
-    }
+    sensorStatus.textContent = localActive ? 'MMS on' : 'MMS off';
+  }
+  if (mmsConnNote) {
+    mmsConnNote.textContent = hardwareDetected ? 'MMS connected on serial port' : 'No MMS connection detected';
+    mmsConnNote.style.display = hardwareDetected ? 'none' : 'block';
+  }
+  if (judgeSimSwitch) {
+    judgeSimSwitch.classList.toggle('active', Boolean(appState.mmsSimEnabled));
+    judgeSimSwitch.classList.toggle('sensor-green', Boolean(appState.mmsSimEnabled));
+  }
+  if (judgeSimStatus) {
+    judgeSimStatus.textContent = appState.mmsSimEnabled ? 'Simulation on' : 'Simulation off';
   }
 
   // Header eyebrow, title, and subtitles
@@ -1406,12 +1540,15 @@ function renderDashboard() {
   const dashMainTitle = document.getElementById('dash-main-title');
   const dashSubLeft = document.getElementById('dash-subtitle-left');
   const dashSubRight = document.getElementById('dash-subtitle-right');
-  const liveMms = isMmsLive() ? appState.mms.latest : null;
+  const activeMmsPacket = getActiveMmsReading(field);
+  const liveMms = activeMmsPacket.data;
 
   if (dashEyebrow) {
-    dashEyebrow.textContent = liveMms
+    dashEyebrow.textContent = activeMmsPacket.source === 'live'
       ? `FIELD ${activeFieldCode} / LIVE MMS TELEMETRY`
-      : `FIELD ${activeFieldCode} / DEMO DATA`;
+      : activeMmsPacket.source === 'sim'
+        ? `FIELD ${activeFieldCode} / MMS SIMULATION`
+        : `FIELD ${activeFieldCode} / NASA SATELLITE DATA`;
   }
   if (dashMainTitle) {
     dashMainTitle.textContent = activeFieldName;
@@ -1644,7 +1781,7 @@ function renderDashboard() {
   // Tab 2: 5-year dual-axis temperature & rainfall line chart
   renderClimateLineChart(field);
 
-  // Tab 3: Live sensor readings & MMS Mobile Measuring Station decision (Wet or Dry)
+  // Tab 3: Live sensor readings & automatic data-driven Wet / Dry MMS recommendation
   const nasaRzm = document.getElementById('sensor-nasa-rzm');
   const nasaTemp = document.getElementById('sensor-nasa-temp');
   const nasaPrecip = document.getElementById('sensor-nasa-precip');
@@ -1652,6 +1789,11 @@ function renderDashboard() {
   const devSt = document.getElementById('sensor-dev-st');
   const devAh = document.getElementById('sensor-dev-ah');
   const devRain = document.getElementById('sensor-dev-rain');
+  const devCardSub = document.getElementById('sensor-dev-card-sub');
+  const topSelectWrap = document.getElementById('mms-top-select-wrap');
+  const bottomSelectWrap = document.getElementById('mms-bottom-select-wrap');
+  const topSelect = document.getElementById('mms-station-select-top');
+  const bottomSelect = document.getElementById('mms-station-select-bottom');
   const alertTitle = document.getElementById('sensor-alert-title');
   const alertSub = document.getElementById('sensor-alert-sub');
   const backendHeading = document.getElementById('moisture-backend-heading');
@@ -1662,74 +1804,103 @@ function renderDashboard() {
   if (nasaTemp) nasaTemp.textContent = `${field.tempSummer.toFixed(1)} °C`;
   if (nasaPrecip) nasaPrecip.textContent = `${field.summer2024Precip} mm`;
 
-  if (!appState.sensorEnabled) {
-    if (devRzm) devRzm.textContent = 'Disabled (satellite only)';
-    if (devSt) devSt.textContent = `${field.soilTempC.toFixed(1)} °C (satellite)`;
-    if (devAh) devAh.textContent = 'Disabled in sidebar';
-    if (devRain) devRain.textContent = 'Disabled in sidebar';
+  if (topSelect) topSelect.value = String(appState.selectedSimMmsStation);
+  if (bottomSelect) bottomSelect.value = String(appState.selectedSimMmsStation);
+
+  if (activeMmsPacket.source === 'live' && liveMms) {
+    // Physical MMS connected and Local MMS switch ON: hide 3-station dropdowns, show only the 1 connected MMS
+    if (topSelectWrap) topSelectWrap.style.display = 'none';
+    if (bottomSelectWrap) bottomSelectWrap.style.display = 'none';
+    if (devCardSub) devCardSub.textContent = 'Live physical MMS connected · single-field ground-truth';
+
+    const localMoist = Number(liveMms.soil_moisture_m3 != null ? liveMms.soil_moisture_m3 : field.moistureAvg);
+    const isDry = (liveMms.probe_mode || (localMoist < 0.32 ? 'dry' : 'wet')) === 'dry';
+    const soilTempVal = Number(liveMms.soil_temp_c != null ? liveMms.soil_temp_c : field.soilTempC);
+    const humVal = liveMms.air_humidity_pct != null ? `${Math.round(liveMms.air_humidity_pct)} % RH` : '58 % RH';
+    const rainText = liveMms.is_raining
+      ? `Raining (${liveMms.rain_intensity_pct || 0}%)`
+      : `Dry (${liveMms.rain_intensity_pct || 0}%)`;
+
+    if (devRzm) devRzm.textContent = `${localMoist.toFixed(2)} m³/m³ (${isDry ? 'Dry' : 'Wet'})`;
+    if (devSt) devSt.textContent = `${soilTempVal.toFixed(1)} °C`;
+    if (devAh) devAh.textContent = humVal;
+    if (devRain) devRain.textContent = rainText;
+
     if (alertTitle) {
-      alertTitle.textContent = 'MMS Mobile Measuring Station: Disabled in sidebar — using NASA satellite baseline only';
+      alertTitle.textContent = `MMS Mobile Measuring Station: ${isDry ? 'Dry' : 'Wet'} soil confirmed by live sensor, rotation adjusted`;
     }
     if (alertSub) {
-      alertSub.textContent =
-        'Local sensor readings are currently turned off in the sidebar. Toggle "Local sensor readings" on in the sidebar or click Wet / Dry below to activate MMS ground-truth calibration.';
+      alertSub.textContent = isDry
+        ? `Live MMS reading (${localMoist.toFixed(2)} m³/m³) is drier than the NASA baseline (${field.moistureAvg.toFixed(2)} m³/m³). Prioritizing drought-tolerant legumes and reduced water demand.`
+        : `Live MMS reading (${localMoist.toFixed(2)} m³/m³) confirms well-supplied root-zone moisture compared to NASA (${field.moistureAvg.toFixed(2)} m³/m³).`;
     }
     if (backendHeading) {
-      backendHeading.textContent = `Backend report for ${activeFieldName} · Satellite Baseline Only (MMS Disabled)`;
+      backendHeading.textContent = `Backend report for Field F001 · Connected MMS: ${isDry ? 'DRY' : 'WET'}`;
     }
     if (backendLine1) {
-      backendLine1.textContent = `Local MMS sensor override is disabled. Rotations are scored using NASA POWER root-zone moisture (${field.moistureAvg.toFixed(2)} m³/m³) and ${field.summer2024Precip} mm summer precipitation without local probe adjustments.`;
+      backendLine1.textContent = isDry
+        ? `Your MMS Mobile Measuring Station confirms you have dry soil and dry root-zone conditions (${localMoist.toFixed(2)} m³/m³ vs NASA ${field.moistureAvg.toFixed(2)} m³/m³). Backend advises reducing tillage, scheduling supplemental irrigation if available, and leading with nitrogen-fixing legumes that tolerate dry spells.`
+        : `Your MMS Mobile Measuring Station confirms you have wet soil and wet root-zone conditions (${localMoist.toFixed(2)} m³/m³ vs NASA ${field.moistureAvg.toFixed(2)} m³/m³). Backend advises monitoring field drainage to prevent root compaction and taking advantage of strong moisture reserves for high-biomass crops.`;
     }
     if (backendLine2) {
-      backendLine2.textContent = `Click "MMS Mobile Measuring Station: Wet" or "MMS Mobile Measuring Station: Dry" above (or enable the sidebar toggle) to apply local soil moisture readings to ${topPick ? topPick.label : 'your rotation'}.`;
+      backendLine2.textContent = `Backend recommended rotation for ${isDry ? 'Dry' : 'Wet'} soil: ${topPick ? topPick.label : 'Soybeans or Small Grains → Hay or Alfalfa (Haylage) → Field Corn (Silage or Grain)'}.`;
     }
-  } else if (appState.probeMode === 'dry') {
-    const localMoist = liveMms && liveMms.soil_moisture_m3 != null ? liveMms.soil_moisture_m3 : Math.max(0.14, field.moistureAvg - 0.13);
-    if (devRzm) devRzm.textContent = `${localMoist.toFixed(2)} m³/m³ (Dry)`;
-    if (devSt) devSt.textContent = `${(liveMms && liveMms.soil_temp_c != null ? liveMms.soil_temp_c : field.soilTempC + 2.3).toFixed(1)} °C`;
-    if (devAh) devAh.textContent = liveMms && liveMms.air_humidity_pct != null ? `${Math.round(liveMms.air_humidity_pct)} % RH` : '38 % RH';
-    if (alertTitle) alertTitle.textContent = 'MMS Mobile Measuring Station: Dry soil selected — rotation adjusted';
+  } else if (activeMmsPacket.source === 'sim' && liveMms) {
+    // Judge simulation ON: show synced 3-station dropdowns (1 Wet, 2 Dry within 1-mile radius)
+    if (topSelectWrap) topSelectWrap.style.display = 'flex';
+    if (bottomSelectWrap) bottomSelectWrap.style.display = 'flex';
+    if (devCardSub) {
+      devCardSub.textContent = `${liveMms.stationLabel} · ${liveMms.locationNote}`;
+    }
+
+    const isDry = liveMms.probe_mode === 'dry';
+    if (devRzm) devRzm.textContent = `${liveMms.soil_moisture_m3.toFixed(2)} m³/m³ (${isDry ? 'Dry' : 'Wet'})`;
+    if (devSt) devSt.textContent = `${liveMms.soil_temp_c.toFixed(1)} °C`;
+    if (devAh) devAh.textContent = `${liveMms.air_humidity_pct} % RH`;
+    if (devRain) devRain.textContent = `Dry (${liveMms.rain_intensity_pct}%)`;
+
+    if (alertTitle) {
+      alertTitle.textContent = `MMS Mobile Measuring Station (${liveMms.fieldCode}): ${isDry ? 'Dry' : 'Wet'} soil confirmed, rotation adjusted`;
+    }
+    if (alertSub) {
+      alertSub.textContent = isDry
+        ? `Simulated ${liveMms.stationLabel} reading (${liveMms.soil_moisture_m3.toFixed(2)} m³/m³) is below the NASA baseline (${field.moistureAvg.toFixed(2)} m³/m³). Prioritizing water-saving crop sequences.`
+        : `Simulated ${liveMms.stationLabel} reading (${liveMms.soil_moisture_m3.toFixed(2)} m³/m³) confirms wet root-zone reserves vs NASA (${field.moistureAvg.toFixed(2)} m³/m³).`;
+    }
+    if (backendHeading) backendHeading.textContent = liveMms.recHeading;
+    if (backendLine1) backendLine1.textContent = liveMms.recLine1;
+    if (backendLine2) backendLine2.textContent = liveMms.recLine2;
+  } else {
+    // Both switches OFF: display "MMS not detected" for all 4 MMS values and base Wet/Dry solely off NASA data
+    if (topSelectWrap) topSelectWrap.style.display = 'none';
+    if (bottomSelectWrap) bottomSelectWrap.style.display = 'none';
+    if (devCardSub) devCardSub.textContent = 'Local MMS & simulation off · using NASA satellite data only';
+
+    if (devRzm) devRzm.textContent = 'MMS not detected';
+    if (devSt) devSt.textContent = 'MMS not detected';
+    if (devAh) devAh.textContent = 'MMS not detected';
+    if (devRain) devRain.textContent = 'MMS not detected';
+
+    const nasaIsDry = field.moistureAvg < 0.32;
+    if (alertTitle) {
+      alertTitle.textContent = `NASA Satellite Baseline (${activeFieldCode}): ${nasaIsDry ? 'Dry' : 'Wet'} root-zone moisture (${field.moistureAvg.toFixed(2)} m³/m³)`;
+    }
     if (alertSub) {
       alertSub.textContent =
-        'Backend response: Root-zone moisture is below the NASA satellite baseline. Prioritizing drought-tolerant legumes and lower water demand.';
+        'No MMS connection is active and judge simulation is turned off. Soil moisture status and crop rotation recommendations are calculated solely from NASA satellite observations.';
     }
-    if (backendHeading) backendHeading.textContent = `Backend report for ${activeFieldName} · MMS Mobile Measuring Station: DRY`;
+    if (backendHeading) {
+      backendHeading.textContent = `Backend report for ${activeFieldName} · NASA Satellite Baseline Only: ${nasaIsDry ? 'DRY' : 'WET'}`;
+    }
     if (backendLine1) {
-      backendLine1.textContent = `Your MMS Mobile Measuring Station indicates dry topsoil (${localMoist.toFixed(2)} m³/m³ vs NASA ${field.moistureAvg.toFixed(2)} m³/m³). Backend advises reducing tillage, scheduling supplemental irrigation if available, and leading with nitrogen-fixing legumes that tolerate dry spells.`;
+      backendLine1.textContent = nasaIsDry
+        ? `MMS not detected, so using NASA satellite data only: NASA POWER and SMAP indicate dry root-zone conditions (${field.moistureAvg.toFixed(2)} m³/m³) with ${field.summer2024Precip} mm summer rainfall. Backend advises conserving topsoil water and leading with drought-tolerant legumes.`
+        : `MMS not detected, so using NASA satellite data only: NASA POWER and SMAP confirm wet root-zone conditions (${field.moistureAvg.toFixed(2)} m³/m³) with ${field.summer2024Precip} mm summer rainfall. Backend supports full-yield crop sequences while maintaining soil organic matter.`;
     }
     if (backendLine2) {
-      backendLine2.textContent = `Backend recommended rotation for Dry soil: ${topPick ? topPick.label : 'Soybeans or Small Grains → Beets, Carrots, Squash or Pumpkins → Hay or Alfalfa (Haylage)'}.`;
-    }
-  } else {
-    const localMoist = liveMms && liveMms.soil_moisture_m3 != null ? liveMms.soil_moisture_m3 : Math.min(0.49, field.moistureAvg + 0.06);
-    if (devRzm) devRzm.textContent = `${localMoist.toFixed(2)} m³/m³ (Wet)`;
-    if (devSt) devSt.textContent = `${(liveMms && liveMms.soil_temp_c != null ? liveMms.soil_temp_c : field.soilTempC).toFixed(1)} °C`;
-    if (devAh) devAh.textContent = liveMms && liveMms.air_humidity_pct != null ? `${Math.round(liveMms.air_humidity_pct)} % RH` : '68 % RH';
-    if (alertTitle) alertTitle.textContent = 'MMS Mobile Measuring Station: Wet soil selected — full water budget available';
-    if (alertSub) {
-      alertSub.textContent = `Backend response: Root-zone moisture is well-supplied (${localMoist.toFixed(2)} m³/m³). High-yield crops and deep-rooted forages are supported.`;
-    }
-    if (backendHeading) backendHeading.textContent = `Backend report for ${activeFieldName} · MMS Mobile Measuring Station: WET`;
-    if (backendLine1) {
-      backendLine1.textContent = `Your MMS Mobile Measuring Station confirms wet root-zone conditions (${localMoist.toFixed(2)} m³/m³ vs NASA ${field.moistureAvg.toFixed(2)} m³/m³). Backend advises monitoring field drainage to prevent root compaction and taking advantage of strong moisture reserves for high-biomass crops.`;
-    }
-    if (backendLine2) {
-      backendLine2.textContent = `Backend recommended rotation for Wet soil: ${topPick ? topPick.label : 'Soybeans or Small Grains → Field Corn (Silage or Grain) → Hay or Alfalfa (Haylage)'}.`;
+      backendLine2.textContent = `Backend recommended rotation from NASA data (${nasaIsDry ? 'Dry' : 'Wet'} soil): ${topPick ? topPick.label : 'Soybeans or Small Grains → Field Corn (Silage or Grain) → Hay or Alfalfa (Haylage)'}.`;
     }
   }
-
-  if (appState.sensorEnabled && devRain) {
-    devRain.textContent = liveMms
-      ? (liveMms.is_raining ? `Raining (${liveMms.rain_intensity_pct}%)` : 'Dry')
-      : 'No MMS data';
-  }
-  if (appState.sensorEnabled && liveMms && alertTitle) {
-    alertTitle.textContent = `MMS Mobile Measuring Station: ${appState.probeMode === 'dry' ? 'Dry' : 'Wet'} soil detected — live telemetry`;
-  }
-
-  document.querySelectorAll('.probe-mode-btn').forEach((btn) => {
-    btn.classList.toggle('active-probe-mode', Boolean(appState.sensorEnabled && btn.dataset.probe === appState.probeMode));
-  });
 }
 
 function renderAll() {
@@ -1894,9 +2065,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const mapActiveFieldSelect = document.getElementById('map-active-field-select');
   if (mapActiveFieldSelect) {
     mapActiveFieldSelect.addEventListener('change', (e) => {
-      const num = parseInt(e.target.value, 10) || 1;
+      const num = isMmsLive() ? 1 : (parseInt(e.target.value, 10) || 1);
       appState.selectedFieldNumber = num;
       appState.selectedFieldId = getFieldIdForNumber(num);
+      appState.selectedSimMmsStation = clip(num, 1, 3);
       appState.selectedRankIndex = 0;
       renderDashboard();
     });
@@ -2059,17 +2231,66 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Dashboard sidebar Local sensor readings toggle
+  // Dashboard sidebar Switch 1: Local MMS hardware sensor toggle
   const sensorSwitch = document.getElementById('sidebar-sensor-switch');
   if (sensorSwitch) {
-    sensorSwitch.addEventListener('click', () => {
-      appState.sensorEnabled = !appState.sensorEnabled;
-      if (isMmsLive() && appState.mms.latest && appState.mms.latest.probe_mode) {
-        appState.probeMode = appState.mms.latest.probe_mode;
+    sensorSwitch.addEventListener('click', async () => {
+      if (appState.localMmsEnabled) {
+        appState.localMmsEnabled = false;
+        renderDashboard();
+        return;
       }
+      await pollMms();
+      if (!hasHardwareMms() && navigator.serial && typeof navigator.serial.requestPort === 'function') {
+        try {
+          const port = await navigator.serial.requestPort();
+          await port.open({ baudRate: 9600 });
+          await port.close();
+        } catch (err) {
+          // User denied or cancelled device access, or no MMS serial device was selected
+        }
+      }
+      if (!hasHardwareMms()) {
+        // Lock to MMS off if no physical MMS is detected on the port or device access was not granted
+        appState.localMmsEnabled = false;
+        const noteEl = document.getElementById('sidebar-mms-conn-note');
+        if (noteEl) {
+          noteEl.textContent = 'No MMS connection detected';
+          noteEl.style.display = 'block';
+        }
+        renderDashboard();
+        return;
+      }
+      appState.localMmsEnabled = true;
       renderDashboard();
     });
   }
+
+  // Dashboard sidebar Switch 2: MMS simulation (for judges)
+  const judgeSimSwitch = document.getElementById('sidebar-judge-sim-switch');
+  if (judgeSimSwitch) {
+    judgeSimSwitch.addEventListener('click', () => {
+      appState.mmsSimEnabled = !appState.mmsSimEnabled;
+      renderDashboard();
+    });
+  }
+
+  // Synced 3-station dropdowns on the MMS readings card and bottom recommendation card
+  const handleMmsStationSelect = (e) => {
+    const stationNum = clip(parseInt(e.target.value, 10) || 1, 1, 3);
+    appState.selectedSimMmsStation = stationNum;
+    if (appState.fieldCount < 3) {
+      setFieldCount(3);
+    }
+    appState.selectedFieldNumber = stationNum;
+    appState.selectedFieldId = getFieldIdForNumber(stationNum);
+    appState.selectedRankIndex = 0;
+    renderDashboard();
+  };
+  const topMmsSelect = document.getElementById('mms-station-select-top');
+  const bottomMmsSelect = document.getElementById('mms-station-select-bottom');
+  if (topMmsSelect) topMmsSelect.addEventListener('change', handleMmsStationSelect);
+  if (bottomMmsSelect) bottomMmsSelect.addEventListener('change', handleMmsStationSelect);
 
   // Dashboard 3 tabs
   document.querySelectorAll('.dash-tab-btn').forEach((btn) => {
@@ -2089,21 +2310,6 @@ document.addEventListener('DOMContentLoaded', () => {
       appState.selectedFieldNumber = numFromId;
       appState.selectedFieldId = fid;
       appState.selectedRankIndex = 0;
-      renderDashboard();
-    });
-  });
-
-  // Tab 3 MMS Mobile Measuring Station Wet / Dry decision buttons
-  document.querySelectorAll('.probe-mode-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      // Automatically enable local sensor readings in the sidebar if the user clicks Wet or Dry
-      if (!appState.sensorEnabled) {
-        appState.sensorEnabled = true;
-      }
-      // While the MMS is live, the sensor decides Wet or Dry
-      if (!isMmsLive()) {
-        appState.probeMode = btn.dataset.probe;
-      }
       renderDashboard();
     });
   });

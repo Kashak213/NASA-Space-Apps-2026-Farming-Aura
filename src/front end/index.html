@@ -482,19 +482,36 @@
             />
           </div>
 
-          <!-- Toggle: Local sensor readings -->
-          <div class="sidebar-control-group" style="margin-top: 28px;">
+          <!-- Toggle 1: Local MMS hardware sensor readings -->
+          <div class="sidebar-control-group" style="margin-top: 26px;">
             <label class="sidebar-label">Local sensor readings</label>
             <div class="sensor-toggle-row">
               <button
                 type="button"
                 id="sidebar-sensor-switch"
-                class="sensor-switch active"
-                aria-label="Toggle local sensor readings"
+                class="sensor-switch"
+                aria-label="Toggle local MMS sensor readings"
               >
                 <span class="sensor-switch-thumb"></span>
               </button>
-              <span id="sidebar-sensor-status" class="sensor-status-text">Enabled · demo</span>
+              <span id="sidebar-sensor-status" class="sensor-status-text">MMS off</span>
+            </div>
+            <div id="sidebar-mms-conn-note" class="sensor-sub-note">No MMS connection detected</div>
+          </div>
+
+          <!-- Toggle 2: MMS simulation (for judges), auto-toggled ON -->
+          <div class="sidebar-control-group" style="margin-top: 16px;">
+            <label class="sidebar-label">MMS simulation (for judges)</label>
+            <div class="sensor-toggle-row">
+              <button
+                type="button"
+                id="sidebar-judge-sim-switch"
+                class="sensor-switch active"
+                aria-label="Toggle MMS simulation for judges"
+              >
+                <span class="sensor-switch-thumb"></span>
+              </button>
+              <span id="sidebar-judge-sim-status" class="sensor-status-text">Simulation on</span>
             </div>
           </div>
         </div>
@@ -964,64 +981,63 @@
             </div>
 
             <div class="white-panel-card">
-              <h3 class="panel-serif-heading" style="margin-bottom: 6px;">MMS Mobile Measuring Station readings</h3>
-              <div class="sensor-card-sub">Local MMS Mobile Measuring Station · ground-truth</div>
+              <div class="mms-card-header-row">
+                <div>
+                  <h3 class="panel-serif-heading" style="margin-bottom: 4px;">MMS Mobile Measuring Station readings</h3>
+                  <div id="sensor-dev-card-sub" class="sensor-card-sub" style="margin-bottom: 0;">Local MMS Mobile Measuring Station · ground-truth</div>
+                </div>
+                <div id="mms-top-select-wrap" class="mms-select-wrap">
+                  <label class="mms-select-label" for="mms-station-select-top">Station / Field</label>
+                  <select id="mms-station-select-top" title="Select MMS station" class="mms-station-select">
+                    <option value="1">MMS 01 · Field F001 (Lowland · Wet)</option>
+                    <option value="2">MMS 02 · Field F002 (Mid-Slope · Dry)</option>
+                    <option value="3">MMS 03 · Field F003 (South Ridge · Dry)</option>
+                  </select>
+                </div>
+              </div>
 
               <div class="sensor-reading-row">
                 <span class="sensor-reading-name">Soil moisture</span>
-                <span id="sensor-dev-rzm" class="sensor-reading-val">0.22 m³/m³ (Dry)</span>
+                <span id="sensor-dev-rzm" class="sensor-reading-val">0.49 m³/m³ (Wet)</span>
               </div>
               <div class="sensor-reading-row">
                 <span class="sensor-reading-name">Soil temperature</span>
-                <span id="sensor-dev-st" class="sensor-reading-val">20.9 °C</span>
+                <span id="sensor-dev-st" class="sensor-reading-val">19.1 °C</span>
               </div>
               <div class="sensor-reading-row">
                 <span class="sensor-reading-name">Air humidity</span>
-                <span id="sensor-dev-ah" class="sensor-reading-val">38 % RH</span>
+                <span id="sensor-dev-ah" class="sensor-reading-val">64 % RH</span>
               </div>
               <div class="sensor-reading-row">
                 <span class="sensor-reading-name">Rain sensor</span>
-                <span id="sensor-dev-rain" class="sensor-reading-val">No MMS data</span>
+                <span id="sensor-dev-rain" class="sensor-reading-val">Dry (0%)</span>
               </div>
             </div>
           </div>
 
           <div class="white-panel-card">
-            <h3 class="panel-serif-heading">MMS Mobile Measuring Station · decide Wet or Dry</h3>
-            <div class="satellite-steps-list">
-              <div class="satellite-step-line">
-                <span class="satellite-step-num">01</span>
-                <span>Check the MMS Mobile Measuring Station in your soil and decide whether the soil is <strong>Wet</strong> or <strong>Dry</strong>.</span>
+            <div class="mms-card-header-row" style="margin-bottom: 10px;">
+              <div>
+                <h3 class="panel-serif-heading" style="margin-bottom: 4px;">MMS Mobile Measuring Station · Soil Moisture &amp; Rotation Recommendation</h3>
+                <div id="mms-rec-card-sub" class="sensor-card-sub" style="margin-bottom: 0;">Automatic wet/dry comparison between ground-truth MMS readings and NASA satellite baseline</div>
               </div>
-              <div class="satellite-step-line">
-                <span class="satellite-step-num">02</span>
-                <span>Select <strong>Wet</strong> or <strong>Dry</strong> below to send your MMS Mobile Measuring Station state to the backend.</span>
-              </div>
-              <div class="satellite-step-line">
-                <span class="satellite-step-num">03</span>
-                <span>Read the backend report below to see soil moisture guidance, irrigation advice, and your updated crop rotation.</span>
-              </div>
-            </div>
-
-            <div class="probe-sim-bar">
-              <span class="probe-sim-label">MMS Mobile Measuring Station decision (choose whether it is Wet or Dry):</span>
-              <div class="probe-sim-buttons">
-                <button type="button" class="probe-mode-btn" data-probe="wet">
-                  MMS Mobile Measuring Station: Wet
-                </button>
-                <button type="button" class="probe-mode-btn active-probe-mode" data-probe="dry">
-                  MMS Mobile Measuring Station: Dry
-                </button>
+              <div id="mms-bottom-select-wrap" class="mms-select-wrap">
+                <label class="mms-select-label" for="mms-station-select-bottom">Field recommendation</label>
+                <select id="mms-station-select-bottom" title="Select field for recommendation" class="mms-station-select">
+                  <option value="1">MMS 01 · Field F001 (Lowland · Wet)</option>
+                  <option value="2">MMS 02 · Field F002 (Mid-Slope · Dry)</option>
+                  <option value="3">MMS 03 · Field F003 (South Ridge · Dry)</option>
+                </select>
               </div>
             </div>
 
-            <div id="moisture-probe-backend-box" class="moisture-backend-response-box">
-              <div id="moisture-backend-heading" class="moisture-backend-heading">Backend report for Dry MMS Mobile Measuring Station</div>
+            <div id="moisture-probe-backend-box" class="moisture-backend-response-box" style="margin-top: 8px;">
+              <div id="moisture-backend-heading" class="moisture-backend-heading">Backend report for Field F001 · MMS Mobile Measuring Station: WET</div>
               <p id="moisture-backend-line-1" class="moisture-backend-text">
-                Soil moisture is below the satellite baseline. Backend recommends conserving root-zone water and avoiding consecutive high-transpiration crops.
+                Your MMS Mobile Measuring Station confirms you have wet soil and wet root-zone conditions (0.49 m³/m³ vs NASA 0.66 m³/m³). Backend advises monitoring field drainage to prevent root compaction and taking advantage of strong moisture reserves for high-biomass crops.
               </p>
               <p id="moisture-backend-line-2" class="moisture-backend-text">
-                Backend rotation update: Soybeans or Small Grains &rarr; Field Corn (Silage or Grain) &rarr; Hay or Alfalfa (Haylage).
+                Backend recommended rotation for Wet soil: Soybeans or Small Grains &rarr; Hay or Alfalfa (Haylage) &rarr; Field Corn (Silage or Grain).
               </p>
             </div>
           </div>
@@ -1192,26 +1208,20 @@
                 <!-- Hardware Photo 1: MMS on the field -->
                 <div class="blog-hardware-card">
                   <div class="blog-field-label" style="color: #ffffff; margin-bottom: 10px; font-size: 13px;">
-                    PICTURE 1: MMS ON THE FIELD
+                    MMS ON THE FIELD
                   </div>
-                  <div class="blog-photo-placeholder blog-photo-hardware">
-                    <div class="placeholder-badge">PICTURE 01 — MMS ON THE FIELD</div>
-                    <div class="placeholder-icon" aria-hidden="true">&#127793;</div>
-                    <div class="placeholder-title">MMS on the Field</div>
-                    <div class="placeholder-hint">Provide your high-res photo of the MMS deployed on the field</div>
+                  <div class="blog-hardware-photo-frame">
+                    <img src="assets/mms-on-field.jpg" alt="MMS on the Field" />
                   </div>
                 </div>
 
                 <!-- Hardware Photo 2: A Glimpse into the MMS -->
                 <div class="blog-hardware-card">
                   <div class="blog-field-label" style="color: #ffffff; margin-bottom: 10px; font-size: 13px;">
-                    PICTURE 2: A GLIMPSE INTO THE MMS
+                    A GLIMPSE INTO THE MMS
                   </div>
-                  <div class="blog-photo-placeholder blog-photo-hardware">
-                    <div class="placeholder-badge">PICTURE 02 — A GLIMPSE INTO THE MMS</div>
-                    <div class="placeholder-icon" aria-hidden="true">&#128295;</div>
-                    <div class="placeholder-title">A Glimpse into the MMS</div>
-                    <div class="placeholder-hint">Provide your close-up photo of the hardware internals &amp; 3D casing</div>
+                  <div class="blog-hardware-photo-frame">
+                    <img src="assets/mms-internals.jpg" alt="A Glimpse into the MMS" />
                   </div>
                 </div>
               </div>
